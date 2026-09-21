@@ -50,6 +50,11 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **OCR** — Optical Character Recognition; the process of extracting text from images, scans, photos, or screenshots.
 - **LLM** — Large Language Model; an AI model that interprets text and can classify, normalize, summarize, or generate structured output.
 
+## Security and Access
+
+- **JWT** — JSON Web Token; a signed token used to carry authenticated identity and claims for stateless API access.
+- **JWT claim** — a named piece of data inside a JWT, such as a subject, tenant identifier, role list, permission list, or token metadata used for validation and authorization.
+
 ## Architecture Vocabulary
 
 - **Bounded Context** — a domain boundary with its own model, responsibilities, and language.

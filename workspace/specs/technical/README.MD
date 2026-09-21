@@ -14,6 +14,7 @@ This folder provides a high-level overview of the architecture principles and qu
 - [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/)
 - [Command Query Responsibility Segregation (CQRS)](https://martinfowler.com/bliki/CQRS.html)
 - [Distributed Systems](https://en.wikipedia.org/wiki/Distributed_computing)
+- JWT-based authentication for stateless API access
 
 ## Quality Attributes
 
@@ -39,6 +40,7 @@ These practices guide how ServIQ should be built, but they do not replace the do
 
 - [User Experience](./user_experience/README.MD)
 - [Glossary & Vocabulary](../GLOSSARY.MD)
+- [Security & Access Control](./security/README.MD) — JWT validation and role/permission policy example
 - [Infrastructure & Local Development](./infrastructure/README.MD)
 - [Proof of Payment OCR/LLM Stack](./infrastructure/PROOF_OF_PAYMENT_OCR_LLM_STACK.MD) — Docker-only OCR/LLM guidance with AWS comparison notes
 - [Payout Gateway Port](./infrastructure/PAYOUT_GATEWAY_PORT.MD) — Hexagonal Architecture payout port contract and fake local adapter
