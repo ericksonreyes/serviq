@@ -76,3 +76,7 @@ Complete / Review
 ### Relationship to other contexts
 
 Customer Portal can create or update a customer-facing request, but the operational handling of that request belongs to the service-operation contexts such as Customer & Request Management and Service Job Management.
+
+### Backend for Frontend
+
+The public Customer Portal frontend talks only to its own backend, which acts as a BFF. The BFF serves reads from its MongoDB read model and proxies commands to the owning Service Operations contexts. Internal services are not called directly by the public frontend.

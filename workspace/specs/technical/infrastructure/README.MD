@@ -18,7 +18,8 @@ For local testing, run all supporting services in Docker containers rather than 
 ### Suggested local services
 
 - **RabbitMQ** — message broker for asynchronous work and event delivery, used as a local replacement for services such as SQS and SNS.
-- **MongoDB** — local data store for document-oriented persistence, used as a replacement option for managed NoSQL storage such as DynamoDB.
+- **PostgreSQL** — local relational store for command/write models, used as a replacement for managed relational databases such as Amazon RDS or Aurora.
+- **MongoDB** — local document store for CQRS read models, used as a replacement option for managed document storage such as Amazon DocumentDB or DynamoDB.
 - **OpenSearch + OpenSearch Dashboards** — local log indexing and search for app-grouped, keyword-searchable logs.
 - **Fluent Bit** — lightweight log shipping from Docker containers into OpenSearch.
 
@@ -48,9 +49,12 @@ That means:
 - **Messaging port**
   - Local adapter: RabbitMQ
   - Managed adapter: SQS / SNS or another managed messaging service
-- **Persistence port**
+- **Persistence port (command model)**
+  - Local adapter: PostgreSQL
+  - Managed adapter: Amazon RDS / Aurora or another managed relational database
+- **Persistence port (read model)**
   - Local adapter: MongoDB
-  - Managed adapter: DynamoDB or another managed database
+  - Managed adapter: Amazon DocumentDB or another managed document store
 - **Payout port**
   - Local adapter: fake payout gateway or deterministic payout stub
   - Managed adapter: bank transfer API or another managed payout provider

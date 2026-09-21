@@ -1,17 +1,11 @@
 # Finance & Accounting
 
-This family groups the financial contexts for billing, payouts, taxation, and reconciliation.
-
-## Hub
-
-- [Finance & Accounting](../FINANCE_ACCOUNTING.MD)
+This family groups the financial contexts for billing and payouts.
 
 ## Subcontexts
 
 - [Billing](BILLING.MD)
 - [Payouts](PAYOUTS.MD)
-- [Taxation](TAXATION.MD)
-- [Reconciliation](RECONCILIATION.MD)
 
 ## End-to-end flow
 
@@ -37,7 +31,7 @@ Payout execution via gateway port
 Optional payout status webhook or GetPayout polling
         │
         ▼
-Reconciliation against external records
+Settlement Updated
 ```
 
 ## Scope

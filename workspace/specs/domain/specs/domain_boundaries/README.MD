@@ -17,13 +17,9 @@ This folder groups ServIQ's bounded-context documentation into related domain fa
   - [Notification](service_operations/NOTIFICATION.MD)
 - [Customer Portal](customer_portal/README.MD)
   - [Customer Portal](customer_portal/CUSTOMER_PORTAL.MD)
-- [Customer Support](customer_support/README.MD)
-  - [Customer Support](customer_support/CUSTOMER_SUPPORT.MD)
 - [Finance & Accounting](finance/README.MD)
   - [Billing](finance/BILLING.MD)
   - [Payouts](finance/PAYOUTS.MD)
-  - [Taxation](finance/TAXATION.MD)
-  - [Reconciliation](finance/RECONCILIATION.MD)
 
 ## Notes
 

@@ -28,6 +28,8 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **Service Job** — the scheduled operational work item created from a customer request.
 - **Assignment** — the act of allocating a service job to a service agent.
 - **Field Execution** — the on-site execution phase where the service agent completes the service job.
+- **Workflow Template** — the ordered list of steps attached to a Service that defines how a job for that service is executed (for example, For Pick Up → Picked Up → In Transit → Delivered).
+- **Workflow Instance** — the snapshot of a service's workflow template copied onto a Service Job; tracks each step as open, in-progress, or closed.
 
 ## Service Agent Portal
 
@@ -61,7 +63,10 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **Port** — an abstraction for an external capability such as messaging, persistence, or observability.
 - **Adapter** — a concrete implementation of a port.
 - **CQRS** — Command Query Responsibility Segregation; a pattern that separates command and query responsibilities.
+- **Command Model** — the write side of CQRS; owns business rules and state changes, stored in PostgreSQL by default.
+- **Read Model** — the query side of CQRS; a flat, denormalized view kept in sync with the command model by an event listener or subscriber. ServIQ uses one for the read-heavy Customer Portal channel (NestJS + MongoDB); internal services query their command models directly.
 - **Event-Driven Architecture** — an architecture style that uses events to communicate changes between parts of the system.
+- **Event Sourcing** — a persistence pattern where the event stream is the source of truth and current state is computed by replaying events; used by business-logic-heavy services such as Service Job Management, Billing, and Payouts.
 - **Hexagonal Architecture** — an architecture style that keeps business logic isolated behind ports and adapters.
 
 ## Related Documentation

@@ -164,7 +164,7 @@ The current bounded-context model is:
 │  │  ┌───────────────┐      ┌──────────────────────────┐    │  │
 │  │  │    Service    │      │ Customer & Request       │    │  │
 │  │  │   Management  │      │ Management               │    │  │
-│  │  └───────┬───────┘      └────────────┬─────────────┘    │  │
+│  │  └───────┬───────┘      └─────────────┬────────────┘    │  │
 │  │          │                            │                 │  │
 │  │          └────────────┬───────────────┘                 │  │
 │  │                       ▼                                 │  │
@@ -196,8 +196,6 @@ The current bounded-context model is:
 
 Customer Portal is a customer-facing context family that handles signup, browsing, booking, tracking, and other self-service interactions inside the Service Provider's app or website.
 
-Customer Support is a tenant-facing context family that handles inquiries, complaints, follow-ups, and escalations on behalf of the Service Provider.
-
 Finance & Accounting is a tenant-level context family that consumes service-job completion, payment, refund, and settlement events to manage revenue, platform fees, payouts, and reporting.
 
 Service Agent Portal is a service-agent-facing presentation channel, not a separate bounded context. It sits across Service Operations and Finance & Accounting and is used to accept assignments, view jobs, upload photos, upload proof of payment, capture customer confirmation, and complete field work.
@@ -213,7 +211,6 @@ See the grouped family indexes for detailed definitions:
 - [Platform & Identity](domain_boundaries/platform/README.MD)
 - [Service Operations](domain_boundaries/service_operations/README.MD)
 - [Customer Portal](domain_boundaries/customer_portal/README.MD)
-- [Customer Support](domain_boundaries/customer_support/README.MD)
 - [Finance & Accounting](domain_boundaries/finance/README.MD)
 
 ---
@@ -365,7 +362,6 @@ And the field execution produced the actual outcome.
 | **Service Management**            | What services does the business offer? |
 | **Customer & Request Management** | What does the customer want?           |
 | **Customer Portal**               | How does the customer use the portal through the Service Provider? |
-| **Customer Support**              | How does the tenant handle support cases and customer issues? |
 | **Service Job Management**        | What work needs to be performed?       |
 | **Finance & Accounting**          | How does money move through ServIQ?    |
 | **Workforce Management**          | Who is capable of performing the work? |
@@ -498,7 +494,9 @@ For the initial implementation, I would consider these the **core contexts**:
 These can be added as ServIQ evolves:
 
 ```text
+Customer Support
 Taxation
+Reconciliation
 Revenue Recognition
 Expense Management
 Reporting & Analytics

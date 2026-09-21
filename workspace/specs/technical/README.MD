@@ -13,6 +13,7 @@ This folder provides a high-level overview of the architecture principles and qu
 - [Event-Driven Architecture](https://learn.microsoft.com/en-us/azure/architecture/guide/architecture-styles/event-driven)
 - [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/)
 - [Command Query Responsibility Segregation (CQRS)](https://martinfowler.com/bliki/CQRS.html)
+- [Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html)
 - [Distributed Systems](https://en.wikipedia.org/wiki/Distributed_computing)
 - JWT-based authentication for stateless API access
 
@@ -40,6 +41,7 @@ These practices guide how ServIQ should be built, but they do not replace the do
 
 - [User Experience](./user_experience/README.MD)
 - [Glossary & Vocabulary](../GLOSSARY.MD)
+- [Service Stacks](./SERVICE_STACKS.MD) — per-family framework/library policy and CQRS read/write storage split
 - [Security & Access Control](./security/README.MD) — JWT validation and role/permission policy example
 - [Infrastructure & Local Development](./infrastructure/README.MD)
 - [Proof of Payment OCR/LLM Stack](./infrastructure/PROOF_OF_PAYMENT_OCR_LLM_STACK.MD) — Docker-only OCR/LLM guidance with AWS comparison notes

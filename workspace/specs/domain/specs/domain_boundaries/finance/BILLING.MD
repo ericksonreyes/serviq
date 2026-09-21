@@ -145,4 +145,4 @@ These capabilities are important in a mature financial platform, but they are in
 
 Billing should not decide how money is split between the platform and the tenant, or how taxes, payout execution, or fund distribution are handled. It should emit events that downstream finance contexts can consume.
 
-The proof-of-payment intake flow should not decide final settlement or reconciliation outcomes. It should create a structured payment evidence record that Billing and Reconciliation can consume.
+The proof-of-payment intake flow should not decide final settlement or reconciliation outcomes. It should create a structured payment evidence record that Billing and downstream finance contexts can consume.
