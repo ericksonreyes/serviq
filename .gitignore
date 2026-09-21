@@ -1,0 +1,15 @@
+.idea/
+.DS_Store
+services/*
+.env
+.env.*
+!.env.dist
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
