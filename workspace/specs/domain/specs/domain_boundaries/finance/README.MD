@@ -13,10 +13,10 @@ This family groups the financial contexts for billing and payouts.
 Proof of Payment Upload
         │
         ▼
-Billing OCR / LLM intake
+AI Agent — Vision LLM parse
         │
         ▼
-Structured Payment Evidence
+Billing stores Structured Payment Evidence
         │
         ▼
 Payouts fund distribution

@@ -236,7 +236,7 @@ Prioritize an agent who can reach the customer within the required response time
 
 # And this is where ServIQ gets interesting
 
-I'd make **Assignment Strategy** configurable at the Service Provider level:
+**Assignment Strategy** is configurable at the Service Provider level:
 
 ```text id="azl9bm"
 Service Provider

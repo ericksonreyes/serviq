@@ -19,7 +19,8 @@ Incoming request
 Bearer token extracted
         │
         ▼
-JWT signature verified against Identity & Access JWKS
+JWT signature verified against the IAM public key
+        │   (`JWT_PUBLIC_KEY` env var, or an optional JWKS endpoint on IAM)
         │
         ├── validate iss, aud, exp, and tenant scope
         ├── read roles and permissions from the signed claims
@@ -81,3 +82,11 @@ allow request
 - Services should not infer access from request headers alone.
 - Services should not trust unverified client input for identity or authorization.
 - More sensitive actions can require both a role and a permission at the same time.
+
+## Related Documentation
+
+- [Identity & Access (IAM)](./IDENTITY_AND_ACCESS.MD) — dedicated microservice owning tenants, users, and roles; tenant-scoped usernames
+- [JWT Signing Keys](./JWT_SIGNING_KEYS.MD) — key distribution between IAM and resource services, plus the symmetric fallback
+- [JWT Invalidation](./JWT_INVALIDATION.MD) — shared Redis blacklist for pre-expiry token revocation
+- [Internal Service Security](./INTERNAL_SERVICE_SECURITY.MD) — which endpoints are public vs service-mesh-only, and how service-to-service calls authenticate
+- [Engineering Disciplines](../README.MD)

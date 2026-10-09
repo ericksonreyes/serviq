@@ -31,8 +31,15 @@ John can:
 - Add notes
 - Upload photos
 - Record parts/materials
-- Upload proof of payment
+- Upload proof of payment by the customer (if applicable)
+- Upload proof of remittance to Service Provider (if applicable)
 - Capture customer confirmation
 - Complete the job
 
 John doesn't get to see or modify QuickFix's entire customer database or configuration.
+
+
+## Onboarding
+Service agents are typically employees or contractors of the service provider. He can sign up and create a new service agent account. He can also be invited by a dispatcher to join a service provider.
+
+A signed up service agent belongs to a service provider.

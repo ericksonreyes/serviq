@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# ServIQ pre-commit guard — blocks sloppy artifacts and secret-shaped content
+# from ever entering history. Enable once per clone:
+#   git config core.hooksPath .githooks
+
+set -euo pipefail
+
+fail=0
+
+# ── 1. Forbidden filename patterns in the staged set ─────────────────────
+bad_names=$(git diff --cached --name-only --diff-filter=ACMR | grep -iE \
+  '\.(bak|backup|orig|old|tmp|temp|save|rej|swp|swo|copy|draft)$|~$|(^|/)(scratch|\.#|TODO\.local|NOTES\.local)| copy[0-9]*\.| - Copy\.' \
+  || true)
+
+if [ -n "$bad_names" ]; then
+  echo "pre-commit: blocked — backup/temp/scratch files staged:"
+  echo "$bad_names" | sed 's/^/  /'
+  echo "Remove them or add real filenames. (.gitignore can't catch every variant.)"
+  fail=1
+fi
+
+# ── 2. Secret-shaped content in staged diffs ─────────────────────────────
+# Scans added lines only. Skips .env.example/.env.dist (templates hold
+# placeholders, not secrets).
+secret_hits=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude)**/.env.example' ':(exclude)**/.env.dist' \
+  | grep -nE '^\+' \
+  | grep -iE '(BEGIN [A-Z ]*PRIVATE KEY|api[_-]?key|secret|password|token)[^a-zA-Z]{0,3}[=:][^a-zA-Z]{0,5}["'"'"']?[A-Za-z0-9/+=_\-]{16,}' \
+  | grep -vE '(your_|example|placeholder|changeme|xxx|TODO|serviq-local)' \
+  | grep -vE '\$\{' \
+  || true)
+
+if [ -n "$secret_hits" ]; then
+  echo "pre-commit: blocked — possible secrets in staged changes:"
+  echo "$secret_hits" | head -10
+  echo "If this is a false positive (test fixture, placeholder), use --no-verify once."
+  fail=1
+fi
+
+exit $fail

@@ -138,7 +138,7 @@ Assignment Mode:
 ● Broadcast
 ```
 
-### I'd therefore modify the persona relationship
+### The persona relationship
 
 The **Dispatcher is not necessarily above the Service Agent**.
 

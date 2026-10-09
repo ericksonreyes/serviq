@@ -12,9 +12,14 @@ Settlement Batch
 Net Payable
 Platform Fee
 Adjustment
+Shortfall Deduction
 Payment Method
 Payout Status
 ```
+
+Remittance shortfalls are one adjustment type: when a dispatcher accepts a cash turn-in shortfall, Billing flags the
+variance and Payouts records the shortfall as a deduction line item against the Service Agent's share of the next
+payout — the debt itself lives here, not in Billing or the workforce context.
 
 ### Platform financial view
 

@@ -1,6 +1,3 @@
-Absolutely. I’d update the documentation to reflect the decisions we made afterward—especially **Platform Management**,
-the distinction between **Service Provider vs. Service Agent**, and the four assignment strategies.
-
 # ServIQ — Domain Model & Bounded Contexts
 
 ## 1. Overview
@@ -198,6 +195,8 @@ Customer Portal is a customer-facing context family that handles signup, browsin
 
 Finance & Accounting is a tenant-level context family that consumes service-job completion, payment, refund, and settlement events to manage revenue, platform fees, payouts, and reporting.
 
+Customer Support is a tenant-level bounded context under Service Operations that owns support cases, complaints, escalations, and refund decisions; Billing executes the approved refund payments.
+
 Service Agent Portal is a service-agent-facing presentation channel, not a separate bounded context. It sits across Service Operations and Finance & Accounting and is used to accept assignments, view jobs, upload photos, upload proof of payment, capture customer confirmation, and complete field work.
 
 ---
@@ -215,7 +214,7 @@ See the grouped family indexes for detailed definitions:
 
 ---
 
-# 15. The Most Important Domain Separation
+# 5. The Most Important Domain Separation
 
 ServIQ intentionally separates three concepts:
 
@@ -276,7 +275,7 @@ without changing the underlying Service Job.
 
 ---
 
-# 16. Example End-to-End Workflow
+# 6. Example End-to-End Workflow
 
 Consider:
 
@@ -353,7 +352,7 @@ And the field execution produced the actual outcome.
 
 ---
 
-# 17. Context Responsibilities at a Glance
+# 7. Context Responsibilities at a Glance
 
 | Context                           | Primary Question                       |
 |-----------------------------------|----------------------------------------|
@@ -367,11 +366,12 @@ And the field execution produced the actual outcome.
 | **Workforce Management**          | Who is capable of performing the work? |
 | **Assignment & Dispatch**         | Who should perform the work, and how?  |
 | **Field Service Execution**       | How was the work performed?            |
+| **Customer Support**              | How are cases, complaints, and refunds resolved? |
 | **Notification**                  | How should users be informed?          |
 
 ---
 
-# 18. Platform vs. Tenant Responsibility
+# 8. Platform vs. Tenant Responsibility
 
 One of the most important architectural boundaries is the distinction between **platform administration** and **business
 operations**.
@@ -435,9 +435,9 @@ This separation prevents the platform-level concerns from becoming coupled to in
 
 ---
 
-# 19. Initial ServIQ Bounded Context Map
+# 9. Initial ServIQ Bounded Context Map
 
-For the initial implementation, I would consider these the **core contexts**:
+For the initial implementation, the core contexts are:
 
 ```text
                          SERVIQ
@@ -489,12 +489,11 @@ For the initial implementation, I would consider these the **core contexts**:
 
 ---
 
-# 20. Future Bounded Contexts
+# 10. Future Bounded Contexts
 
 These can be added as ServIQ evolves:
 
 ```text
-Customer Support
 Taxation
 Reconciliation
 Revenue Recognition
@@ -515,7 +514,7 @@ platform**.
 
 ---
 
-## 21. Core Architectural Principle
+# 11. Core Architectural Principle
 
 The central idea behind ServIQ is:
 

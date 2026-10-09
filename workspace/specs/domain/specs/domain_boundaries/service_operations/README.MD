@@ -10,8 +10,9 @@ This family groups the tenant-level operational contexts that manage service wor
 - [Workforce Management](WORKFORCE_MANAGEMENT.MD)
 - [Assignment & Dispatch](ASSIGNMENT_DISPATCH.MD)
 - [Field Service Execution](FIELD_SERVICE_EXECUTION.MD)
+- [Customer Support](CUSTOMER_SUPPORT.MD)
 - [Notification](NOTIFICATION.MD)
 
 ## Scope
 
-These contexts handle the tenant's operational workflow, job lifecycle, agent capability, assignment, execution, and communication.
+These contexts handle the tenant's operational workflow, job lifecycle, agent capability, assignment, execution, customer support, and communication.

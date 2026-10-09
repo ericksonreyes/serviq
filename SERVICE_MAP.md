@@ -11,51 +11,70 @@ Each entry should use a simple per-service record with these fields:
 
 Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_STACKS.MD). In short:
 
+- Frontends use a single React (Vite) stack, shipped as static builds — one app per user channel.
 - Command/write models use PostgreSQL.
 - The Customer Portal uses a NestJS + MongoDB read model behind its BFF; internal services query their PostgreSQL command models directly for real-time data.
 - Service Operations backends use Laravel with PHPSpec (TDD) and Behat (BDD) as the reference example for business-logic testing.
 
+Layout policy: **one deployable frontend per user channel, one backend service per bounded context**, all as
+monorepo folders under `services/`.
+
 ## Services
+
+### Channels (frontends)
+
+- name: Customer Portal Frontend
+  description: Customer-facing app — signup, browsing, booking, tracking, self-service
+  location: services/serviq-customer-portal-frontend/
+  stack:
+  - ReactJS
+  - Material UI
+
+- name: Service Agent Frontend
+  description: Field agent app — assignments, job steps, evidence upload, cash turn-in
+  location: services/serviq-service-agent-frontend/
+  stack:
+  - ReactJS (PWA)
+  - Material UI
+
+- name: Tenant Console Frontend
+  description: Internal console for tenant staff — admin, dispatch, customer support, service ops, and finance views
+  location: services/serviq-tenant-console-frontend/
+  stack:
+  - ReactJS (Vite)
+  - Tailwind CSS
+
+- name: Platform Admin Frontend
+  description: Internal console for platform operators — tenant lifecycle, plans, IAM administration
+  location: services/serviq-platform-admin-frontend/
+  stack:
+  - ReactJS (Vite)
+  - Tailwind CSS
 
 ### Platform
 
-- name: Platform Management Frontend
-  description: Platform Management admin frontend
-  location: services/serviq-platform-management-frontend/
-  stack:
-  - Flutter
-
 - name: Platform Management Backend
-  description: Platform Management command API
+  description: Platform Management command API — tenants, subscriptions, plans, feature flags
   location: services/serviq-platform-management-backend/
   stack:
-  - FastAPI
+  - Laravel
   - PostgreSQL
-
-- name: Identity & Access Frontend
-  description: Identity & Access admin frontend
-  location: services/serviq-identity-access-frontend/
-  stack:
-  - Flutter
+  - PHPSpec
+  - Behat
 
 - name: Identity & Access Backend
-  description: Identity & Access command API and JWT issuer
+  description: Identity & Access command API and sole JWT issuer — users, roles, tenant scopes
   location: services/serviq-identity-access-backend/
   stack:
-  - FastAPI
+  - Laravel
   - PostgreSQL
+  - PHPSpec
+  - Behat
 
 ### Service Operations
 
-- name: Service Management Frontend
-  description: Service Management frontend application
-  location: services/serviq-service-management-frontend/
-  stack:
-  - ReactJS
-  - Bootstrap
-
 - name: Service Management Backend
-  description: Service Management command API
+  description: Service Management command API — service catalog and workflow templates
   location: services/serviq-service-management-backend/
   stack:
   - Laravel
@@ -63,15 +82,8 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Customer & Request Management Frontend
-  description: Customer & Request Management frontend application
-  location: services/serviq-customer-request-management-frontend/
-  stack:
-  - ReactJS
-  - Bootstrap
-
 - name: Customer & Request Management Backend
-  description: Customer & Request Management command API
+  description: Customer & Request Management command API — customers, service requests
   location: services/serviq-customer-request-management-backend/
   stack:
   - Laravel
@@ -79,15 +91,8 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Service Job Management Frontend
-  description: Service Job Management frontend application
-  location: services/serviq-service-job-management-frontend/
-  stack:
-  - ReactJS
-  - Bootstrap
-
 - name: Service Job Management Backend
-  description: Service Job Management command API
+  description: Service Job Management command API — job lifecycle and workflow instances (event-sourced)
   location: services/serviq-service-job-management-backend/
   stack:
   - Laravel
@@ -95,15 +100,8 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Workforce Management Frontend
-  description: Workforce Management frontend application
-  location: services/serviq-workforce-management-frontend/
-  stack:
-  - ReactJS
-  - Bootstrap
-
 - name: Workforce Management Backend
-  description: Workforce Management command API
+  description: Workforce Management command API — agent skills, availability, service areas
   location: services/serviq-workforce-management-backend/
   stack:
   - Laravel
@@ -111,15 +109,8 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Assignment & Dispatch Frontend
-  description: Assignment & Dispatch frontend application
-  location: services/serviq-assignment-dispatch-frontend/
-  stack:
-  - ReactJS
-  - Bootstrap
-
 - name: Assignment & Dispatch Backend
-  description: Assignment & Dispatch command API
+  description: Assignment & Dispatch command API — assignment engine, offers, strategies
   location: services/serviq-assignment-dispatch-backend/
   stack:
   - Laravel
@@ -127,15 +118,8 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Field Service Execution Frontend
-  description: Field Service Execution frontend application
-  location: services/serviq-field-service-execution-frontend/
-  stack:
-  - ReactJS
-  - Bootstrap
-
 - name: Field Service Execution Backend
-  description: Field Service Execution command API
+  description: Field Service Execution command API — check-ins, step evidence, completion
   location: services/serviq-field-service-execution-backend/
   stack:
   - Laravel
@@ -143,15 +127,17 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Notification Frontend
-  description: Notification frontend application
-  location: services/serviq-notification-frontend/
+- name: Customer Support Backend
+  description: Customer Support command API — cases, complaints, escalations, refund decisions
+  location: services/serviq-customer-support-backend/
   stack:
-  - ReactJS
-  - Bootstrap
+  - Laravel
+  - PostgreSQL
+  - PHPSpec
+  - Behat
 
 - name: Notification Backend
-  description: Notification command API
+  description: Notification command API — channels, routing rules, templates
   location: services/serviq-notification-backend/
   stack:
   - Laravel
@@ -159,33 +145,25 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-### Customer Portal
+### Edges (BFFs)
 
-- name: Customer Portal Frontend
-  description: Customer Portal frontend application
-  location: services/serviq-customer-portal-frontend/
-  stack:
-  - ReactJS
-  - Material UI
-
-- name: Customer Portal Backend
-  description: Customer Portal BFF and CQRS read model API; proxies commands to Service Operations
-  location: services/serviq-customer-portal-backend/
+- name: Customer Portal BFF
+  description: Customer Portal Backend For Frontend — CQRS read model API; proxies customer commands to domain services
+  location: services/serviq-customer-portal-bff/
   stack:
   - NestJS
   - MongoDB
 
+- name: Service Agent BFF
+  description: Service Agent Backend For Frontend — aggregates job/assignment/evidence views and proxies agent commands; no read model, queries command APIs in real time
+  location: services/serviq-service-agent-bff/
+  stack:
+  - NestJS
+
 ### Finance & Accounting
 
-- name: Billing Frontend
-  description: Billing frontend application
-  location: services/serviq-billing-frontend/
-  stack:
-  - NuxtJS
-  - Bootstrap
-
 - name: Billing Backend
-  description: Billing command API
+  description: Billing command API — invoices, payment evidence, remittance reconciliation (event-sourced)
   location: services/serviq-billing-backend/
   stack:
   - Laravel
@@ -193,18 +171,22 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
   - PHPSpec
   - Behat
 
-- name: Payouts Frontend
-  description: Payouts frontend application
-  location: services/serviq-payouts-frontend/
-  stack:
-  - NuxtJS
-  - Bootstrap
-
 - name: Payouts Backend
-  description: Payouts command API
+  description: Payouts command API — fund distribution, payout lifecycle, shortfall deductions (event-sourced)
   location: services/serviq-payouts-backend/
   stack:
   - Laravel
   - PostgreSQL
   - PHPSpec
   - Behat
+
+### AI
+
+- name: AI Agent
+  description: Constrained AI service — document parsing, cash counting, RAG, advisory tools (Customer / Dispatcher / Customer Support profiles)
+  location: services/serviq-ai-agent/
+  stack:
+  - Python
+  - FastAPI
+  - Ollama
+  - pgvector

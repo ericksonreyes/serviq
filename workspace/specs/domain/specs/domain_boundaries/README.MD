@@ -14,6 +14,7 @@ This folder groups ServIQ's bounded-context documentation into related domain fa
   - [Workforce Management](service_operations/WORKFORCE_MANAGEMENT.MD)
   - [Assignment & Dispatch](service_operations/ASSIGNMENT_DISPATCH.MD)
   - [Field Service Execution](service_operations/FIELD_SERVICE_EXECUTION.MD)
+  - [Customer Support](service_operations/CUSTOMER_SUPPORT.MD)
   - [Notification](service_operations/NOTIFICATION.MD)
 - [Customer Portal](customer_portal/README.MD)
   - [Customer Portal](customer_portal/CUSTOMER_PORTAL.MD)

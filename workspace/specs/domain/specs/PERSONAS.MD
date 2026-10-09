@@ -10,12 +10,13 @@
               │
        Tenant Administrator
               │
-          Dispatcher
-              │
-        Service Agents
-              │
-              ▼
-        Service Jobs
+        ┌─────┴──────────┐
+        │                │
+    Dispatcher      Service Agents
+        │                │
+        └───────┬────────┘
+                ▼
+          Service Jobs
 
 | Persona                    | Description                                                                                                                                                       |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -24,6 +25,7 @@
 | **Service Provider**       | A business or organization that offers services through ServIQ, such as a logistics company, appliance repair company, cleaning service, or installation company. |
 | **Dispatcher**             | Coordinates service operations by scheduling jobs, assigning service agents, monitoring active jobs, and handling operational exceptions.                         |
 | **Service Agent**          | The person who performs the actual service in the field—such as a delivery rider, driver, technician, installer, repair specialist, or field worker.              |
+| **Customer Support**       | Handles a Service Provider's support cases, complaints, escalations, and refund decisions.                                                                       |
 | **Customer**               | An individual or organization that requests and receives services through the platform.                                                                           |
 
 ## Example: "QuickFix Appliance Services"
@@ -67,13 +69,14 @@ See individual persona files for detailed definitions:
 - [Tenant Administrator](personas/TENANT_ADMINISTRATOR.MD)
 - [Dispatcher](personas/DISPATCHER.MD)
 - [Service Agent](personas/SERVICE_AGENT.MD)
+- [Customer Support](personas/CUSTOMER_SUPPORT.MD)
 - [Customer](personas/CUSTOMER.MD)
 
 ---
 
 # The important relationships
 
-I'd define the relationships like this:
+The relationships are:
 
 | Relationship                                  | Responsibility                           |
 |-----------------------------------------------|------------------------------------------|
@@ -125,9 +128,8 @@ While the **Platform Administrator sits above the tenant boundary**:
      Jobs        Jobs        Jobs
 ```
 
-That gives you a very nice foundation for demonstrating **multi-tenancy + RBAC + domain-driven design** in the portfolio
-project.
+That gives ServIQ a foundation for demonstrating **multi-tenancy + RBAC + domain-driven design**.
 
-And there's another interesting question I'd tackle next: **should Customers belong to a Service Provider, or should
-Customers be global ServIQ identities who can use multiple Service Providers?** That decision has significant
-implications for your data model and multi-tenant architecture.
+One resolved modeling decision: **Customers belong to a Service Provider.** A signed-up customer is scoped to one
+tenant — the same person using two Service Providers is two distinct customer records. This keeps tenancy and data
+ownership simple and matches the tenant-scoped identity model.

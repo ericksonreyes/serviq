@@ -9,6 +9,7 @@ This folder contains the detailed persona definitions used by ServIQ domain docu
 - [Service Provider](SERVICE_PROVIDER.MD)
 - [Dispatcher](DISPATCHER.MD)
 - [Service Agent](SERVICE_AGENT.MD)
+- [Customer Support](CUSTOMER_SUPPORT.MD)
 - [Customer](CUSTOMER.MD)
 
 ## Related Documentation

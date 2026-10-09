@@ -49,11 +49,16 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 
 ## Document Processing and AI
 
-- **OCR** — Optical Character Recognition; the process of extracting text from images, scans, photos, or screenshots.
+- **OCR** — Optical Character Recognition; the process of extracting text from images, scans, photos, or screenshots. Traditional OCR tools (e.g. Tesseract) extract text line-by-line and lose layout structure.
+- **Vision LLM** — a large multimodal model that reads images directly, performing OCR while preserving layout and semantic structure; ServIQ's preferred approach for receipts, screenshots, and photographed documents. Also called LLM-powered OCR.
 - **LLM** — Large Language Model; an AI model that interprets text and can classify, normalize, summarize, or generate structured output.
+- **AI Agent** — the dedicated microservice (Python + FastAPI) that runs conversational agents backed by a shared LLM; responsible only for document reading/parsing, counting bills and coins, and sharing allowed information via tools. Business decisions stay in the domain microservices.
+- **Agent Profile** — a named configuration (system prompt, tool registry, context binding) that scopes an AI Agent to one bounded context, such as the Customer or Dispatcher chatbot. Tools are never shared across profiles.
+- **Agent Tool** — a callable capability exposed to one agent profile; every tool is an API call to the responsible microservice (or an external service) using the caller's JWT — never direct database access.
 
 ## Security and Access
 
+- **Identity & Access (IAM)** — the dedicated bounded context and microservice that owns users, roles, and token issuance for the entire platform. The Tenant entity itself is owned by Platform Management; IAM consumes `tenant_id` purely as an authorization scope. Usernames are unique within their scope (tenant or platform), not globally.
 - **JWT** — JSON Web Token; a signed token used to carry authenticated identity and claims for stateless API access.
 - **JWT claim** — a named piece of data inside a JWT, such as a subject, tenant identifier, role list, permission list, or token metadata used for validation and authorization.
 
@@ -68,6 +73,10 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **Event-Driven Architecture** — an architecture style that uses events to communicate changes between parts of the system.
 - **Event Sourcing** — a persistence pattern where the event stream is the source of truth and current state is computed by replaying events; used by business-logic-heavy services such as Service Job Management, Billing, and Payouts.
 - **Hexagonal Architecture** — an architecture style that keeps business logic isolated behind ports and adapters.
+- **UUIDv7** — the time-ordered UUID variant used for domain entity identifiers such as `tenant_id` and `user_id`; globally unique and index-friendly.
+- **SQID** — an encoded, non-predictable public identifier for transactional records (e.g. `Uk8xN2`); the service stores a sequential bigint internally and only ever exposes its SQID form, like YouTube video IDs.
+- **Reference Number** — a human-readable display label for a transactional record (e.g. `JOB-1001`); unique per tenant and used on screens and in conversation, but never as the record identifier in API contracts or events.
+- **Customer & Request Management** — the approved name of the Service Operations bounded context that owns Service Requests; the context name keeps "Customer" for the actor it serves while the requests inside it use the canonical "Service Request" term.
 
 ## Related Documentation
 

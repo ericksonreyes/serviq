@@ -2,20 +2,38 @@
 
 This file guides documentation-oriented work in the ServIQ repository.
 
+## Safety Guardrails
+
+- **Stay inside the repository.** Do not create, modify, rename, or delete any file or directory outside the ServIQ repository root. If a task seems to require touching something outside it, stop and ask first.
+- **Human-in-the-loop for destructive operations.** Never run destructive commands or use destructive tools without explicit user confirmation for that specific action. This includes: deleting or overwriting files/directories (`rm -rf`, `rm`, truncating files), dropping or mutating database data (`DROP`, `TRUNCATE`, bulk deletes), git operations that rewrite or discard work (`git reset --hard`, force-push, deleting branches, checking out over uncommitted changes), and any command with irreversible real-world side effects.
+- When a destructive step is genuinely needed, describe exactly what will run and why, then wait for the user's go-ahead.
+- Prefer reversible operations; when in doubt, ask rather than act.
+
 ## Canonical Sources
 
+- Use `workspace/specs/PROJECT_PURPOSE.MD` as the source of truth for project intent and the engineering capabilities this portfolio demonstrates.
 - Use `workspace/specs/GLOSSARY.MD` as the source of truth for shared vocabulary.
 - Use `workspace/specs/domain/specs/DOMAIN_BOUNDARIES.md` for the high-level domain model and bounded-context map.
 - Use `workspace/specs/technical/README.MD` for engineering disciplines, architecture principles, and quality attributes.
+- Record significant architecture decisions as ADRs in `workspace/specs/decisions/` — immutable once accepted; supersede, never rewrite; update its index.
 - Use `workspace/specs/technical/user_experience/README.MD` for UX guidance.
 
 ## Repository Layout and Service Map
 
 - Use `services/` for the application code repositories and service implementations.
+- Development setup: run `./scripts/install.sh` (env templates + staged stack) and `git config core.hooksPath .githooks` once per clone — the pre-commit hook blocks backup/temp files and secret-shaped content from entering history.
 - Use `SERVICE_MAP.md` as the canonical inventory/map of services in the repository.
 - Keep each service entry in `SERVICE_MAP.md` aligned with its directory under `services/`.
 - When a service is added, renamed, moved, or removed, update `services/` and `SERVICE_MAP.md` in the same change.
+- Every `services/` directory must contain a committed `.env.example` (or `.env.dist`) preconfigured for the Docker network — compose service names as hosts, local-safe defaults, no secrets. `scripts/install.sh` copies them to `.env` and starts the stack in stages (infra → domain → AI → frontends).
+- When a service gains its `Dockerfile`, uncomment its entry in `services/docker-compose.yml` in the same change — the commented entries are the implementation checklist.
 - Prefer a simple per-service record with `name`, `description`, and `location` fields.
+
+## Session Handoffs
+
+- Use `workspace/handoff/` for session handoff notes; see `workspace/handoff/README.MD` for the format.
+- Write a handoff when wrapping up or pausing mid-work (`/checkpoint`); resume from the newest handoff file (`/restore`).
+- Handoffs reference specs — they do not replace them. Decisions belong in `workspace/specs/`.
 
 Example service-map entry format:
 

@@ -22,6 +22,18 @@ The domain behavior remains in the Billing specification. This document focuses 
 
 These AWS services are listed for comparison only. The local development rule remains Docker-only and does not depend on native installs.
 
+### Vision model candidates (Ollama)
+
+For photo and document parsing — receipts, screenshots, bills and coins — the local Ollama instance can pull multimodal models directly:
+
+- `llama3.2-vision` / `llama3.3-vision` — strong accuracy on complex document structures, tables, and receipts.
+- `qwen2.5-vl` / `qwen3-vl` — optimized for reading exact text from mobile UI screenshots and e-wallet formats.
+- `deepseek-ocr` / `glm-ocr` — specialized, token-efficient document understanding.
+
+The correct industry terms here are **Vision LLMs** (large multimodal models) or **LLM-powered OCR** — not "ODR". Traditional OCR tools (e.g. Tesseract) scrape text line-by-line and lose layout, which breaks columns and tables. Vision LLMs read the image, perform deep OCR, and preserve semantic layout in one pass — which is why they are preferred for receipts, screenshots, and photographed documents.
+
+These are heavier than the small text-only instruct models above. On the 8GB reference machine, prefer the smallest quantized variant that still parses reliably, and fall back to the PaddleOCR → text-LLM pipeline when a vision model does not fit comfortably.
+
 ## Container Layout
 
 - Run OCR and LLM in separate containers.

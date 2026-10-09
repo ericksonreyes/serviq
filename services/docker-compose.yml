@@ -1,0 +1,404 @@
+# ServIQ local development stack
+#
+# POC target: the full stack runs simultaneously on the reference machine (8GB MacBook Air M1).
+# Budget and rationale: workspace/specs/technical/infrastructure/LOCAL_RESOURCE_BUDGET.MD
+#
+# Profiles:
+#   docker compose --profile infra up -d    # datastores, broker, cache, logging only
+#   docker compose --profile domain up -d   # infra + Laravel services
+#   docker compose --profile ai up -d       # infra + Ollama + AI Agent
+#   docker compose --profile full up -d     # everything (the POC target)
+#
+# Run from this directory — `docker compose` auto-discovers this file. From the repo
+# root use: docker compose -f services/docker-compose.yml ...
+#
+# App services reference Dockerfiles in each sibling directory; they join the stack
+# as each service is implemented. Infra works standalone today.
+
+name: serviq
+
+networks:
+  serviq:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  rabbitmq-data:
+  minio-data:
+  ollama-models:
+
+x-common-env: &common-env
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  MINIO_ENDPOINT: minio:9000
+
+x-laravel-service: &laravel-service
+  profiles: ["domain", "full"]
+  networks: [serviq]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+  restart: unless-stopped
+  mem_limit: 128m
+
+# Event consumers run as dedicated containers — same image + env as their API,
+# different command. See workspace/specs/technical/infrastructure/EVENT_DELIVERY.MD.
+x-consumer-service: &consumer-service
+  profiles: ["domain", "full"]
+  networks: [serviq]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+  restart: unless-stopped
+  mem_limit: 80m
+
+services:
+
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    environment:
+      POSTGRES_USER: serviq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-serviq}
+      POSTGRES_DB: serviq
+    command: postgres -c shared_buffers=128MB
+    ports: ["5432:5432"]
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serviq"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    mem_limit: 256m
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:8
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    command: mongod --wiredTigerCacheSizeGB 0.25
+    ports: ["27017:27017"]
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: 384m
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    ports: ["6379:6379"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    mem_limit: 64m
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    environment:
+      # guest/guest is localhost-only in RabbitMQ — containers need real creds
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-serviq}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-serviq}
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # management UI
+    volumes: [rabbitmq-data:/var/lib/rabbitmq]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 320m
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest  # pin a RELEASE.<date> tag when implementing
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-serviq}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-serviq-local}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # console
+    volumes: [minio-data:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 192m
+    restart: unless-stopped
+
+  # Log aggregation is intentionally minimal locally: Fluent Bit collects
+  # container logs to stdout. A searchable sink (OpenSearch/Loki → managed
+  # logging) remains a documented adapter behind the observability port —
+  # see LOCAL_RESOURCE_BUDGET.MD.
+  fluent-bit:
+    image: fluent/fluent-bit:4
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    volumes:
+      - ../workspace/infra/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    mem_limit: 64m
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ai", "full"]
+    networks: [serviq]
+    environment:
+      OLLAMA_KEEP_ALIVE: 2m          # unload model weights between calls — RAM is the constraint
+      OLLAMA_MAX_LOADED_MODELS: "1"  # one model resident at a time — vision+text together would exceed the cap
+    ports: ["11434:11434"]
+    volumes: [ollama-models:/root/.ollama]
+    mem_limit: 4g
+    restart: unless-stopped
+
+  # ── Edges (BFFs) ───────────────────────────────────────────────────────────
+  # NestJS, production `node dist` builds. Uncomment as each service gets a
+  # Dockerfile. `develop.watch` enables `docker compose watch` for live editing
+  # (opt-in — never in the always-on set).
+
+  # customer-portal-bff:
+  #   build: ./serviq-customer-portal-bff
+  #   env_file: ./serviq-customer-portal-bff/.env
+  #   profiles: ["domain", "full"]
+  #   networks: [serviq]
+  #   ports: ["3000:3000"]
+  #   environment:
+  #     <<: *common-env
+  #     MONGODB_URI: mongodb://mongo:27017/serviq_portal
+  #   depends_on: [mongo, redis]
+  #   mem_limit: 256m
+  #   develop:
+  #     watch:
+  #       - action: rebuild           # dist/ is compiled — rebuild on any change
+  #         path: ./serviq-customer-portal-bff
+  #         ignore: [node_modules, dist, .git]
+
+  # service-agent-bff:
+  #   build: ./serviq-service-agent-bff
+  #   env_file: ./serviq-service-agent-bff/.env
+  #   profiles: ["domain", "full"]
+  #   networks: [serviq]
+  #   ports: ["3001:3000"]
+  #   environment: *common-env
+  #   depends_on: [redis]
+  #   mem_limit: 256m
+  #   develop:
+  #     watch:
+  #       - action: rebuild
+  #         path: ./serviq-service-agent-bff
+  #         ignore: [node_modules, dist, .git]
+
+  # ── Domain command APIs (Laravel, php:apache) ──────────────────────────────
+  # One entry per bounded context. Host port convention: 80xx range.
+  # watch action is `sync` — mod_php reads PHP per request, no restart needed.
+
+  # identity-access-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-identity-access-backend
+  #   env_file: ./serviq-identity-access-backend/.env
+  #   ports: ["8010:80"]
+  #   develop:
+  #     watch:
+  #       - action: sync
+  #         path: ./serviq-identity-access-backend
+  #         target: /var/www/html
+  #         ignore: [vendor, .git]
+  #
+  # platform-management-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-platform-management-backend
+  #   env_file: ./serviq-platform-management-backend/.env
+  #   ports: ["8011:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-platform-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # service-management-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-service-management-backend
+  #   env_file: ./serviq-service-management-backend/.env
+  #   ports: ["8012:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-service-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # customer-request-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-customer-request-management-backend
+  #   env_file: ./serviq-customer-request-management-backend/.env
+  #   ports: ["8013:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-customer-request-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # service-job-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-service-job-management-backend
+  #   env_file: ./serviq-service-job-management-backend/.env
+  #   ports: ["8014:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-service-job-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # workforce-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-workforce-management-backend
+  #   env_file: ./serviq-workforce-management-backend/.env
+  #   ports: ["8015:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-workforce-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # assignment-dispatch-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-assignment-dispatch-backend
+  #   env_file: ./serviq-assignment-dispatch-backend/.env
+  #   ports: ["8016:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-assignment-dispatch-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # field-service-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-field-service-execution-backend
+  #   env_file: ./serviq-field-service-execution-backend/.env
+  #   ports: ["8017:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-field-service-execution-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # customer-support-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-customer-support-backend
+  #   env_file: ./serviq-customer-support-backend/.env
+  #   ports: ["8018:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-customer-support-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # notification-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-notification-backend
+  #   env_file: ./serviq-notification-backend/.env
+  #   ports: ["8019:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-notification-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # billing-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-billing-backend
+  #   env_file: ./serviq-billing-backend/.env
+  #   ports: ["8020:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-billing-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+  #
+  # payouts-backend:
+  #   <<: *laravel-service
+  #   build: ./serviq-payouts-backend
+  #   env_file: ./serviq-payouts-backend/.env
+  #   ports: ["8021:80"]
+  #   develop: { watch: [{ action: sync, path: ./serviq-payouts-backend, target: /var/www/html, ignore: [vendor, .git] }] }
+
+  # ── Event consumers ────────────────────────────────────────────────────────
+  # One dedicated consumer container per subscribing service — never shares the
+  # API process. Same image + env_file, different command; no ports (healthcheck
+  # is the worker loop). See workspace/specs/technical/infrastructure/EVENT_DELIVERY.MD
+
+  # identity-access-consumer:      { <<: *consumer-service, build: ./serviq-identity-access-backend,      env_file: ./serviq-identity-access-backend/.env,      command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # platform-management-consumer:  { <<: *consumer-service, build: ./serviq-platform-management-backend,  env_file: ./serviq-platform-management-backend/.env,  command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # service-management-consumer:   { <<: *consumer-service, build: ./serviq-service-management-backend,   env_file: ./serviq-service-management-backend/.env,   command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # customer-request-consumer:     { <<: *consumer-service, build: ./serviq-customer-request-management-backend, env_file: ./serviq-customer-request-management-backend/.env, command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # service-job-consumer:          { <<: *consumer-service, build: ./serviq-service-job-management-backend,       env_file: ./serviq-service-job-management-backend/.env,       command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # workforce-consumer:            { <<: *consumer-service, build: ./serviq-workforce-management-backend,         env_file: ./serviq-workforce-management-backend/.env,         command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # assignment-dispatch-consumer:  { <<: *consumer-service, build: ./serviq-assignment-dispatch-backend,          env_file: ./serviq-assignment-dispatch-backend/.env,          command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # field-service-consumer:        { <<: *consumer-service, build: ./serviq-field-service-execution-backend,      env_file: ./serviq-field-service-execution-backend/.env,      command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # customer-support-consumer:     { <<: *consumer-service, build: ./serviq-customer-support-backend,             env_file: ./serviq-customer-support-backend/.env,             command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # notification-consumer:         { <<: *consumer-service, build: ./serviq-notification-backend,                 env_file: ./serviq-notification-backend/.env,                 command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # billing-consumer:              { <<: *consumer-service, build: ./serviq-billing-backend,                      env_file: ./serviq-billing-backend/.env,                      command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # payouts-consumer:              { <<: *consumer-service, build: ./serviq-payouts-backend,                      env_file: ./serviq-payouts-backend/.env,                      command: "php artisan queue:work rabbitmq --sleep=3 --tries=3" }
+  # customer-portal-bff-consumer:  { <<: *consumer-service, build: ./serviq-customer-portal-bff, env_file: ./serviq-customer-portal-bff/.env, command: "node dist/consumer.js", mem_limit: 128m }
+  # ai-agent-consumer:             { <<: *consumer-service, build: ./serviq-ai-agent, env_file: ./serviq-ai-agent/.env, profiles: ["ai", "full"], command: "python -m app.consumer", mem_limit: 128m }
+
+  # ── AI ─────────────────────────────────────────────────────────────────────
+
+  # ai-agent:
+  #   build: ./serviq-ai-agent
+  #   env_file: ./serviq-ai-agent/.env
+  #   profiles: ["ai", "full"]
+  #   networks: [serviq]
+  #   ports: ["8100:8000"]
+  #   environment:
+  #     <<: *common-env
+  #     OLLAMA_HOST: http://ollama:11434
+  #   depends_on: [ollama]
+  #   mem_limit: 256m
+  #   develop:
+  #     watch:
+  #       - action: sync+restart      # uvicorn picks up synced code on restart
+  #         path: ./serviq-ai-agent
+  #         target: /app
+  #         ignore: [__pycache__, .venv, .git]
+
+  # ── Frontends (static Vite builds on nginx) ────────────────────────────────
+  # Multi-stage Dockerfile: vite build → nginx:alpine serves dist/.
+  # watch action is `rebuild` — a static build can't hot-sync into nginx.
+
+  # customer-portal-frontend:
+  #   build: ./serviq-customer-portal-frontend
+  #   profiles: ["full"]
+  #   networks: [serviq]
+  #   ports: ["8080:80"]
+  #   mem_limit: 32m
+  #   develop:
+  #     watch:
+  #       - action: rebuild
+  #         path: ./serviq-customer-portal-frontend
+  #         ignore: [node_modules, dist, .git]
+  #
+  # service-agent-frontend:
+  #   build: ./serviq-service-agent-frontend
+  #   profiles: ["full"]
+  #   networks: [serviq]
+  #   ports: ["8081:80"]
+  #   mem_limit: 32m
+  #   develop:
+  #     watch:
+  #       - action: rebuild
+  #         path: ./serviq-service-agent-frontend
+  #         ignore: [node_modules, dist, .git]
+  #
+  # tenant-console-frontend:
+  #   build: ./serviq-tenant-console-frontend
+  #   profiles: ["full"]
+  #   networks: [serviq]
+  #   ports: ["8082:80"]
+  #   mem_limit: 32m
+  #   develop:
+  #     watch:
+  #       - action: rebuild
+  #         path: ./serviq-tenant-console-frontend
+  #         ignore: [node_modules, dist, .git]
+  #
+  # platform-admin-frontend:
+  #   build: ./serviq-platform-admin-frontend
+  #   profiles: ["full"]
+  #   networks: [serviq]
+  #   ports: ["8083:80"]
+  #   mem_limit: 32m
+  #   develop:
+  #     watch:
+  #       - action: rebuild
+  #         path: ./serviq-platform-admin-frontend
+  #         ignore: [node_modules, dist, .git]

@@ -69,6 +69,7 @@ The project is developed as an open-source reference implementation and an ongoi
 
 ### Related Documentation
 
+- [Project Purpose](workspace/specs/PROJECT_PURPOSE.MD) — portfolio goals and the engineering capabilities this project demonstrates
 - [Workspace Specs Index](workspace/specs/README.MD)
 - [Engineering Disciplines](workspace/specs/technical/README.MD)
 - [User Experience](workspace/specs/technical/user_experience/README.MD)

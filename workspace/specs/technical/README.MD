@@ -42,8 +42,15 @@ These practices guide how ServIQ should be built, but they do not replace the do
 - [User Experience](./user_experience/README.MD)
 - [Glossary & Vocabulary](../GLOSSARY.MD)
 - [Service Stacks](./SERVICE_STACKS.MD) — per-family framework/library policy and CQRS read/write storage split
+- [Identifiers](./IDENTIFIERS.MD) — UUIDv7 entity IDs, SQID-masked public IDs for transactional records
 - [Security & Access Control](./security/README.MD) — JWT validation and role/permission policy example
+- [Identity & Access (IAM)](./security/IDENTITY_AND_ACCESS.MD) — dedicated microservice for tenants, users, and roles; tenant-scoped usernames
+- [JWT Signing Keys](./security/JWT_SIGNING_KEYS.MD) — IAM private-key signing, public-key verification, and symmetric fallback
+- [JWT Invalidation](./security/JWT_INVALIDATION.MD) — shared Redis blacklist for pre-expiry token revocation
+- [Internal Service Security](./security/INTERNAL_SERVICE_SECURITY.MD) — public browser endpoints vs service mesh, service-to-service auth
+- [AI Agent](./ai/README.MD) — FastAPI + Ollama agent service with context-scoped profiles and tool isolation
 - [Infrastructure & Local Development](./infrastructure/README.MD)
+- [Local Resource Budget](./infrastructure/LOCAL_RESOURCE_BUDGET.MD) — memory/disk budget for running the full stack on the reference machine
 - [Proof of Payment OCR/LLM Stack](./infrastructure/PROOF_OF_PAYMENT_OCR_LLM_STACK.MD) — Docker-only OCR/LLM guidance with AWS comparison notes
 - [Payout Gateway Port](./infrastructure/PAYOUT_GATEWAY_PORT.MD) — Hexagonal Architecture payout port contract and fake local adapter
 - [Domain Boundaries](../domain/specs/DOMAIN_BOUNDARIES.md)

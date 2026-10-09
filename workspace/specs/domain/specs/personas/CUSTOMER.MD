@@ -47,3 +47,8 @@ Status:
 ○ Service started
 ○ Completed
 ```
+
+## Onboarding
+Customers can sign up and create a new customer account. They can also be invited by a service provider to join a service provider.
+
+A signed up customer belongs to a service provider.

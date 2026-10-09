@@ -6,7 +6,7 @@ Sarah works for the company operating ServIQ itself.
 
 She can:
 
-- Create and manage Service Provider tenants
+- Create and manage Service Providers (tenants)
 - Approve or suspend businesses
 - Manage platform-wide configuration
 - Manage subscription plans
@@ -23,3 +23,7 @@ Platform Administrator
         ├── manages → Platform configuration
         └── monitors → Platform-wide operations
 ```
+
+## Onboarding
+Platform administrators are typically internal employees of the company operating ServIQ.
+

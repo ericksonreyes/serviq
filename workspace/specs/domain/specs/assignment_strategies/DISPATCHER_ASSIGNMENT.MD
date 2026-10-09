@@ -118,7 +118,7 @@ The **Service Job remains the same**. You're simply changing who is assigned to 
 
 ## Dispatcher vs Service Agent
 
-I'd model their responsibilities like this:
+Their responsibilities:
 
 ```text
                     Service Job
@@ -163,7 +163,7 @@ ServIQ could support several assignment mechanisms:
                     Service Agent
 ```
 
-So in your domain model, I would use:
+The domain model uses:
 
 **`ServiceJob` → `Assignment` → `ServiceAgent`**
 

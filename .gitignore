@@ -1,10 +1,24 @@
-.idea/
+# ── OS / IDE ─────────────────────────────────────────────────────────────
 .DS_Store
-services/*
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.idea/
+.vscode/
+.fleet/
+.zed/
+*.iml
+*.swp
+*.swo
+
+# ── Secrets / environment ────────────────────────────────────────────────
+# Real env files are gitignored; committed templates are .env.example / .env.dist
 .env
 .env.*
 !.env.dist
 !.env.example
+
+# Keys, certs, credentials
 *.pem
 *.key
 *.p12
@@ -13,3 +27,100 @@ services/*
 *.cer
 *.jks
 *.keystore
+*.secrets
+secrets.*
+credentials.json
+service-account*.json
+
+# ── Machine-specific compose/config overrides ────────────────────────────
+docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
+compose.override.yaml
+
+# ── Developer droppings (backup/temp/scratch files) ─────────────────────
+*.bak
+*.backup
+*.orig
+*.old
+*.tmp
+*.temp
+*.save
+*.rej
+*~
+.#*
+#*#
+._*
+.history/
+.trash/
+scratch/
+scratch.*
+TODO.local
+NOTES.local
+
+# ── PHP / Laravel ────────────────────────────────────────────────────────
+vendor/
+.phpunit.result.cache
+.phpunit.cache/
+.php-cs-fixer.cache
+bootstrap/cache/*
+!bootstrap/cache/.gitkeep
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+public/hot
+public/build/
+public/storage
+composer.lock.phpunit-coverage
+Homestead.yaml
+Homestead.json
+npm-debug.log
+auth.json
+
+# ── Node / NestJS / React+Vite ───────────────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+.npm/
+.eslintcache
+coverage/
+*.local
+
+# ── Python / FastAPI ─────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist-packages/
+pip-wheel-metadata/
+
+# ── Test / coverage / logs ───────────────────────────────────────────────
+*.log
+logs/
+.nyc_output/
+htmlcov/
+.coverage
+coverage.xml
+junit.xml
+test-results/
+
+# ── Data / runtime artifacts ─────────────────────────────────────────────
+# Model weights live in the ollama-models docker volume — never in the repo
+models/
+*.gguf
+*.bin
+*.onnx
+*.safetensors
+*.sqlite
+*.sqlite3
+*.db
+docker-data/

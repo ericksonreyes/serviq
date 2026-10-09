@@ -9,10 +9,24 @@ The canonical inventory of services lives in [SERVICE_MAP.md](../../../SERVICE_M
 
 | Family               | Frontend              | Command backend                   | Read model API           | Write storage      |
 |----------------------|-----------------------|-----------------------------------|--------------------------|--------------------|
-| Platform             | Flutter               | FastAPI                           | none — real-time queries | PostgreSQL         |
-| Service Operations   | ReactJS + Bootstrap   | Laravel                           | none — real-time queries | PostgreSQL         |
+| Platform             | ReactJS + Tailwind    | Laravel                           | none — real-time queries | PostgreSQL         |
+| Service Operations   | ReactJS + Tailwind    | Laravel                           | none — real-time queries | PostgreSQL         |
 | Customer Portal      | ReactJS + Material UI | NestJS + MongoDB (BFF / read API) | same service (BFF)       | MongoDB read model |
-| Finance & Accounting | NuxtJS + Bootstrap    | Laravel                           | none — real-time queries | PostgreSQL         |
+| Service Agent channel | ReactJS + Material UI (PWA) | NestJS (BFF)                | same service (BFF)       | none — proxied     |
+| Finance & Accounting | ReactJS + Tailwind    | Laravel                           | none — real-time queries | PostgreSQL         |
+
+Frontend policy: **React + Vite everywhere** — one framework/build stack for all channels. CSS is channel-appropriate:
+**Material UI** for end-user channels (Customer Portal, Service Agent PWA — a11y defaults and mobile components),
+**Tailwind** for internal admin UIs (Tenant Console, Platform Admin — dense custom layouts). Every view is post-auth and
+API-driven, so SSR buys nothing; frontends ship as static builds served by nginx. A dev server runs only for the
+app under active development.
+
+Channel policy: **one deployable frontend per user channel** — Customer Portal (React), Service Agent app (React
+PWA), Tenant Console (React, serving admin/dispatch/support/ops views), Platform Admin (React).
+
+Backend policy: **PHP/Laravel for all domain command APIs.** Python + FastAPI is reserved for AI-related services (the AI Agent and its parsing/inference tooling). The Customer Portal edge stays NestJS as the BFF.
+
+Runtime policy: **keep containers simple.** Laravel services run as `php:<ver>-apache` (Apache + mod_php) containers — conventional, well-documented, and sufficient for the POC. NestJS BFFs run `node dist` production builds. No worker-mode tuning (Octane/FrankenPHP, Swoole) — revisit only if the POC outgrows it.
 
 ## Command Model (Write Side)
 
@@ -97,7 +111,7 @@ Internal services (Platform, Service Operations, Finance & Accounting) query the
     - PHPSpec for unit tests (TDD)
     - Behat for acceptance criteria tests against PHP service classes (BDD)
 - Other Laravel services should follow the same testing conventions.
-- FastAPI services should use pytest for unit and integration tests.
+- FastAPI services (the AI Agent and AI-related services) should use pytest for unit and integration tests.
 - NestJS read APIs should use Jest for unit tests.
 
 ### Testing dynamic workflows
@@ -136,8 +150,8 @@ The Customer Portal backend is a BFF, not just a read API.
 
 Why the BFF exists:
 
-- **Single public edge** — the Customer Portal frontend is public internet traffic. Only the BFF is exposed; internal
-  services stay private and only accept traffic from the BFF.
+- **Single customer edge** — the Customer Portal BFF is the only backend the public customer frontend calls. It is
+  not a global gateway: internal admin frontends call their own domain backends directly.
 - **Aggregation** — customer views span contexts (requests, jobs, assignments, billing). The BFF composes one
   customer-shaped response instead of the browser calling many services.
 - **Read model host** — the BFF serves read queries from its own MongoDB read model, so the read-heavy portal does not
@@ -148,12 +162,18 @@ Why the BFF exists:
   changes do not ripple into domain services.
 - **Tenant resolution** — customer identity is resolved to tenant scope once at the BFF.
 
-Internal admin frontends (Platform, Service Operations, Finance) call their own backends directly. They are
-trusted-channel applications and do not need a BFF.
+Internal admin frontends (Platform, Service Operations, Finance) call their own backends directly — no BFF. Those
+backends are still internet-facing because tenant staff (Tenant Administrators, Dispatchers, Service Agents) reach
+them from anywhere, so they enforce the same JWT validation, tenant scoping, and permission checks as the customer
+edge. "Internal" describes the audience, not the network exposure. Only the service mesh itself (PostgreSQL,
+RabbitMQ, Redis, Ollama, the vector store) has no public route.
 
 ## Notes
 
 - All services validate JWTs per the [Security & Access Control](./security/README.MD) note; authorization uses signed
   role and permission claims.
+- Identity & Access is the only JWT issuer; gateways and BFFs validate and forward tokens, they do not sign them.
+- PostgreSQL extensions may be enabled per service where needed — for example PostGIS in Workforce Management for
+  agent coordinates and service areas.
 - Local development runs every dependency in Docker per
   the [Infrastructure & Local Development](./infrastructure/README.MD) policy.
