@@ -30,3 +30,8 @@ Conventions for the four channel frontends. STATUS: stack is pinned; library-lev
 ## UX
 
 Follow `workspace/specs/technical/user_experience/README.MD` — see the `ui-ux` skill for application rules.
+
+## Docs visuals
+
+User-facing flows get Playwright screenshot scripts (`scripts/screenshots/`); guides embed
+the generated images — never hand-captured. See the `user-guide` skill (ADR-0018).

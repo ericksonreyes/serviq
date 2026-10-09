@@ -53,3 +53,4 @@ What this buys us and what it costs.
 - [ADR-0015](0015-alpine-images-where-safe.MD) — Alpine where official/safe; `php:apache` and `python:slim` stay Debian
 - [ADR-0016](0016-compose-file-conventions.MD) — `services/docker-compose.yml` tracked; secrets stay in gitignored `.env`
 - [ADR-0017](0017-channel-appropriate-css-frameworks.MD) — MUI on end-user channels, Tailwind on internal admin UIs
+- [ADR-0018](0018-docs-as-generated-artifacts.MD) — Playwright-generated screenshots/recordings; docs visuals are artifacts, not manual captures
