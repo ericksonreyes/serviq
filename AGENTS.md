@@ -68,6 +68,11 @@ Example service-map entry format:
 - Keep terminology consistent across root, domain, and technical documentation.
 - Add new cross-cutting documents to the main index pages so they remain discoverable.
 
+## Git Conventions
+
+- When asked for a commit message, draft the message only — do not run `git commit`
+  unless the user explicitly asks to commit.
+
 ## Review Checklist
 
 - Confirm the target file exists.
