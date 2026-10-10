@@ -79,4 +79,14 @@ The project is developed as an open-source reference implementation and an ongoi
 
 ---
 
+### Author
+
+**Erickson Reyes** — Software Architect, spec-driven AI-orchestrated delivery
+
+> "I design systems and write executable specifications; AI agents implement against them across whatever language the service needs. My job is architecture, contracts, and verification — the code is a build artifact."
+
+ServIQ is the proof of that approach: a polyglot platform — Laravel, NestJS, FastAPI, and React services — designed and delivered by one engineer directing AI implementation through a canonical spec tree, architecture decision records, and verification discipline. Stack-appropriate, not stack-bound.
+
+---
+
 **ServIQ — Connect. Dispatch. Serve.**
