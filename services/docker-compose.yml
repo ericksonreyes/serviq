@@ -591,7 +591,7 @@ services:
     volumes: ["./serviq-customer-portal-frontend:/app", "npm-cache:/root/.npm"]
     ports: ["8080:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
-    mem_limit: 512m
+    mem_limit: 1g
 
   service-agent-dev:
     container_name: serviq-service-agent-dev
@@ -602,7 +602,7 @@ services:
     volumes: ["./serviq-service-agent-frontend:/app", "npm-cache:/root/.npm"]
     ports: ["8081:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
-    mem_limit: 512m
+    mem_limit: 1g
 
   tenant-console-dev:
     container_name: serviq-tenant-console-dev
@@ -613,7 +613,7 @@ services:
     volumes: ["./serviq-tenant-console-frontend:/app", "npm-cache:/root/.npm"]
     ports: ["8082:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
-    mem_limit: 512m
+    mem_limit: 1g
 
   platform-admin-dev:
     container_name: serviq-platform-admin-dev
@@ -624,4 +624,4 @@ services:
     volumes: ["./serviq-platform-admin-frontend:/app", "npm-cache:/root/.npm"]
     ports: ["8083:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
-    mem_limit: 512m
+    mem_limit: 1g
