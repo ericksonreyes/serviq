@@ -73,35 +73,19 @@ The project is developed as an open-source reference implementation and an ongoi
 ./scripts/install.sh   # env setup + staged bring-up: infra → domain → AI → frontends
 ```
 
-Frontends serve on 8080–8083, BFFs on 3000–3001, domain APIs on 8010–8021.
-The script ends with smoke checks against every service.
+Frontends serve on 8080–8083 (vite dev servers with hot reload), BFFs on
+3000–3001, domain APIs on 8010–8021. The script ends with smoke checks
+against every service. The compose stack is the dev environment — source is
+bind-mounted and code changes are live without rebuilds. See
+[Local Development](workspace/specs/technical/infrastructure/LOCAL_DEVELOPMENT.MD)
+for how it's wired.
 
 ### Local seed accounts
 
 Demo accounts for immediate testing — **local development only, never use
-these credentials elsewhere.**
-
-Seeding happens automatically inside the service containers on start: the
-shared Laravel entrypoint runs `php artisan db:seed --force` (idempotent)
-after migrations.
-
-- **Platform Administrator** — `identity-access-backend`'s `DatabaseSeeder`
-  creates the IAM permission catalog and the platform `admin` account.
-- **Demo tenant + users** — `platform-management-backend`'s `DemoTenantSeeder`
-  creates the "Acme Services" tenant (`slug: acme`, starts `active`) and emits
-  the real `Platform.TenantCreated` event with `initial_users`, so IAM's
-  consumer provisions the scope and accounts through the normal onboarding
-  pipeline — no cross-service database writes.
-- **Demo business data** — the tenant ID is a **fixed UUID**, so each
-  context's own seeder can write tenant-scoped rows without a cross-DB lookup:
-  - `service-management` `DemoCatalogSeeder` — 3 catalog services (Aircon
-    Cleaning ₱1,500, Plumbing Repair ₱2,500, Home Deep Cleaning ₱3,500)
-    with 3 workflow steps each, covering Antipolo/Cainta
-  - `workforce-management` `DemoAgentSeeder` — agent "Anna Agent" (mirrors
-    `anna.agent`; `user_id` left unlinked), all three skills, weekday
-    08:00–17:00 availability
-  - `customer-request-management` `DemoCustomerSeeder` — CRM row
-    "Jane Customer" (mirrors `jane.customer`)
+these credentials elsewhere.** Seeding runs automatically in the service
+containers on install; see [Local Development](workspace/specs/technical/infrastructure/LOCAL_DEVELOPMENT.MD#local-seed-accounts)
+for how it works and how to re-seed.
 
 | Role | App | Username | Password |
 |---|---|---|---|
@@ -117,15 +101,7 @@ the tenant ID — **fixed across installs**:
 01ac0000-0000-7000-8000-00000000acde
 ```
 
-Re-seed manually if needed:
-
-```bash
-docker compose -f services/docker-compose.yml exec \
-  platform-management-backend php artisan db:seed --force
-```
-
-(swap the service name to re-seed that context's demo data). Auth routes are
-throttled at 5 req/min — rapid login attempts will hit 429s.
+Auth routes are throttled at 5 req/min — rapid login attempts will hit 429s.
 
 ### Related Documentation
 
@@ -145,7 +121,7 @@ throttled at 5 req/min — rapid login attempts will hit 429s.
 
 > "I design systems and write executable specifications; AI agents implement against them across whatever language the service needs. My job is architecture, contracts, and verification — the code is a build artifact."
 
-ServIQ is the proof of that approach: a polyglot platform — Laravel, NestJS, FastAPI, and React services — designed and delivered by one engineer directing AI implementation through a canonical spec tree, architecture decision records, and verification discipline. Stack-appropriate, not stack-bound.
+ServIQ is the proof of that approach: a polyglot platform — Laravel, Express, FastAPI, and React services — designed and delivered by one engineer directing AI implementation through a canonical spec tree, architecture decision records, and verification discipline. Stack-appropriate, not stack-bound.
 
 ---
 

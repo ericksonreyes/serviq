@@ -11,30 +11,31 @@ The canonical inventory of services lives in [SERVICE_MAP.md](../../../SERVICE_M
 |----------------------|-----------------------|-----------------------------------|--------------------------|--------------------|
 | Platform             | ReactJS + Tailwind    | Laravel                           | none — real-time queries | PostgreSQL         |
 | Service Operations   | ReactJS + Tailwind    | Laravel                           | none — real-time queries | PostgreSQL         |
-| Customer Portal      | ReactJS + Material UI | NestJS + MongoDB (BFF / read API) | same service (BFF)       | MongoDB read model |
-| Service Agent channel | ReactJS + Material UI (PWA) | NestJS (BFF)                | same service (BFF)       | none — proxied     |
+| Customer Portal      | ReactJS + Material UI | Express + MongoDB (BFF / read API) | same service (BFF)       | MongoDB read model |
+| Service Agent channel | ReactJS + Material UI (PWA) | Express (BFF)                | same service (BFF)       | none — proxied     |
 | Finance & Accounting | ReactJS + Tailwind    | Laravel                           | none — real-time queries | PostgreSQL         |
 
 Frontend policy: **React + Vite everywhere** — one framework/build stack for all channels. CSS is channel-appropriate:
 **Material UI** for end-user channels (Customer Portal, Service Agent PWA — a11y defaults and mobile components),
 **Tailwind** for internal admin UIs (Tenant Console, Platform Admin — dense custom layouts). Every view is post-auth and
-API-driven, so SSR buys nothing; frontends ship as static builds served by nginx. A dev server runs only for the
-app under active development.
+API-driven, so SSR buys nothing; frontends run as `vite dev` hot-reload servers locally — static nginx builds are
+a deployment artifact, not part of the local stack.
 
 Library patterns (pinned with the first apps): `react-router-dom` for routing — `/login` public, every other
 route behind a token guard; plain `fetch` wrapped in a small per-app `api.js` — no data-fetching framework.
 The access token lives in React context memory only, so a page refresh returns to login until refresh-token
 handling is specced. Auth calls hit IAM's public edge (`/api/v1/auth/*`) directly from every channel; channel
 data calls follow the edge policy below. The Service Agent app adds `vite-plugin-pwa` for its installable,
-offline-tolerant shell. Each app ships a multi-stage Dockerfile (`node:22-alpine` build → `nginx:alpine`)
-with an SPA-fallback `nginx.conf` (`try_files $uri $uri/ /index.html`).
+offline-tolerant shell. Each app keeps a multi-stage Dockerfile (`node:22-alpine` build → `nginx:alpine`)
+with an SPA-fallback `nginx.conf` (`try_files $uri $uri/ /index.html`) as the deployment build; the local
+compose stack does not use it — frontends run as `node:22-alpine` `vite dev` containers on 8080–8083.
 
 Channel policy: **one deployable frontend per user channel** — Customer Portal (React), Service Agent app (React
 PWA), Tenant Console (React, serving admin/dispatch/support/ops views), Platform Admin (React).
 
-Backend policy: **PHP/Laravel for all domain command APIs.** Python + FastAPI is reserved for AI-related services (the AI Agent and its parsing/inference tooling). The Customer Portal edge stays NestJS as the BFF.
+Backend policy: **PHP/Laravel for all domain command APIs.** Python + FastAPI is reserved for AI-related services (the AI Agent and its parsing/inference tooling). The BFFs are plain Node ESM + Express (jose JWKS, amqplib, mongodb) — deliberately thin; revisit NestJS only if a BFF grows real logic.
 
-Runtime policy: **keep containers simple.** Laravel services run as `php:<ver>-apache` (Apache + mod_php) containers — conventional, well-documented, and sufficient for the POC. NestJS BFFs run `node dist` production builds. No worker-mode tuning (Octane/FrankenPHP, Swoole) — revisit only if the POC outgrows it.
+Runtime policy: **keep containers simple.** Laravel services run as `php:<ver>-apache` (Apache + mod_php) containers — conventional, well-documented, and sufficient for the POC. BFFs run `node --watch src/index.js` on bind-mounted source (dev-mode stack). No worker-mode tuning (Octane/FrankenPHP, Swoole) — revisit only if the POC outgrows it.
 
 ## Command Model (Write Side)
 
@@ -120,7 +121,7 @@ Internal services (Platform, Service Operations, Finance & Accounting) query the
     - Behat for acceptance criteria tests against PHP service classes (BDD)
 - Other Laravel services should follow the same testing conventions.
 - FastAPI services (the AI Agent and AI-related services) should use pytest for unit and integration tests.
-- NestJS read APIs should use Jest for unit tests.
+- BFF read APIs should use Jest for unit tests.
 
 ### Testing dynamic workflows
 

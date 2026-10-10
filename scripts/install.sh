@@ -10,6 +10,7 @@
 #
 # Usage: ./scripts/install.sh
 
+clear
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -52,7 +53,28 @@ fi
 docker volume create serviq_minio-data >/dev/null
 docker run --rm -v serviq_minio-data:/data alpine chown -R 1001:1001 /data
 
-# ── 5. Staged bring-up: essential first, UI last ─────────────────────────────
+# ── 5. Host-side dependencies ────────────────────────────────────────────────
+# Service dirs are bind-mounted into containers; the mount shadows any
+# image-baked vendor/, so install it onto the host first via the composer:2
+# image (already pulled as a Dockerfile build stage — runtime images ship no
+# composer binary). Node services self-install node_modules on boot.
+echo
+echo "==> [deps] Installing host-side composer deps (vendor/ is bind-mounted)"
+docker pull composer:2 -q >/dev/null 2>&1 || true
+# Named volume caches package downloads across all 12 installs — the
+# installed vendor/ trees still stay per-service (no shared-deps coupling).
+docker volume create serviq-composer-cache >/dev/null
+for d in services/serviq-*-backend; do
+  [ -d "$d/vendor" ] && continue
+  echo "  composer install -> $d"
+  docker run --rm -v "$PWD/$d:/app" -w /app \
+    -v serviq-composer-cache:/composer -e COMPOSER_HOME=/composer \
+    composer:2 \
+    install --no-dev --prefer-dist --no-interaction --no-scripts \
+    --ignore-platform-req=ext-sockets >/dev/null
+done
+
+# ── 6. Staged bring-up: essential first, UI last ─────────────────────────────
 echo
 echo "==> [1/5] Infrastructure (postgres, mongo, redis, rabbitmq, minio, fluent-bit)"
 $COMPOSE --profile infra up -d --wait --build
@@ -63,8 +85,18 @@ $COMPOSE --profile domain up -d --wait --build
 echo "==> [3/5] AI (ollama + ai-agent)"
 $COMPOSE --profile ai up -d --wait --build
 
-echo "==> [4/5] Frontends (static builds on nginx)"
-$COMPOSE --profile full up -d --wait --build
+echo "==> [4/5] Frontends (vite dev servers with hot reload, 8080-8083)"
+$COMPOSE --profile dev up -d --wait
+
+# Dev containers report "running" while first-boot `npm install` is still in
+# flight — wait for vite to actually listen before smoke-checking.
+echo "  waiting for vite dev servers to accept connections..."
+for port in 8080 8081 8082 8083; do
+  for _ in $(seq 1 60); do
+    curl -s -o /dev/null --max-time 2 "http://localhost:$port/" && break
+    sleep 2
+  done
+done
 
 # ── 6. Smoke checks ──────────────────────────────────────────────────────────
 echo
@@ -81,8 +113,8 @@ check() { # $1=url  $2=label
 }
 
 for entry in \
-  "8080 customer-portal-frontend" "8081 service-agent-frontend" \
-  "8082 tenant-console-frontend"  "8083 platform-admin-frontend"; do
+  "8080 customer-portal-dev" "8081 service-agent-dev" \
+  "8082 tenant-console-dev"  "8083 platform-admin-dev"; do
   check "http://localhost:${entry%% *}/" "${entry#* }"
 done
 for entry in \

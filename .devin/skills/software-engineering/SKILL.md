@@ -28,13 +28,13 @@ You are implementing or reviewing ServIQ application code. Load these convention
 - **Event sourcing** (spatie/laravel-event-sourcing) for Service Job Management, Billing, Payouts. Laravel only — Lumen is excluded partly because it can't run this package.
 - **CQRS**: PostgreSQL command models; MongoDB read model only for the Customer Portal via its BFF.
 - **Identifiers**: entities use UUIDv7; transactional records use internal bigint + SQID public masking; `JOB-1001`-style codes are display reference numbers, never API identifiers; `created_by`/`updated_by` store the IAM user UUID.
-- **Testing**: business rules must be deterministic and unit-testable — PHPSpec/Behat for Laravel contexts, Jest for NestJS, pytest for the AI agent.
+- **Testing**: business rules must be deterministic and unit-testable — PHPSpec/Behat for Laravel contexts, Jest for the BFFs, pytest for the AI agent.
 
 ## Runtime policy
 
 - Laravel = plain `php:apache` (mod_php). No Lumen, no Octane/FrankenPHP (deferred).
-- NestJS = production `node dist` builds. Frontends = static Vite builds on nginx.
-- No dev/watch servers in the always-on Docker set — `develop.watch` handles live editing.
+- BFFs = `node --watch` on bind-mounted source (no `node dist` production build in the local stack). Frontends = `vite dev` hot-reload servers on 8080–8083 — the only local frontend shape; nginx static builds exist only as per-app Dockerfiles for deployment.
+- Service source dirs are bind-mounted into containers (dev-mode stack, not production) — Laravel serves per request, ai-agent uses `uvicorn --reload`.
 
 ## Before finishing
 

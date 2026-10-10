@@ -11,7 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('jobs', function (Blueprint $table) {
+        // Named queue_jobs — this service's domain table is already `jobs`.
+        // QUEUE_CONNECTION=redis anyway; this exists for parity + failed_jobs.
+        Schema::create(config('queue.connections.database.table', 'queue_jobs'), function (Blueprint $table) {
             $table->id();
             $table->string('queue')->index();
             $table->longText('payload');
@@ -52,7 +54,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('jobs');
+        Schema::dropIfExists(config('queue.connections.database.table', 'queue_jobs'));
         Schema::dropIfExists('job_batches');
         Schema::dropIfExists('failed_jobs');
     }

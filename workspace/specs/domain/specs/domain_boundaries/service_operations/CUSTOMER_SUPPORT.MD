@@ -29,8 +29,9 @@ Resolution
 - The underlying Service Request or Service Job — those stay in their own contexts
 - Customer account and profile data — that stays in Customer & Request Management and IAM
 
-### Interim ownership note
+### Implementation status
 
-Customer Support was previously listed as a future bounded context; it is now a documented boundary. Until a
-dedicated Customer Support service is implemented, complaint intake is handled by Customer & Request Management —
-that interim ownership is intentional and temporary, not a permanent home.
+The dedicated Customer Support service (`serviq-customer-support-backend`) is implemented and owns complaint
+intake plus refund decisions (`POST /cases`, `POST /cases/{case}/refund-decision`). The earlier interim
+arrangement — Customer & Request Management absorbing complaint intake — is resolved; that context owns no
+case or complaint surface.

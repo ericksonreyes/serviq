@@ -40,7 +40,11 @@ reference), tiered profiles are a fallback lever — not the goal — for when m
 
 The full memory and disk budgets — per-service allocations, image tag choices, and model-weight discipline — are in [Local Resource Budget](./LOCAL_RESOURCE_BUDGET.MD).
 
-For immediate testing, the install seeds demo accounts for every role — see [Local seed accounts](../../../../README.MD#local-seed-accounts) in the root README.
+For immediate testing, the install seeds demo accounts for every role — the credential table is in the [root README](../../../../README.MD#local-seed-accounts) and the seeding mechanics in [Local Development](./LOCAL_DEVELOPMENT.MD).
+
+Package downloads are cached in shared named volumes (`serviq-composer-cache`,
+`serviq-npm-cache`) — the installed `vendor/`/`node_modules/` trees stay
+per-service on the host; only the download cache is shared.
 
 ## Hexagonal Architecture Fit
 
@@ -112,6 +116,7 @@ When introducing a new infrastructure dependency, document:
 - [Development Disciplines](../README.MD#development-disciplines)
 - [Architecture Principles](../README.MD#architecture-principles)
 - [Quality Attributes](../README.MD#quality-attributes)
+- [Local Development](./LOCAL_DEVELOPMENT.MD)
 - [Event Delivery](./EVENT_DELIVERY.MD)
 - [Proof of Payment OCR/LLM Stack](./PROOF_OF_PAYMENT_OCR_LLM_STACK.MD)
 - [Payout Gateway Port](./PAYOUT_GATEWAY_PORT.MD)

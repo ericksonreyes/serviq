@@ -58,7 +58,7 @@ in the same transaction as the `stored_events` append.
   compose service (e.g. `billing-consumer`) built from the same image and env file as the API,
   differing only in `command`:
   - Laravel: `php artisan queue:work rabbitmq --sleep=3 --tries=3`
-  - NestJS: `node dist/consumer.js`
+  - BFF (Express): `node src/consumer.js`
   - FastAPI: `python -m app.consumer`
 - API and consumer never share a process — independent scaling, crash isolation, and `--wait`
   semantics stay clean. Scaling a subscriber = `docker compose up -d --scale billing-consumer=2`.

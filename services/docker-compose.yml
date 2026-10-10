@@ -28,7 +28,7 @@ volumes:
   rabbitmq-data:
   minio-data:
   ollama-models:
-
+  npm-cache:
 x-common-env: &common-env
   JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
   RABBITMQ_HOST: rabbitmq
@@ -68,6 +68,7 @@ services:
   # ── Infrastructure ─────────────────────────────────────────────────────────
 
   postgres:
+    container_name: infra-postgres
     image: pgvector/pgvector:pg17
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
@@ -87,6 +88,7 @@ services:
     restart: unless-stopped
 
   mongo:
+    container_name: infra-mongo
     image: mongo:8
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
@@ -102,6 +104,7 @@ services:
     restart: unless-stopped
 
   redis:
+    container_name: infra-redis
     image: redis:7-alpine
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
@@ -116,6 +119,7 @@ services:
     restart: unless-stopped
 
   rabbitmq:
+    container_name: infra-rabbitmq
     image: rabbitmq:4-management-alpine
     # Pin the node name — without it the node is rabbit@<random container
     # hostname>, so every recreate abandons the previous mnesia dir and the
@@ -140,6 +144,7 @@ services:
     restart: unless-stopped
 
   minio:
+    container_name: infra-minio
     image: bitnamilegacy/minio:latest
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
@@ -164,6 +169,7 @@ services:
   # logging) remains a documented adapter behind the observability port —
   # see LOCAL_RESOURCE_BUDGET.MD.
   fluent-bit:
+    container_name: infra-fluent-bit
     image: fluent/fluent-bit:4.2
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
@@ -174,6 +180,7 @@ services:
     restart: unless-stopped
 
   ollama:
+    container_name: infra-ollama
     image: ollama/ollama:latest
     profiles: ["ai", "full"]
     networks: [serviq]
@@ -189,8 +196,11 @@ services:
   # Node services, `node src` production command.
 
   customer-portal-bff:
+    container_name: serviq-customer-portal-bff
     build: ./serviq-customer-portal-bff
     env_file: ./serviq-customer-portal-bff/.env
+    volumes: ["./serviq-customer-portal-bff:/app", "npm-cache:/root/.npm"]
+    command: 'sh -c "[ -d node_modules ] || npm install --omit=dev; exec node --watch src/index.js"'
     profiles: ["domain", "full"]
     networks: [serviq]
     ports: ["3000:3000"]
@@ -203,8 +213,11 @@ services:
     mem_limit: 256m
 
   service-agent-bff:
+    container_name: serviq-service-agent-bff
     build: ./serviq-service-agent-bff
     env_file: ./serviq-service-agent-bff/.env
+    volumes: ["./serviq-service-agent-bff:/app", "npm-cache:/root/.npm"]
+    command: 'sh -c "[ -d node_modules ] || npm install --omit=dev; exec node --watch src/index.js"'
     profiles: ["domain", "full"]
     networks: [serviq]
     ports: ["3001:3000"]
@@ -215,12 +228,15 @@ services:
 
   # ── Domain command APIs (Laravel, php:apache) ──────────────────────────────
   # One entry per bounded context. Host port convention: 80xx range.
-  # watch action is `sync` — mod_php reads PHP per request, no restart needed.
+  # Source dirs are bind-mounted (deps included — install via composer:2
+  # one-off per README) so edits are live; mod_php re-reads per request.
 
   identity-access-backend:
+    container_name: serviq-identity-access-backend
     <<: *laravel-service
     build: ./serviq-identity-access-backend
     env_file: ./serviq-identity-access-backend/.env
+    volumes: ["./serviq-identity-access-backend:/var/www/html"]
     ports: ["8010:80"]
     environment:
       <<: *common-env
@@ -229,17 +245,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop:
-      watch:
-        - action: sync
-          path: ./serviq-identity-access-backend
-          target: /var/www/html
-          ignore: [vendor, .git]
   #
   platform-management-backend:
+    container_name: serviq-platform-management-backend
     <<: *laravel-service
     build: ./serviq-platform-management-backend
     env_file: ./serviq-platform-management-backend/.env
+    volumes: ["./serviq-platform-management-backend:/var/www/html"]
     ports: ["8011:80"]
     environment:
       <<: *common-env
@@ -248,12 +260,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-platform-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   service-management-backend:
+    container_name: serviq-service-management-backend
     <<: *laravel-service
     build: ./serviq-service-management-backend
     env_file: ./serviq-service-management-backend/.env
+    volumes: ["./serviq-service-management-backend:/var/www/html"]
     ports: ["8012:80"]
     environment:
       <<: *common-env
@@ -262,12 +275,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-service-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   customer-request-backend:
+    container_name: serviq-customer-request-backend
     <<: *laravel-service
     build: ./serviq-customer-request-management-backend
     env_file: ./serviq-customer-request-management-backend/.env
+    volumes: ["./serviq-customer-request-management-backend:/var/www/html"]
     ports: ["8013:80"]
     environment:
       <<: *common-env
@@ -276,12 +290,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-customer-request-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   service-job-backend:
+    container_name: serviq-service-job-backend
     <<: *laravel-service
     build: ./serviq-service-job-management-backend
     env_file: ./serviq-service-job-management-backend/.env
+    volumes: ["./serviq-service-job-management-backend:/var/www/html"]
     ports: ["8014:80"]
     environment:
       <<: *common-env
@@ -290,12 +305,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-service-job-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   workforce-backend:
+    container_name: serviq-workforce-backend
     <<: *laravel-service
     build: ./serviq-workforce-management-backend
     env_file: ./serviq-workforce-management-backend/.env
+    volumes: ["./serviq-workforce-management-backend:/var/www/html"]
     ports: ["8015:80"]
     environment:
       <<: *common-env
@@ -304,12 +320,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-workforce-management-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   assignment-dispatch-backend:
+    container_name: serviq-assignment-dispatch-backend
     <<: *laravel-service
     build: ./serviq-assignment-dispatch-backend
     env_file: ./serviq-assignment-dispatch-backend/.env
+    volumes: ["./serviq-assignment-dispatch-backend:/var/www/html"]
     ports: ["8016:80"]
     environment:
       <<: *common-env
@@ -318,12 +335,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-assignment-dispatch-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   field-service-backend:
+    container_name: serviq-field-service-backend
     <<: *laravel-service
     build: ./serviq-field-service-execution-backend
     env_file: ./serviq-field-service-execution-backend/.env
+    volumes: ["./serviq-field-service-execution-backend:/var/www/html"]
     ports: ["8017:80"]
     environment:
       <<: *common-env
@@ -332,12 +350,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-field-service-execution-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   customer-support-backend:
+    container_name: serviq-customer-support-backend
     <<: *laravel-service
     build: ./serviq-customer-support-backend
     env_file: ./serviq-customer-support-backend/.env
+    volumes: ["./serviq-customer-support-backend:/var/www/html"]
     ports: ["8018:80"]
     environment:
       <<: *common-env
@@ -346,12 +365,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-customer-support-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   notification-backend:
+    container_name: serviq-notification-backend
     <<: *laravel-service
     build: ./serviq-notification-backend
     env_file: ./serviq-notification-backend/.env
+    volumes: ["./serviq-notification-backend:/var/www/html"]
     ports: ["8019:80"]
     environment:
       <<: *common-env
@@ -360,12 +380,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-notification-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   billing-backend:
+    container_name: serviq-billing-backend
     <<: *laravel-service
     build: ./serviq-billing-backend
     env_file: ./serviq-billing-backend/.env
+    volumes: ["./serviq-billing-backend:/var/www/html"]
     ports: ["8020:80"]
     environment:
       <<: *common-env
@@ -374,12 +395,13 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-billing-backend, target: /var/www/html, ignore: [vendor, .git] }] }
   #
   payouts-backend:
+    container_name: serviq-payouts-backend
     <<: *laravel-service
     build: ./serviq-payouts-backend
     env_file: ./serviq-payouts-backend/.env
+    volumes: ["./serviq-payouts-backend:/var/www/html"]
     ports: ["8021:80"]
     environment:
       <<: *common-env
@@ -388,7 +410,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-    develop: { watch: [{ action: sync, path: ./serviq-payouts-backend, target: /var/www/html, ignore: [vendor, .git] }] }
 
   # ── Event consumers ────────────────────────────────────────────────────────
   # One dedicated consumer container per subscribing service — never shares the
@@ -398,9 +419,11 @@ services:
   # Consumer runs the outbox relay alongside the RabbitMQ subscriber — one
   # dedicated container for all of this service's broker traffic.
   identity-access-consumer:
+    container_name: serviq-identity-access-consumer
     <<: *consumer-service
     build: ./serviq-identity-access-backend
     env_file: ./serviq-identity-access-backend/.env
+    volumes: ["./serviq-identity-access-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
@@ -408,103 +431,129 @@ services:
   # Platform Management only publishes today — its consumer container runs
   # the outbox relay (events:consume lands with its first subscription).
   platform-management-consumer:
+    container_name: serviq-platform-management-consumer
     <<: *consumer-service
     build: ./serviq-platform-management-backend
     env_file: ./serviq-platform-management-backend/.env
+    volumes: ["./serviq-platform-management-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c 'until php artisan outbox:publish; do sleep 5; done'"
   service-management-consumer:
+    container_name: serviq-service-management-consumer
     <<: *consumer-service
     build: ./serviq-service-management-backend
     env_file: ./serviq-service-management-backend/.env
+    volumes: ["./serviq-service-management-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c 'until php artisan outbox:publish; do sleep 5; done'"
   customer-request-consumer:
+    container_name: serviq-customer-request-consumer
     <<: *consumer-service
     build: ./serviq-customer-request-management-backend
     env_file: ./serviq-customer-request-management-backend/.env
+    volumes: ["./serviq-customer-request-management-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c 'until php artisan outbox:publish; do sleep 5; done'"
   service-job-consumer:
+    container_name: serviq-service-job-consumer
     <<: *consumer-service
     build: ./serviq-service-job-management-backend
     env_file: ./serviq-service-job-management-backend/.env
+    volumes: ["./serviq-service-job-management-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   workforce-consumer:
+    container_name: serviq-workforce-consumer
     <<: *consumer-service
     build: ./serviq-workforce-management-backend
     env_file: ./serviq-workforce-management-backend/.env
+    volumes: ["./serviq-workforce-management-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c 'until php artisan outbox:publish; do sleep 5; done'"
   assignment-dispatch-consumer:
+    container_name: serviq-assignment-dispatch-consumer
     <<: *consumer-service
     build: ./serviq-assignment-dispatch-backend
     env_file: ./serviq-assignment-dispatch-backend/.env
+    volumes: ["./serviq-assignment-dispatch-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & (until php artisan offers:expire; do sleep 5; done) & exec php artisan events:consume'"
   field-service-consumer:
+    container_name: serviq-field-service-consumer
     <<: *consumer-service
     build: ./serviq-field-service-execution-backend
     env_file: ./serviq-field-service-execution-backend/.env
+    volumes: ["./serviq-field-service-execution-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   customer-support-consumer:
+    container_name: serviq-customer-support-consumer
     <<: *consumer-service
     build: ./serviq-customer-support-backend
     env_file: ./serviq-customer-support-backend/.env
+    volumes: ["./serviq-customer-support-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   notification-consumer:
+    container_name: serviq-notification-consumer
     <<: *consumer-service
     build: ./serviq-notification-backend
     env_file: ./serviq-notification-backend/.env
+    volumes: ["./serviq-notification-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   billing-consumer:
+    container_name: serviq-billing-consumer
     <<: *consumer-service
     build: ./serviq-billing-backend
     env_file: ./serviq-billing-backend/.env
+    volumes: ["./serviq-billing-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   payouts-consumer:
+    container_name: serviq-payouts-consumer
     <<: *consumer-service
     build: ./serviq-payouts-backend
     env_file: ./serviq-payouts-backend/.env
+    volumes: ["./serviq-payouts-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   customer-portal-bff-consumer:
+    container_name: serviq-customer-portal-bff-consumer
     <<: *consumer-service
     build: ./serviq-customer-portal-bff
     env_file: ./serviq-customer-portal-bff/.env
-    command: "node src/consumer.js"
+    volumes: ["./serviq-customer-portal-bff:/app", "npm-cache:/root/.npm"]
+    command: 'sh -c "[ -d node_modules ] || npm install --omit=dev; exec node --watch src/consumer.js"'
     mem_limit: 128m
   ai-agent-consumer:
+    container_name: serviq-ai-agent-consumer
     <<: *consumer-service
     build: ./serviq-ai-agent
     env_file: ./serviq-ai-agent/.env
+    volumes: ["./serviq-ai-agent:/app"]
     profiles: ["ai", "full"]
     command: "python -m app.consumer"
     mem_limit: 128m
@@ -512,8 +561,11 @@ services:
   # ── AI ─────────────────────────────────────────────────────────────────────
 
   ai-agent:
+    container_name: serviq-ai-agent
     build: ./serviq-ai-agent
     env_file: ./serviq-ai-agent/.env
+    volumes: ["./serviq-ai-agent:/app"]
+    command: 'uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'
     profiles: ["ai", "full"]
     networks: [serviq]
     ports: ["8100:8000"]
@@ -526,53 +578,50 @@ services:
         required: false
     mem_limit: 256m
 
-  # ── Frontends (static Vite builds on nginx) ────────────────────────────────
-  # Multi-stage Dockerfile: vite build → nginx:alpine serves dist/.
-  # watch action is `rebuild` — a static build can't hot-sync into nginx.
+  # ── Frontends (vite dev servers + hot reload, 8080-8083) ───────────────────
+  # Development shape is the only frontend shape: bind-mounted source +
+  # host-resident node_modules (self-installs on boot).
 
-  customer-portal-frontend:
-    build: ./serviq-customer-portal-frontend
-    profiles: ["full"]
+  customer-portal-dev:
+    container_name: serviq-customer-portal-dev
+    image: node:22-alpine
+    profiles: [dev, full]
     networks: [serviq]
-    ports: ["8080:80"]
-    mem_limit: 32m
-    develop:
-      watch:
-        - action: rebuild
-          path: ./serviq-customer-portal-frontend
-          ignore: [node_modules, dist, .git]
-  service-agent-frontend:
-    build: ./serviq-service-agent-frontend
-    profiles: ["full"]
-    networks: [serviq]
-    ports: ["8081:80"]
-    mem_limit: 32m
-    develop:
-      watch:
-        - action: rebuild
-          path: ./serviq-service-agent-frontend
-          ignore: [node_modules, dist, .git]
+    working_dir: /app
+    volumes: ["./serviq-customer-portal-frontend:/app", "npm-cache:/root/.npm"]
+    ports: ["8080:5173"]
+    command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
+    mem_limit: 256m
 
-  tenant-console-frontend:
-    build: ./serviq-tenant-console-frontend
-    profiles: ["full"]
+  service-agent-dev:
+    container_name: serviq-service-agent-dev
+    image: node:22-alpine
+    profiles: [dev, full]
     networks: [serviq]
-    ports: ["8082:80"]
-    mem_limit: 32m
-    develop:
-      watch:
-        - action: rebuild
-          path: ./serviq-tenant-console-frontend
-          ignore: [node_modules, dist, .git]
+    working_dir: /app
+    volumes: ["./serviq-service-agent-frontend:/app", "npm-cache:/root/.npm"]
+    ports: ["8081:5173"]
+    command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
+    mem_limit: 256m
 
-  platform-admin-frontend:
-    build: ./serviq-platform-admin-frontend
-    profiles: ["full"]
+  tenant-console-dev:
+    container_name: serviq-tenant-console-dev
+    image: node:22-alpine
+    profiles: [dev, full]
     networks: [serviq]
-    ports: ["8083:80"]
-    mem_limit: 32m
-    develop:
-      watch:
-        - action: rebuild
-          path: ./serviq-platform-admin-frontend
-          ignore: [node_modules, dist, .git]
+    working_dir: /app
+    volumes: ["./serviq-tenant-console-frontend:/app", "npm-cache:/root/.npm"]
+    ports: ["8082:5173"]
+    command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
+    mem_limit: 256m
+
+  platform-admin-dev:
+    container_name: serviq-platform-admin-dev
+    image: node:22-alpine
+    profiles: [dev, full]
+    networks: [serviq]
+    working_dir: /app
+    volumes: ["./serviq-platform-admin-frontend:/app", "npm-cache:/root/.npm"]
+    ports: ["8083:5173"]
+    command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
+    mem_limit: 256m

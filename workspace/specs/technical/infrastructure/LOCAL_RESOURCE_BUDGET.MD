@@ -23,10 +23,10 @@ contract is the protection.
 | Laravel API (event-sourced) | 3 | 128m | ~90MB | ~270MB | Job Mgmt, Billing, Payouts — stream replay cost |
 | Event consumers (Laravel) | 12 | 128m | ~80MB | ~960MB | dedicated containers — `EVENT_DELIVERY.MD` |
 | Event consumers (BFF + AI) | 2 | 128m | ~100MB | ~200MB | portal projector + AI async tasks |
-| NestJS BFFs | 2 | 256m | ~125MB | ~250MB | `node dist`, `--max-old-space-size=256` |
+| BFFs | 2 | 256m | ~125MB | ~250MB | `node --watch` on bind-mounted source |
 | FastAPI AI Agent | 1 | 256m | ~150MB | ~150MB | |
-| nginx frontends (static) | 4 | 32m | ~10MB | ~40MB | Vite builds; zero runtime logic |
-| | | | **Steady state** | **~3.7GB** | |
+| vite dev frontends | 4 | 256m | ~150MB | ~600MB | node:22-alpine, HMR, hot reload |
+| | | | **Steady state** | **~4.3GB** | |
 | Vision model loaded (spike) | | | | +1.7–3GB | moondream default; qwen2.5vl:3b if swapped |
 
 Worst-case if every container sat at its cap: ~9GB — exceeds the machine, which is why the
@@ -67,11 +67,11 @@ Prefer Alpine or slim tags only where an official variant exists and carries no 
 
 | Image | Tag choice | Why |
 | --- | --- | --- |
-| nginx (static hosts) | `nginx:alpine` | standard, ~20MB vs ~190MB |
+| Node (vite dev frontends) | `node:x-alpine` | dev servers, HMR only — no production work |
 | Redis | `redis:alpine` | trivial swap |
 | RabbitMQ | `rabbitmq:x-alpine` | official alpine variant exists |
 | PostgreSQL | `postgres:x-alpine` | official variant; pgvector compiles cleanly on it |
-| Node (NestJS runtime) | `node:x-alpine` | safe for `node dist`; no native-dep issues expected |
+| Node (BFF/vite runtime) | `node:x-alpine` | plain ESM, no native-dep issues expected |
 | Python (AI Agent) | `python:x-slim` | **not alpine** — musl builds for native deps (PaddleOCR etc.) cost more pain than the disk saves |
 | PHP (Laravel) | `php:x-apache` (Debian) | no official apache-alpine exists; fpm-alpine would mean FPM+nginx per service — complexity rejected |
 | MongoDB, MinIO, Ollama | vendor images | no alpine/slim variants exist |
