@@ -28,7 +28,7 @@ handling is specced. Auth calls hit IAM's public edge (`/api/v1/auth/*`) directl
 data calls follow the edge policy below. The Service Agent app adds `vite-plugin-pwa` for its installable,
 offline-tolerant shell. Each app keeps a multi-stage Dockerfile (`node:22-alpine` build → `nginx:alpine`)
 with an SPA-fallback `nginx.conf` (`try_files $uri $uri/ /index.html`) as the deployment build; the local
-compose stack does not use it — frontends run as `node:22-alpine` `vite dev` containers on 8080–8083.
+compose stack does not use it — frontends run as `node:22-alpine` `vite dev` containers on 3000–3003.
 
 Channel policy: **one deployable frontend per user channel** — Customer Portal (React), Service Agent app (React
 PWA), Tenant Console (React, serving admin/dispatch/support/ops views), Platform Admin (React).

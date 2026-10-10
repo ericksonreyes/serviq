@@ -73,8 +73,8 @@ The project is developed as an open-source reference implementation and an ongoi
 ./scripts/install.sh   # env setup + staged bring-up: infra → domain → AI → frontends
 ```
 
-Frontends serve on 8080–8083 (vite dev servers with hot reload), BFFs on
-3000–3001, domain APIs on 8010–8021. The script ends with smoke checks
+Frontends serve on 3000–3003 (vite dev servers with hot reload), BFFs on
+8000–8001, domain APIs on 8010–8021. The script ends with smoke checks
 against every service. The compose stack is the dev environment — source is
 bind-mounted and code changes are live without rebuilds. See
 [Local Development](workspace/specs/technical/infrastructure/LOCAL_DEVELOPMENT.MD)
@@ -89,10 +89,10 @@ for how it works and how to re-seed.
 
 | Role | App | Username | Password |
 |---|---|---|---|
-| Platform Administrator | http://localhost:8083 (Platform Admin) | `admin` | `serviq-local` |
-| Tenant Administrator | http://localhost:8082 (Tenant Console) | `acme.admin` | `demo-pass-123` |
-| Service Agent | http://localhost:8081 (Service Agent PWA) | `anna.agent` | `demo-pass-123` |
-| Customer | http://localhost:8080 (Customer Portal) | `jane.customer` | `demo-pass-123` |
+| Platform Administrator | http://localhost:3003 (Platform Admin) | `admin` | `serviq-local` |
+| Tenant Administrator | http://localhost:3002 (Tenant Console) | `acme.admin` | `demo-pass-123` |
+| Service Agent | http://localhost:3001 (Service Agent PWA) | `anna.agent` | `demo-pass-123` |
+| Customer | http://localhost:3000 (Customer Portal) | `jane.customer` | `demo-pass-123` |
 
 Tenant-scoped logins (everyone except the Platform Administrator) also need
 the tenant ID — **fixed across installs**:

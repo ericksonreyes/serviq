@@ -203,7 +203,7 @@ services:
     command: 'sh -c "[ -d node_modules ] || npm install --omit=dev; exec node --watch src/index.js"'
     profiles: ["domain", "full"]
     networks: [serviq]
-    ports: ["3000:3000"]
+    ports: ["8000:3000"]
     environment:
       <<: *common-env
       MONGODB_URI: mongodb://mongo:27017/serviq_portal
@@ -220,7 +220,7 @@ services:
     command: 'sh -c "[ -d node_modules ] || npm install --omit=dev; exec node --watch src/index.js"'
     profiles: ["domain", "full"]
     networks: [serviq]
-    ports: ["3001:3000"]
+    ports: ["8001:3000"]
     environment:
       <<: *common-env
     depends_on: [redis]
@@ -587,7 +587,7 @@ services:
         required: false
     mem_limit: 256m
 
-  # ── Frontends (vite dev servers + hot reload, 8080-8083) ───────────────────
+  # ── Frontends (vite dev servers + hot reload, 3000-3003) ───────────────────
   # Development shape is the only frontend shape: bind-mounted source +
   # host-resident node_modules (self-installs on boot).
 
@@ -598,7 +598,7 @@ services:
     networks: [serviq]
     working_dir: /app
     volumes: ["./serviq-customer-portal-frontend:/app", "npm-cache:/root/.npm"]
-    ports: ["8080:5173"]
+    ports: ["3000:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
 
@@ -609,7 +609,7 @@ services:
     networks: [serviq]
     working_dir: /app
     volumes: ["./serviq-service-agent-frontend:/app", "npm-cache:/root/.npm"]
-    ports: ["8081:5173"]
+    ports: ["3001:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
 
@@ -620,7 +620,7 @@ services:
     networks: [serviq]
     working_dir: /app
     volumes: ["./serviq-tenant-console-frontend:/app", "npm-cache:/root/.npm"]
-    ports: ["8082:5173"]
+    ports: ["3002:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
 
@@ -631,6 +631,6 @@ services:
     networks: [serviq]
     working_dir: /app
     volumes: ["./serviq-platform-admin-frontend:/app", "npm-cache:/root/.npm"]
-    ports: ["8083:5173"]
+    ports: ["3003:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g

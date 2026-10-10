@@ -12,7 +12,7 @@ source dir is bind-mounted into its container — including `vendor/` and
 - **Laravel** — mod_php re-reads per request, instant reload
 - **BFFs** — `node --watch`
 - **ai-agent** — `uvicorn --reload`
-- **Frontends** — `vite dev` hot-reload servers on 8080–8083 are the only
+- **Frontends** — `vite dev` hot-reload servers on 3000–3003 are the only
   frontend shape (`install.sh` brings them up via `--profile dev`; they're
   also in the `full` profile so it still means "the whole stack"). There is
   no production-shape nginx build in this repo — that's a deployment
