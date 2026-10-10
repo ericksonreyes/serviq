@@ -182,9 +182,7 @@ services:
     restart: unless-stopped
 
   # ── Edges (BFFs) ───────────────────────────────────────────────────────────
-  # NestJS, production `node dist` builds. Uncomment as each service gets a
-  # Dockerfile. `develop.watch` enables `docker compose watch` for live editing
-  # (opt-in — never in the always-on set).
+  # Node services, `node src` production command.
 
   customer-portal-bff:
     build: ./serviq-customer-portal-bff
@@ -199,11 +197,6 @@ services:
       mongo: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     mem_limit: 256m
-  #   develop:
-  #     watch:
-  #       - action: rebuild           # dist/ is compiled — rebuild on any change
-  #         path: ./serviq-customer-portal-bff
-  #         ignore: [node_modules, dist, .git]
 
   service-agent-bff:
     build: ./serviq-service-agent-bff
@@ -215,11 +208,6 @@ services:
       <<: *common-env
     depends_on: [redis]
     mem_limit: 256m
-  #   develop:
-  #     watch:
-  #       - action: rebuild
-  #         path: ./serviq-service-agent-bff
-  #         ignore: [node_modules, dist, .git]
 
   # ── Domain command APIs (Laravel, php:apache) ──────────────────────────────
   # One entry per bounded context. Host port convention: 80xx range.
