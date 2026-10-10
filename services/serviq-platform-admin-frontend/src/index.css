@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+html { font-size: 16px; }
+body { @apply bg-slate-100 text-slate-900 antialiased; }
+input, select, textarea, button { font-size: 1rem; }

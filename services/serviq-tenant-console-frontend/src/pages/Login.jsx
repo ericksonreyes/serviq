@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 
-const input = 'w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+const input = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600'
 const label = 'block text-sm font-medium text-slate-700'
 
 export default function Login({ tenantSlug }) {
@@ -31,8 +31,8 @@ export default function Login({ tenantSlug }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow">
-        <h1 className="text-xl font-semibold text-slate-900">ServIQ Tenant Console</h1>
+      <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
+        <h1 className="text-2xl font-bold text-slate-900">ServIQ Tenant Console</h1>
         <p className="mt-1 text-sm text-slate-500">
           Sign in to manage your service provider organization.
         </p>
@@ -48,13 +48,10 @@ export default function Login({ tenantSlug }) {
             <label className={label}>Password</label>
             <input className={input} type="password" required value={form.password} onChange={set('password')} />
           </div>
-          <div>
-            <label className={label}>Tenant ID</label>
-          </div>
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-teal-700 px-3 py-2.5 text-base font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
           >
             {busy ? 'Signing in…' : 'Sign in'}
           </button>

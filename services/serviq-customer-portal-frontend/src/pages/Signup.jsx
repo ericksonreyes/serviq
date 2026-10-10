@@ -34,8 +34,8 @@ export default function Signup({ tenantSlug }) {
   }
 
   return (
-    <Container maxWidth="xs" sx={{ mt: 8 }}>
-      <Paper sx={{ p: 4 }}>
+    <Container maxWidth="xs" sx={{ minHeight: "100vh", display: "flex", alignItems: "center", py: { xs: 3, sm: 8 } }}>
+      <Paper sx={{ p: { xs: 3, sm: 4 }, width: "100%" }}>
         <Typography variant="h5" gutterBottom>Create your account</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
           Sign up under your service provider to request and track work.

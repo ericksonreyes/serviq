@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
-const input = 'w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
+const input = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600'
 const label = 'block text-sm font-medium text-slate-700'
 
 export default function Signup({ tenantSlug }) {
@@ -36,8 +36,8 @@ export default function Signup({ tenantSlug }) {
   if (tenantId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow">
-          <h1 className="text-xl font-semibold text-slate-900">Organization created</h1>
+        <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
+          <h1 className="text-2xl font-bold text-slate-900">Organization created</h1>
           <p className="mt-2 text-sm text-slate-600">
             Your service provider account is pending platform review. You can sign
             in with your admin credentials using your organization handle:
@@ -57,8 +57,8 @@ export default function Signup({ tenantSlug }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
-        <h1 className="text-xl font-semibold text-slate-900">Become a service provider</h1>
+      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+        <h1 className="text-2xl font-bold text-slate-900">Become a service provider</h1>
         <p className="mt-1 text-sm text-slate-500">
           Create your organization on ServIQ. The platform reviews new providers before activation.
         </p>
@@ -103,7 +103,7 @@ export default function Signup({ tenantSlug }) {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-teal-700 px-3 py-2.5 text-base font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
           >
             {busy ? 'Creating…' : 'Create organization'}
           </button>

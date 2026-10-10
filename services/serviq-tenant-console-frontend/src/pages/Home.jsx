@@ -13,8 +13,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <header className="flex items-center justify-between bg-slate-900 px-6 py-3 text-white">
-        <span className="font-semibold">ServIQ Tenant Console</span>
+      <header className="flex items-center justify-between bg-slate-900 px-6 py-4 text-white">
+        <span className="text-lg font-semibold">ServIQ Tenant Console</span>
         <button onClick={() => setToken(null)} className="text-sm text-slate-300 hover:text-white">
           Sign out
         </button>

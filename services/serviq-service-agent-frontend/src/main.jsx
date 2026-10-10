@@ -1,12 +1,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { CssBaseline, ThemeProvider } from '@mui/material'
+import { theme } from './theme'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { AuthProvider } from './auth'
-
-const theme = createTheme()
 
 registerSW({ immediate: true })
 

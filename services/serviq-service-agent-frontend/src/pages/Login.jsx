@@ -31,7 +31,7 @@ export default function Login({ tenantSlug }) {
 
   return (
     <Container maxWidth="xs" sx={{ mt: 6 }}>
-      <Paper sx={{ p: 4 }}>
+      <Paper sx={{ p: { xs: 3, sm: 4 }, width: "100%" }}>
         <Typography variant="h5" gutterBottom>ServIQ Service Agent</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
           Sign in to see your assigned jobs.
