@@ -14,7 +14,7 @@ export default function Landing() {
         <Button component={Link} to="/signup" variant="outlined">Create an account</Button>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 6 }}>
-        Have a provider link? It looks like <code>/quickrepairguys</code> —
+        Have a provider link? It looks like <code>/provider/quickrepairguys</code> —
         it takes you straight to your provider's sign-in.
       </Typography>
     </Container>

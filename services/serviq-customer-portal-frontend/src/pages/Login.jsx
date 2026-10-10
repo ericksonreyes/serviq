@@ -43,14 +43,14 @@ export default function Login({ tenantSlug }) {
           <TextField
             label="Service Provider"
             required
-            helperText="Your provider's handle — e.g. quickrepairguys (also works as /<slug>)"
+            helperText="Your provider's handle — e.g. quickrepairguys (also works as /provider/<slug>)"
             {...field('tenant')}
           />
           <Button type="submit" variant="contained" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </Button>
           <Typography variant="body2">
-            New customer? <Link to={tenantSlug ? `/${tenantSlug}/signup` : '/signup'}>Create an account</Link>
+            New customer? <Link to={tenantSlug ? `/provider/${tenantSlug}/signup` : '/signup'}>Create an account</Link>
           </Typography>
         </Stack>
       </Paper>

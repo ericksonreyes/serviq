@@ -22,9 +22,9 @@ export default function App() {
       <Route path="/login" element={token ? <Navigate to="/" /> : <Login />} />
       <Route path="/signup" element={token ? <Navigate to="/" /> : <Signup />} />
       <Route path="/" element={token ? <Home /> : <Landing />} />
-      <Route path="/:slug/login" element={token ? <Navigate to="/" /> : <TenantLogin />} />
-      <Route path="/:slug/signup" element={token ? <Navigate to="/" /> : <TenantSignup />} />
-      <Route path="/:slug" element={<Navigate to="login" replace />} />
+      <Route path="/provider/:slug/login" element={token ? <Navigate to="/" /> : <TenantLogin />} />
+      <Route path="/provider/:slug/signup" element={token ? <Navigate to="/" /> : <TenantSignup />} />
+      <Route path="/provider/:slug" element={<Navigate to="login" replace />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )

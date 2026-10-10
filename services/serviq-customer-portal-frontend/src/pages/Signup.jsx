@@ -57,7 +57,7 @@ export default function Signup({ tenantSlug }) {
             {busy ? 'Creating account…' : 'Sign up'}
           </Button>
           <Typography variant="body2">
-            Already have an account? <Link to={tenantSlug ? `/${tenantSlug}/login` : '/login'}>Sign in</Link>
+            Already have an account? <Link to={tenantSlug ? `/provider/${tenantSlug}/login` : '/login'}>Sign in</Link>
           </Typography>
         </Stack>
       </Paper>
