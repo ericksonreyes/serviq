@@ -521,12 +521,6 @@ services:
         condition: service_started
         required: false
     mem_limit: 256m
-  #   develop:
-  #     watch:
-  #       - action: sync+restart      # uvicorn picks up synced code on restart
-  #         path: ./serviq-ai-agent
-  #         target: /app
-  #         ignore: [__pycache__, .venv, .git]
 
   # ── Frontends (static Vite builds on nginx) ────────────────────────────────
   # Multi-stage Dockerfile: vite build → nginx:alpine serves dist/.
