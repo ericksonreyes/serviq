@@ -1,13 +1,4 @@
-.git
-.env
-.env.*
-!.env.example
-vendor
 node_modules
 dist
-storage/keys
-storage/logs/*.log
-spec
-features
-tests
-.phpunit.result.cache
+.env
+*.log

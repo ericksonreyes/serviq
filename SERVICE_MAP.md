@@ -131,9 +131,10 @@ monorepo folders under `services/`.
   description: Customer Support command API — cases, complaints, escalations, refund decisions
   location: services/serviq-customer-support-backend/
   stack:
-  - Laravel
+  - Express
   - PostgreSQL
-  - PHPSpec
+  - MongoDB
+  - PostgreSQL
   - Behat
 
 - name: Notification Backend

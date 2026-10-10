@@ -351,17 +351,23 @@ services:
       timeout: 3s
       retries: 12
   #
+  # NestJS service (ADR-0019) — the one intentional exception to the
+  # Laravel backend stack; same outbox/consumer/JWT contracts.
   customer-support-backend:
     container_name: serviq-customer-support-backend
     <<: *laravel-service
     build: ./serviq-customer-support-backend
     env_file: ./serviq-customer-support-backend/.env
-    volumes: ["./serviq-customer-support-backend:/var/www/html"]
-    ports: ["8018:80"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+    ports: ["8018:3000"]
     environment:
       <<: *common-env
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost/api/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 12
@@ -503,13 +509,16 @@ services:
   customer-support-consumer:
     container_name: serviq-customer-support-consumer
     <<: *consumer-service
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      mongo: {condition: service_healthy}
     build: ./serviq-customer-support-backend
     env_file: ./serviq-customer-support-backend/.env
-    volumes: ["./serviq-customer-support-backend:/var/www/html"]
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
-    command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
+    command: "node dist/consumer.js"
   notification-consumer:
     container_name: serviq-notification-consumer
     <<: *consumer-service
