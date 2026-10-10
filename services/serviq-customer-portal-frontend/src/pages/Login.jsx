@@ -40,12 +40,6 @@ export default function Login({ tenantSlug }) {
           {error && <Alert severity="error">{error}</Alert>}
           <TextField label="Username" required {...field('username')} />
           <TextField label="Password" type="password" required {...field('password')} />
-          <TextField
-            label="Service Provider"
-            required
-            helperText="Your provider's handle — e.g. quickrepairguys (also works as /provider/<slug>)"
-            {...field('tenant')}
-          />
           <Button type="submit" variant="contained" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </Button>

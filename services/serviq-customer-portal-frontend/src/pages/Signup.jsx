@@ -45,12 +45,6 @@ export default function Signup({ tenantSlug }) {
           <TextField label="Full name" required {...field('display_name')} />
           <TextField label="Username" required {...field('username')} />
           <TextField label="Email" type="email" required {...field('email')} />
-          <TextField
-            label="Service Provider"
-            required
-            helperText="Your provider's handle — e.g. quickrepairguys"
-            {...field('tenant')}
-          />
           <TextField label="Password" type="password" required {...field('password')} />
           <TextField label="Confirm password" type="password" required {...field('password_confirmation')} />
           <Button type="submit" variant="contained" disabled={busy}>

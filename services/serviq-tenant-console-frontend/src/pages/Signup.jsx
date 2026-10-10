@@ -5,7 +5,7 @@ import { api } from '../api'
 const input = 'w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
 const label = 'block text-sm font-medium text-slate-700'
 
-export default function Signup() {
+export default function Signup({ tenantSlug }) {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     name: '', slug: '',
@@ -40,12 +40,12 @@ export default function Signup() {
           <h1 className="text-xl font-semibold text-slate-900">Organization created</h1>
           <p className="mt-2 text-sm text-slate-600">
             Your service provider account is pending platform review. You can sign
-            in with your admin credentials using tenant ID:
+            in with your admin credentials using your organization handle:
           </p>
-          <p className="mt-2 rounded bg-slate-50 p-2 font-mono text-xs text-slate-700">{tenantId}</p>
+          <p className="mt-2 rounded bg-slate-50 p-2 font-mono text-xs text-slate-700">{form.slug || tenantId}</p>
           <Link
             to="/login"
-            state={{ tenant_id: tenantId }}
+            state={{ tenant_id: form.slug || tenantId }}
             className="mt-4 block w-full rounded bg-slate-900 px-3 py-2 text-center text-sm font-medium text-white hover:bg-slate-700"
           >
             Continue to sign in
@@ -108,7 +108,7 @@ export default function Signup() {
             {busy ? 'Creating…' : 'Create organization'}
           </button>
           <p className="text-sm text-slate-500">
-            Already a provider? <Link to="/login" className="text-slate-900 underline">Sign in</Link>
+            Already a provider? <Link to={tenantSlug ? `/provider/${tenantSlug}/login` : '/login'} className="text-slate-900 underline">Sign in</Link>
           </p>
         </form>
       </div>

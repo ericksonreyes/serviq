@@ -4,11 +4,11 @@ import { Alert, Button, Container, Paper, Stack, TextField, Typography } from '@
 import { api } from '../api'
 import { useAuth } from '../auth'
 
-export default function Signup() {
+export default function Signup({ tenantSlug }) {
   const { setToken } = useAuth()
   const [form, setForm] = useState({
     display_name: '', username: '', email: '',
-    tenant_id: '', password: '', password_confirmation: '',
+    tenant: tenantSlug || '', password: '', password_confirmation: '',
   })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -45,19 +45,13 @@ export default function Signup() {
           <TextField label="Full name" required {...field('display_name')} />
           <TextField label="Username" required {...field('username')} />
           <TextField label="Email" type="email" required {...field('email')} />
-          <TextField
-            label="Service Provider ID"
-            required
-            helperText="The tenant ID of the provider you're applying to"
-            {...field('tenant_id')}
-          />
           <TextField label="Password" type="password" required {...field('password')} />
           <TextField label="Confirm password" type="password" required {...field('password_confirmation')} />
           <Button type="submit" variant="contained" size="large" disabled={busy}>
             {busy ? 'Submitting…' : 'Sign up'}
           </Button>
           <Typography variant="body2">
-            Already registered? <Link to="/login">Sign in</Link>
+            Already registered? <Link to={tenantSlug ? `/provider/${tenantSlug}/login` : '/login'}>Sign in</Link>
           </Typography>
         </Stack>
       </Paper>

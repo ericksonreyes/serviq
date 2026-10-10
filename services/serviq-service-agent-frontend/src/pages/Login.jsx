@@ -4,9 +4,9 @@ import { Alert, Button, Container, Paper, Stack, TextField, Typography } from '@
 import { api } from '../api'
 import { useAuth } from '../auth'
 
-export default function Login() {
+export default function Login({ tenantSlug }) {
   const { setToken } = useAuth()
-  const [form, setForm] = useState({ username: '', password: '', tenant_id: '' })
+  const [form, setForm] = useState({ username: '', password: '', tenant: tenantSlug || '' })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -40,17 +40,11 @@ export default function Login() {
           {error && <Alert severity="error">{error}</Alert>}
           <TextField label="Username" required {...field('username')} />
           <TextField label="Password" type="password" required {...field('password')} />
-          <TextField
-            label="Service Provider ID"
-            required
-            helperText="The tenant ID of your service provider"
-            {...field('tenant_id')}
-          />
           <Button type="submit" variant="contained" size="large" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </Button>
           <Typography variant="body2">
-            Applying as an agent? <Link to="/signup">Sign up</Link>
+            Applying as an agent? <Link to={tenantSlug ? `/provider/${tenantSlug}/signup` : '/signup'}>Sign up</Link>
           </Typography>
         </Stack>
       </Paper>

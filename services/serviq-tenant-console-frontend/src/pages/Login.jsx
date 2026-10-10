@@ -6,10 +6,10 @@ import { useAuth } from '../auth'
 const input = 'w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none'
 const label = 'block text-sm font-medium text-slate-700'
 
-export default function Login() {
+export default function Login({ tenantSlug }) {
   const { setToken } = useAuth()
   const location = useLocation()
-  const [form, setForm] = useState({ username: '', password: '', tenant_id: location.state?.tenant_id || '' })
+  const [form, setForm] = useState({ username: '', password: '', tenant: location.state?.tenant_id || tenantSlug || '' })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -50,7 +50,6 @@ export default function Login() {
           </div>
           <div>
             <label className={label}>Tenant ID</label>
-            <input className={input} required placeholder="Your organization tenant ID" value={form.tenant_id} onChange={set('tenant_id')} />
           </div>
           <button
             type="submit"
@@ -60,7 +59,7 @@ export default function Login() {
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
           <p className="text-sm text-slate-500">
-            New service provider? <Link to="/signup" className="text-slate-900 underline">Create your organization</Link>
+            New service provider? <Link to={tenantSlug ? `/provider/${tenantSlug}/signup` : '/signup'} className="text-slate-900 underline">Create your organization</Link>
           </p>
         </form>
       </div>
