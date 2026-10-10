@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Role;
+use App\Models\TenantScope;
 use App\Models\User;
 use App\Services\DomainEventRecorder;
 use App\Services\JwtIssuer;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AuthController
@@ -28,7 +30,8 @@ class AuthController
     public function register(Request $request, JwtIssuer $issuer, DomainEventRecorder $events): JsonResponse
     {
         $data = $request->validate([
-            'tenant_id' => ['required', 'uuid', Rule::exists('tenant_scopes', 'id')],
+            'tenant_id' => ['nullable', 'uuid', Rule::exists('tenant_scopes', 'id')],
+            'tenant' => ['nullable', 'string', 'alpha_dash', 'max:100'],
             'role' => ['nullable', 'string', Rule::in(self::SELF_SERVE_ROLES)],
             'username' => [
                 'required', 'string', 'max:100',
@@ -39,7 +42,15 @@ class AuthController
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $scope = $data['tenant_id'];
+        // 'tenant' is the public handle — slug (or UUID) resolved to the scope id.
+        $scope = $data['tenant_id'] ?? null;
+        if ($scope === null && isset($data['tenant'])) {
+            $scope = Str::isUuid($data['tenant'])
+                ? $data['tenant']
+                : TenantScope::where('slug', $data['tenant'])->value('id');
+        }
+        abort_if($scope === null || ! TenantScope::where('id', $scope)->exists(), 422, 'Unknown tenant');
+        $data['tenant_id'] = $scope;
         $roleName = $data['role'] ?? Role::CUSTOMER;
 
         $user = DB::transaction(function () use ($data, $scope, $roleName, $events) {
@@ -88,12 +99,18 @@ class AuthController
         $data = $request->validate([
             'username' => ['required', 'string'],
             'password' => ['required', 'string'],
-            // 'platform' or a tenant UUIDv7. Defaults to platform scope.
+            // 'platform', a tenant UUIDv7, or the tenant's slug.
             'tenant_id' => ['nullable', 'uuid'],
+            'tenant' => ['nullable', 'string', 'alpha_dash', 'max:100'],
             'scope' => ['nullable', 'string', Rule::in([User::SCOPE_PLATFORM])],
         ]);
 
         $scope = $data['tenant_id'] ?? $data['scope'] ?? User::SCOPE_PLATFORM;
+        if (isset($data['tenant'])) {
+            $scope = Str::isUuid($data['tenant'])
+                ? $data['tenant']
+                : (TenantScope::where('slug', $data['tenant'])->value('id') ?? $data['tenant']);
+        }
 
         $user = User::where('scope', $scope)->where('username', $data['username'])->first();
 

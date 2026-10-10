@@ -26,7 +26,10 @@ class TenantCreatedHandler
 
         TenantScope::firstOrCreate(
             ['id' => $tenantId],
-            ['name' => $envelope['payload']['name'] ?? null],
+            [
+                'name' => $envelope['payload']['name'] ?? null,
+                'slug' => $envelope['payload']['slug'] ?? null,
+            ],
         );
 
         foreach ($envelope['payload']['initial_users'] ?? [] as $user) {

@@ -4,9 +4,9 @@ import { Alert, Button, Container, Paper, Stack, TextField, Typography } from '@
 import { api } from '../api'
 import { useAuth } from '../auth'
 
-export default function Login() {
+export default function Login({ tenantSlug }) {
   const { setToken } = useAuth()
-  const [form, setForm] = useState({ username: '', password: '', tenant_id: '' })
+  const [form, setForm] = useState({ username: '', password: '', tenant: tenantSlug || '' })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -41,16 +41,16 @@ export default function Login() {
           <TextField label="Username" required {...field('username')} />
           <TextField label="Password" type="password" required {...field('password')} />
           <TextField
-            label="Service Provider ID"
+            label="Service Provider"
             required
-            helperText="The tenant ID your service provider gave you"
-            {...field('tenant_id')}
+            helperText="Your provider's handle — e.g. quickrepairguys (also works as /<slug>)"
+            {...field('tenant')}
           />
           <Button type="submit" variant="contained" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
           </Button>
           <Typography variant="body2">
-            New customer? <Link to="/signup">Create an account</Link>
+            New customer? <Link to={tenantSlug ? `/${tenantSlug}/signup` : '/signup'}>Create an account</Link>
           </Typography>
         </Stack>
       </Paper>
