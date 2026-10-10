@@ -1,5 +1,10 @@
 # serviq-customer-portal-frontend
 
-Static nginx shell (POC). The spec calls for React+Vite (frontend skill);
-the shell proves the serving pattern + IAM login. Ports: portal 8080,
-agent 8081 (PWA planned), console 8082, admin 8083.
+Customer Portal — React + Vite + Material UI (end-user channel, ADR-0017).
+
+Pages: `/login`, `/signup` (public customer self-registration →
+IAM `/api/v1/auth/register`), `/` (requests & jobs from the BFF).
+
+Env (build-time `VITE_*`, localhost-mapped): `VITE_API_BASE_URL` → BFF
+(:3000), `VITE_IDENTITY_API_URL` → IAM (:8010). `npm run dev` for local
+editing; container builds statically via multi-stage Dockerfile → nginx.

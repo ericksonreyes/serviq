@@ -40,6 +40,8 @@ reference), tiered profiles are a fallback lever — not the goal — for when m
 
 The full memory and disk budgets — per-service allocations, image tag choices, and model-weight discipline — are in [Local Resource Budget](./LOCAL_RESOURCE_BUDGET.MD).
 
+For immediate testing, the install seeds demo accounts for every role — see [Local seed accounts](../../../../README.MD#local-seed-accounts) in the root README.
+
 ## Hexagonal Architecture Fit
 
 ServIQ should depend on **ports** for external capabilities and use **adapters** for concrete implementations.

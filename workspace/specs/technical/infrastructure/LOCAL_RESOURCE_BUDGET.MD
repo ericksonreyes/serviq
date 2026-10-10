@@ -16,17 +16,17 @@ contract is the protection.
 | MongoDB | 1 | 384m | ~300MB | ~300MB | `--wiredTigerCacheSizeGB 0.25` |
 | Redis | 1 | 64m | ~15MB | ~15MB | JWT blacklist + pub/sub |
 | RabbitMQ (+ mgmt UI) | 1 | 320m | ~250MB | ~250MB | `serviq.events` exchange + per-service queues/DLQs |
-| MinIO | 1 | 192m | ~150MB | ~150MB | object storage port |
+| MinIO | 1 | 256m | ~185MB | ~185MB | object storage port |
 | Fluent Bit | 1 | 64m | ~30MB | ~30MB | logs → stdout; searchable sink optional (ADR-0014) |
 | Ollama runtime | 1 | 4g | ~200MB | ~200MB | idle — weights excluded; see model spike below |
 | Laravel API (CRUD contexts) | 9 | 128m | ~80MB | ~720MB | php:apache, mod_php, capped children, no Xdebug |
 | Laravel API (event-sourced) | 3 | 128m | ~90MB | ~270MB | Job Mgmt, Billing, Payouts — stream replay cost |
-| Event consumers (Laravel) | 12 | 80m | ~55MB | ~660MB | dedicated containers — `EVENT_DELIVERY.MD` |
+| Event consumers (Laravel) | 12 | 128m | ~80MB | ~960MB | dedicated containers — `EVENT_DELIVERY.MD` |
 | Event consumers (BFF + AI) | 2 | 128m | ~100MB | ~200MB | portal projector + AI async tasks |
 | NestJS BFFs | 2 | 256m | ~125MB | ~250MB | `node dist`, `--max-old-space-size=256` |
 | FastAPI AI Agent | 1 | 256m | ~150MB | ~150MB | |
 | nginx frontends (static) | 4 | 32m | ~10MB | ~40MB | Vite builds; zero runtime logic |
-| | | | **Steady state** | **~3.3GB** | |
+| | | | **Steady state** | **~3.7GB** | |
 | Vision model loaded (spike) | | | | +1.7–3GB | moondream default; qwen2.5vl:3b if swapped |
 
 Worst-case if every container sat at its cap: ~9GB — exceeds the machine, which is why the

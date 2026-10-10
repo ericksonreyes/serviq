@@ -21,6 +21,14 @@ Frontend policy: **React + Vite everywhere** — one framework/build stack for a
 API-driven, so SSR buys nothing; frontends ship as static builds served by nginx. A dev server runs only for the
 app under active development.
 
+Library patterns (pinned with the first apps): `react-router-dom` for routing — `/login` public, every other
+route behind a token guard; plain `fetch` wrapped in a small per-app `api.js` — no data-fetching framework.
+The access token lives in React context memory only, so a page refresh returns to login until refresh-token
+handling is specced. Auth calls hit IAM's public edge (`/api/v1/auth/*`) directly from every channel; channel
+data calls follow the edge policy below. The Service Agent app adds `vite-plugin-pwa` for its installable,
+offline-tolerant shell. Each app ships a multi-stage Dockerfile (`node:22-alpine` build → `nginx:alpine`)
+with an SPA-fallback `nginx.conf` (`try_files $uri $uri/ /index.html`).
+
 Channel policy: **one deployable frontend per user channel** — Customer Portal (React), Service Agent app (React
 PWA), Tenant Console (React, serving admin/dispatch/support/ops views), Platform Admin (React).
 

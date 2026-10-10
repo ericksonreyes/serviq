@@ -61,7 +61,7 @@ x-consumer-service: &consumer-service
     rabbitmq:
       condition: service_healthy
   restart: unless-stopped
-  mem_limit: 80m
+  mem_limit: 128m
 
 services:
 
@@ -76,7 +76,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-serviq}
       POSTGRES_DB: serviq
     command: postgres -c shared_buffers=128MB
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U serviq"]
@@ -91,7 +91,7 @@ services:
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
     command: mongod --wiredTigerCacheSizeGB 0.25
-    ports: ["27017:27017"]
+    ports: ["127.0.0.1:27017:27017"]
     volumes: [mongo-data:/data/db]
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"]
@@ -105,7 +105,7 @@ services:
     image: redis:7-alpine
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     volumes: [redis-data:/data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -117,6 +117,10 @@ services:
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
+    # Pin the node name — without it the node is rabbit@<random container
+    # hostname>, so every recreate abandons the previous mnesia dir and the
+    # named volume keeps orphaned, unreadable copies of users/queues.
+    hostname: rabbitmq
     profiles: ["infra", "domain", "ai", "full"]
     networks: [serviq]
     environment:
@@ -124,8 +128,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-serviq}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-serviq}
     ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # management UI
+      - "127.0.0.1:5672:5672"    # AMQP
+      - "127.0.0.1:15672:15672"  # management UI
     volumes: [rabbitmq-data:/var/lib/rabbitmq]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
@@ -144,15 +148,15 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-serviq}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-serviq-local}
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # console
+      - "127.0.0.1:9000:9000"   # S3 API
+      - "127.0.0.1:9001:9001"   # console
     volumes: [minio-data:/data]
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 12
-    mem_limit: 192m
+    mem_limit: 256m
     restart: unless-stopped
 
   # Log aggregation is intentionally minimal locally: Fluent Bit collects
@@ -176,7 +180,7 @@ services:
     environment:
       OLLAMA_KEEP_ALIVE: 2m          # unload model weights between calls — RAM is the constraint
       OLLAMA_MAX_LOADED_MODELS: "1"  # one model resident at a time — vision+text together would exceed the cap
-    ports: ["11434:11434"]
+    ports: ["127.0.0.1:11434:11434"]
     volumes: [ollama-models:/root/.ollama]
     mem_limit: 4g
     restart: unless-stopped
@@ -543,6 +547,11 @@ services:
     networks: [serviq]
     ports: ["8081:80"]
     mem_limit: 32m
+    develop:
+      watch:
+        - action: rebuild
+          path: ./serviq-service-agent-frontend
+          ignore: [node_modules, dist, .git]
 
   tenant-console-frontend:
     build: ./serviq-tenant-console-frontend
@@ -550,6 +559,11 @@ services:
     networks: [serviq]
     ports: ["8082:80"]
     mem_limit: 32m
+    develop:
+      watch:
+        - action: rebuild
+          path: ./serviq-tenant-console-frontend
+          ignore: [node_modules, dist, .git]
 
   platform-admin-frontend:
     build: ./serviq-platform-admin-frontend
@@ -557,3 +571,8 @@ services:
     networks: [serviq]
     ports: ["8083:80"]
     mem_limit: 32m
+    develop:
+      watch:
+        - action: rebuild
+          path: ./serviq-platform-admin-frontend
+          ignore: [node_modules, dist, .git]

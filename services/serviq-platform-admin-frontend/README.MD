@@ -1,5 +1,11 @@
 # serviq-platform-admin-frontend
 
-Static nginx shell (POC). The spec calls for React+Vite (frontend skill);
-the shell proves the serving pattern + IAM login. Ports: portal 8080,
-agent 8081 (PWA planned), console 8082, admin 8083.
+Platform Admin — React + Vite + Tailwind (internal admin channel,
+ADR-0017).
+
+Pages: `/login` (platform-scope), `/` (tenant list via Platform
+Management `/api/v1/tenants`).
+
+Env (build-time `VITE_*`, localhost-mapped): `VITE_IDENTITY_API_URL`,
+`VITE_PLATFORM_API_URL` — see `.env.example`. `npm run dev` for local
+editing; container builds statically via multi-stage Dockerfile → nginx.

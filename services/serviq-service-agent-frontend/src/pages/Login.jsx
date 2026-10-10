@@ -1,0 +1,59 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Alert, Button, Container, Paper, Stack, TextField, Typography } from '@mui/material'
+import { api } from '../api'
+import { useAuth } from '../auth'
+
+export default function Login() {
+  const { setToken } = useAuth()
+  const [form, setForm] = useState({ username: '', password: '', tenant_id: '' })
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const field = (key) => ({
+    value: form[key],
+    onChange: (e) => setForm({ ...form, [key]: e.target.value }),
+  })
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await api.login(form)
+      setToken(res.access_token)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Container maxWidth="xs" sx={{ mt: 6 }}>
+      <Paper sx={{ p: 4 }}>
+        <Typography variant="h5" gutterBottom>ServIQ Service Agent</Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Sign in to see your assigned jobs.
+        </Typography>
+        <Stack component="form" spacing={2} onSubmit={submit} sx={{ mt: 2 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField label="Username" required {...field('username')} />
+          <TextField label="Password" type="password" required {...field('password')} />
+          <TextField
+            label="Service Provider ID"
+            required
+            helperText="The tenant ID of your service provider"
+            {...field('tenant_id')}
+          />
+          <Button type="submit" variant="contained" size="large" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </Button>
+          <Typography variant="body2">
+            Applying as an agent? <Link to="/signup">Sign up</Link>
+          </Typography>
+        </Stack>
+      </Paper>
+    </Container>
+  )
+}

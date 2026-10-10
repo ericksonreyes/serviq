@@ -1,5 +1,11 @@
 # serviq-tenant-console-frontend
 
-Static nginx shell (POC). The spec calls for React+Vite (frontend skill);
-the shell proves the serving pattern + IAM login. Ports: portal 8080,
-agent 8081 (PWA planned), console 8082, admin 8083.
+Tenant Console — React + Vite + Tailwind (internal admin channel,
+ADR-0017).
+
+Pages: `/login` (tenant-scope), `/` (account/identity overview via IAM
+`/api/v1/auth/me`).
+
+Env (build-time `VITE_*`, localhost-mapped): `VITE_IDENTITY_API_URL` and
+per-domain API URLs — see `.env.example`. `npm run dev` for local
+editing; container builds statically via multi-stage Dockerfile → nginx.

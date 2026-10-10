@@ -10,7 +10,7 @@ allowed-tools:
   - exec
 ---
 
-Conventions for the four channel frontends. STATUS: stack is pinned; library-level patterns (routing, data-fetching structure) should be pinned in `SERVICE_STACKS.MD` when the first app is built — update this skill then.
+Conventions for the four channel frontends. STATUS: all four apps are scaffolded (React + Vite; MUI on portal/agent, Tailwind on console/admin) with login wired against IAM. Sign-up: customers and agents self-register via `/signup` on their channels (IAM `auth/register`, self-serve roles only); service providers sign up as tenants via `/signup` on the Tenant Console (Platform Management `tenants/signup` → PENDING review). Library patterns are pinned in `SERVICE_STACKS.MD` — see "Library patterns" there.
 
 ## Decided
 

@@ -30,5 +30,7 @@ class DatabaseSeeder extends Seeder
         foreach (['ai-agent', 'customer-portal', 'payouts'] as $key) {
             FeatureFlag::firstOrCreate(['key' => $key], ['enabled' => false]);
         }
+
+        $this->call(DemoTenantSeeder::class);
     }
 }
