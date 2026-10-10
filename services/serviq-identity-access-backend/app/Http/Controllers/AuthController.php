@@ -145,9 +145,14 @@ class AuthController
     {
         $identity = $request->user();
 
+        $tenantSlug = $identity->tenantId() === User::SCOPE_PLATFORM
+            ? null
+            : TenantScope::where('id', $identity->tenantId())->value('slug');
+
         return response()->json([
             'sub' => $identity->userId(),
             'tenant_id' => $identity->tenantId(),
+            'tenant_slug' => $tenantSlug,
             'roles' => $identity->roles(),
             'permissions' => $identity->permissions(),
         ]);

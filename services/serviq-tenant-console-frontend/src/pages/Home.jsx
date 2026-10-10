@@ -28,7 +28,7 @@ export default function Home() {
           <div className="mt-4 rounded-lg bg-white p-4 shadow">
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div><dt className="text-slate-500">User</dt><dd className="font-mono">{me.sub}</dd></div>
-              <div><dt className="text-slate-500">Tenant</dt><dd className="font-mono">{me.tenant_id ?? 'platform'}</dd></div>
+              <div><dt className="text-slate-500">Tenant</dt><dd className="font-mono">{me.tenant_slug ?? 'platform'}</dd></div>
               <div><dt className="text-slate-500">Roles</dt><dd>{(me.roles || []).join(', ') || '—'}</dd></div>
               <div><dt className="text-slate-500">Permissions</dt><dd>{(me.permissions || []).join(', ') || '—'}</dd></div>
             </dl>
