@@ -50,9 +50,10 @@ class DemoTenantSeeder extends Seeder
                 $tenant->save();
             }
 
-            if (! $tenant->wasRecentlyCreated) {
-                return null;
-            }
+            // Existing tenant (e.g. created by an earlier session's API call):
+            // re-emit TenantCreated — IAM's firstOrCreate scope + firstOrCreate
+            // users make replay idempotent, so demo accounts still provision.
+            $reemit = ! $tenant->wasRecentlyCreated;
 
             $events->record('Platform.TenantCreated', [
                 'tenant_id' => $tenant->id,
@@ -67,9 +68,13 @@ class DemoTenantSeeder extends Seeder
             ], $tenant->id);
 
             // Demo tenants start active — real signups stay PENDING for
-            // platform review.
-            $tenant->transitionTo(TenantLifecycle::ACTIVE);
-            $events->record('Platform.TenantActivated', ['tenant_id' => $tenant->id], $tenant->id);
+            // platform review. Skip when the tenant already exists in some
+            // state (transition rules still apply — an ILLEGAL transition
+            // would throw).
+            if (! $reemit) {
+                $tenant->transitionTo(TenantLifecycle::ACTIVE);
+                $events->record('Platform.TenantActivated', ['tenant_id' => $tenant->id], $tenant->id);
+            }
 
             return $tenant;
         });

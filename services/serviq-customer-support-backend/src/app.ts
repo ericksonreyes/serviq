@@ -65,6 +65,14 @@ const bad = (res: Response, msg: string) => res.status(422).json({ message: msg,
 export function createApp() {
   const app = express();
   app.use(express.json());
+  app.use((req, res, next) => {
+    res.set('Access-Control-Allow-Origin', (req.headers.origin as string) || '*');
+    res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'customer-support-backend' });

@@ -6,6 +6,14 @@ import { createRemoteJWKSet, jwtVerify } from 'jose'
 
 const app = express()
 app.use(express.json())
+app.use((_req, res, next) => {
+  res.set('Access-Control-Allow-Origin', _req.headers.origin || '*')
+  res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
+  res.set('Access-Control-Allow-Headers', 'Authorization,Content-Type')
+  if (_req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
+
 
 const jwks = createRemoteJWKSet(
   new URL(process.env.JWT_JWKS_URL || 'http://identity-access-backend/.well-known/jwks.json'))
