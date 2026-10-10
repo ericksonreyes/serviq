@@ -172,6 +172,12 @@ RabbitMQ, Redis, Ollama, the vector store) has no public route.
 
 - All services validate JWTs per the [Security & Access Control](./security/README.MD) note; authorization uses signed
   role and permission claims.
+- Laravel messaging conventions (first landed in Identity & Access): `php-amqplib` behind the messaging port —
+  `php artisan outbox:publish` relays outbox rows to the `serviq.events` topic exchange and `php artisan
+  events:consume` runs the per-service queue + DLQ subscriber. The service's `-consumer` container runs both
+  loops; the API process never touches the broker.
+- PHP packages use `composer` multi-stage builds (`composer:2` → `php:8.4-apache`); `php-amqplib` needs
+  `ext-sockets`, Redis access uses the `redis` PECL extension.
 - Identity & Access is the only JWT issuer; gateways and BFFs validate and forward tokens, they do not sign them.
 - PostgreSQL extensions may be enabled per service where needed — for example PostGIS in Workforce Management for
   agent coordinates and service areas.

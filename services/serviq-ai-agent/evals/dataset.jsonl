@@ -1,0 +1,20 @@
+{"synthetic_payload": "e_wallet_receipt reference_no: GCash-9911 amount: 1500.00 provider: GCash", "document_type": "e_wallet_receipt", "fields": {"reference_no": "GCash-9911", "amount": "1500.00"}}
+{"synthetic_payload": "e_wallet_receipt reference_no: Maya-2201 amount: 800 provider: Maya", "document_type": "e_wallet_receipt", "fields": {"reference_no": "Maya-2201"}}
+{"synthetic_payload": "cash_photo denominations: 500x3 total_amount: 1500 currency: PHP", "document_type": "cash_photo", "fields": {"total_amount": "1500"}}
+{"synthetic_payload": "cash_photo denominations: 1000x2 total_amount: 2000", "document_type": "cash_photo", "fields": {"denominations": "1000x2"}}
+{"synthetic_payload": "bank_deposit_slip account_no: 123456 amount: 5000 deposit_date: 2026-10-01", "document_type": "bank_deposit_slip", "fields": {"account_no": "123456"}}
+{"synthetic_payload": "bank_deposit_slip amount: 3200 reference_no: DEP-81", "document_type": "bank_deposit_slip", "fields": {"amount": "3200"}}
+{"synthetic_payload": "check check_no: 0002231 amount: 12000 bank: BDO", "document_type": "check", "fields": {"check_no": "0002231"}}
+{"synthetic_payload": "check check_no: 91 amount: 750 bank: BPI date: 2026-09-30", "document_type": "check", "fields": {"bank": "BPI"}}
+{"synthetic_payload": "pos_receipt merchant: SM Appliance amount: 2100 card_last4: 4242", "document_type": "pos_receipt", "fields": {"merchant": "SM"}}
+{"synthetic_payload": "pos_receipt amount: 999 date: 2026-10-02", "document_type": "pos_receipt", "fields": {"amount": "999"}}
+{"synthetic_payload": "purchase_order po_number: PO-77 vendor: AcmeParts total_amount: 5600", "document_type": "purchase_order", "fields": {"po_number": "PO-77"}}
+{"synthetic_payload": "purchase_order vendor: ColdChain total_amount: 1200 date: 2026-10-03", "document_type": "purchase_order", "fields": {"vendor": "ColdChain"}}
+{"synthetic_payload": "e_wallet_receipt amount: 650 sender: Juan provider: GCash", "document_type": "e_wallet_receipt", "fields": {"sender": "Juan"}}
+{"synthetic_payload": "cash_photo total_amount: 350 currency: PHP denominations: 50x7", "document_type": "cash_photo", "fields": {"total_amount": "350"}}
+{"synthetic_payload": "bank_deposit_slip account_no: 999888 amount: 1100", "document_type": "bank_deposit_slip", "fields": {"account_no": "999888"}}
+{"synthetic_payload": "check amount: 4300 bank: Metrobank check_no: 412", "document_type": "check", "fields": {"amount": "4300"}}
+{"synthetic_payload": "pos_receipt merchant: AceHardware amount: 450", "document_type": "pos_receipt", "fields": {"amount": "450"}}
+{"synthetic_payload": "purchase_order po_number: PO-102 total_amount: 8400", "document_type": "purchase_order", "fields": {"po_number": "PO-102"}}
+{"synthetic_payload": "e_wallet_receipt reference_no: R-31 amount: 200 provider: Maya sender: Ana", "document_type": "e_wallet_receipt", "fields": {"reference_no": "R-31"}}
+{"synthetic_payload": "random noise nothing here", "document_type": "unknown", "fields": {}}

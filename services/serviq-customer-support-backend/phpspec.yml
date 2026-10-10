@@ -1,0 +1,8 @@
+suites:
+  app:
+    namespace: App
+    psr4_prefix: App
+    spec_prefix: spec
+    src_path: '%paths.config%/app'
+    spec_path: '%paths.config%'
+bootstrap: vendor/autoload.php

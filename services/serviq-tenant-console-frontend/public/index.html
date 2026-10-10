@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ServIQ — Tenant Console</title>
+<style>body{font-family:system-ui;margin:2rem auto;max-width:720px}input,button{padding:.5rem;margin:.25rem 0}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.4rem;text-align:left}.muted{color:#666}</style>
+</head><body>
+<h1>ServIQ Tenant Console</h1>
+<p class="muted">Tenant operator view — jobs, dispatch, billing</p>
+<div id="login">
+<input id="u" placeholder="username"><input id="p" type="password" placeholder="password">
+<input id="t" placeholder="tenant_id (blank = platform scope)">
+<button onclick="login()">Sign in</button><pre id="err"></pre></div>
+<div id="app" style="display:none"><button onclick="load()">Refresh</button><div id="out"></div></div>
+<script>
+const API='http://localhost:8014';let tok=null;
+async function login(){
+ const body={username:u.value,password:p.value};if(t.value)body.tenant_id=t.value;
+ const r=await fetch('http://localhost:8010/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const j=await r.json();if(!r.ok){err.textContent=JSON.stringify(j);return}
+ tok=j.data.access_token||j.data.token;login.style='display:none';document.getElementById('login').style.display='none';
+ document.getElementById('app').style.display='block';load();}
+async function load(){out.innerHTML='<p class="muted">Sign in, then wire this shell to '+API+'</p>';}</script>
+</body></html>

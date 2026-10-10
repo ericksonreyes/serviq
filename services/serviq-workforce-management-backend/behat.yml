@@ -1,0 +1,7 @@
+default:
+  autoload:
+    'Features\Bootstrap': 'features/bootstrap'
+  suites:
+    workforce:
+      contexts:
+        - Features\Bootstrap\WorkforceContext

@@ -1,0 +1,7 @@
+default:
+  autoload:
+    'Features\Bootstrap': 'features/bootstrap'
+  suites:
+    requests:
+      contexts:
+        - Features\Bootstrap\RequestContext
