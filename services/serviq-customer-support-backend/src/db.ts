@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Client } from 'pg';
 import { DataSource } from 'typeorm';
-import { OutboxEvent, ProcessedEvent, RefundDecision, SupportCase } from './entities';
+import { OutboxEvent, ProcessedEvent, RefundDecision, SupportCase, CaseNote } from './entities';
 
 export const dataSource = new DataSource({
   type: 'postgres',
@@ -12,7 +12,7 @@ export const dataSource = new DataSource({
   database: process.env.DB_DATABASE || 'serviq_support',
   username: process.env.DB_USERNAME || 'serviq',
   password: process.env.DB_PASSWORD || 'serviq',
-  entities: [SupportCase, RefundDecision, OutboxEvent, ProcessedEvent],
+  entities: [SupportCase, RefundDecision, CaseNote, OutboxEvent, ProcessedEvent],
   // Schema is applied by ensureSchema() from src/schema.sql (idempotent,
   // mirrors the former Laravel migration). synchronize stays off — the
   // entity columns match that DDL 1:1.

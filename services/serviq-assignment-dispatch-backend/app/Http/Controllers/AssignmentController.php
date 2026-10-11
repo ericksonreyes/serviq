@@ -49,6 +49,18 @@ class AssignmentController
         return response()->json(['data' => $offers]);
     }
 
+    /** Advisory top-N agents for a job — ranked, reasoned, never assigns. */
+    public function recommend(Request $request, string $tenant, DispatchService $dispatch): JsonResponse
+    {
+        $data = $request->validate([
+            'job_id' => ['required', 'uuid'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+        $job = DispatchableJob::where('job_id', $data['job_id'])->where('tenant_id', $tenant)->firstOrFail();
+
+        return response()->json(['data' => $dispatch->recommend($job, $data['limit'] ?? 5)]);
+    }
+
     /** Dispatcher assignment — explicit pick. */
     public function assign(Request $request, string $tenant, DispatchService $dispatch): JsonResponse
     {

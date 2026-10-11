@@ -2,6 +2,13 @@ import { MongoClient, Db } from 'mongodb';
 
 // CQRS read model (ADR-0020): cases projected into MongoDB from Support.*
 // events by the consumer — same pattern as the portal BFF projector.
+export interface CaseNoteDoc {
+  id: string;
+  body: string;
+  author_id: string | null;
+  created_at: Date;
+}
+
 export interface CaseDoc {
   _id: string;
   tenant_id: string;
@@ -11,6 +18,7 @@ export interface CaseDoc {
   subject: string;
   status: string;
   details: unknown;
+  notes?: CaseNoteDoc[];
   refund?: { decision: string; amount_cents: number | null; reason: string | null; decided_by: string | null };
   created_at: Date;
   updated_at: Date;
