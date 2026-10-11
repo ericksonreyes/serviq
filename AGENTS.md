@@ -15,6 +15,7 @@ This file guides documentation-oriented work in the ServIQ repository.
 - Use `workspace/specs/GLOSSARY.MD` as the source of truth for shared vocabulary.
 - Use `workspace/specs/domain/specs/DOMAIN_BOUNDARIES.md` for the high-level domain model and bounded-context map.
 - Use `workspace/specs/technical/README.MD` for engineering disciplines, architecture principles, and quality attributes.
+- Use `APP_FEATURES.MD` (repo root) as the canonical inventory of app features per portal — ✅ marks implemented (end-to-end: UI wired to live APIs, not scaffolds), unmarked means proposed.
 - Record significant architecture decisions as ADRs in `workspace/specs/decisions/` — immutable once accepted; supersede, never rewrite; update its index.
 - Use `workspace/specs/technical/user_experience/README.MD` for UX guidance.
 

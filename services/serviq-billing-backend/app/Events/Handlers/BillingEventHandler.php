@@ -31,6 +31,7 @@ class BillingEventHandler
                 'job_id' => $jobId,
                 'tenant_id' => $envelope['tenant_id'],
                 'customer_id' => $p['customer_id'] ?? null,
+                'agent_id' => $p['agent_id'] ?? null,
             ], $p['amount_cents'] ?? self::DEFAULT_AMOUNT_CENTS);
             Log::info("Invoice issued for job {$jobId}");
 

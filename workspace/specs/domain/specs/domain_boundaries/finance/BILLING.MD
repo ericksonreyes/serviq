@@ -130,3 +130,5 @@ Billing should not decide how money is split between the platform and the tenant
 Refund *cases* — eligibility review and approval — belong to Customer Support; Billing executes the approved refund payment.
 
 The proof-of-payment intake flow should not decide final settlement or reconciliation outcomes. It should create a structured payment evidence record that Billing and downstream finance contexts can consume.
+
+Remittance status transitions are human-confirmed, never automatic: Billing validates AI-parsed evidence (cash counts, receipts, bank deposit slips) and owns the status change to `REMITTED`, but only on a dispatcher's explicit confirmation — an AI extract alone settles nothing. See [Cash Remittance Counting](../../../../technical/ai/CASH_REMITTANCE.MD).

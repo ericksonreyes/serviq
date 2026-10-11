@@ -18,6 +18,7 @@ This folder is the canonical documentation hub for shared ServIQ specifications.
 - [Glossary & Vocabulary](GLOSSARY.MD)
 - [Spec Audit](AUDIT.MD)
 - [Build Sequence](BUILD_SEQUENCE.MD)
+- [App Features by Portal](../../APP_FEATURES.MD) — lives at the repo root
 - [Architecture Decision Records](decisions/README.MD)
 - [Domain Documentation](domain/README.MD)
 - [Technical Documentation](technical/README.MD)

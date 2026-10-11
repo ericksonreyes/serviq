@@ -1,6 +1,6 @@
 # Cash Remittance Counting
 
-This document describes the AI-assisted cash turn-in flow: a Service Agent (e.g. a rider collecting cash-on-delivery payments) hands physical cash to a dispatcher, and a vision model counts the laid-out bills and coins from a photo.
+This document describes the AI-assisted cash turn-in flow — a Service Agent (e.g. a rider collecting cash-on-delivery payments) hands physical cash to a dispatcher, and a vision model counts the laid-out bills and coins from a photo — and the follow-on bank deposit leg that closes a remittance batch.
 
 ## Goals
 
@@ -47,6 +47,40 @@ Billing compares expected vs counted
 - A variance never auto-resolves — a human dispatcher either recounts and overrides, or accepts the shortfall. Both paths write an audit record including who acted.
 - Manual overrides must store `overridden_by` with the dispatcher's IAM user ID — see [Identifiers](../IDENTIFIERS.MD) and the IAM accountability rules.
 - The denomination breakdown is advisory detail; the authoritative number is the confirmed count accepted by the dispatcher and recorded by Billing.
+
+## Bank Deposit and Batch Remittance
+
+Confirmed cash sits with the dispatcher until it is deposited at a bank. The deposit closes the loop: one deposit slip remits a whole batch of cash collections at once.
+
+```text
+Dispatcher deposits collected cash at a bank
+        │
+        ▼
+Dispatcher uploads the deposit slip
+        │
+        ▼
+AI Agent — vision model classifies BANK_SLIP and extracts
+           bank, date/time, deposited amount, reference number
+        │
+        ▼
+Billing validates:
+  ├── deposited amount covers the cash collections in the batch
+  └── reference number unused across payments and prior batches
+        │
+        ▼
+Dispatcher confirms → covered collections marked REMITTED
+        │
+        └── Anomaly (shortfall, reused reference, low-confidence parse)
+            → manual review queue — nothing remits automatically
+```
+
+## Rules — batch remittance
+
+- A remittance batch closes only on explicit dispatcher confirmation; the AI extract is advisory and never marks anything remitted by itself.
+- Billing checks the slip's reference number against previously recorded references — across individual payments and prior batches — before the batch may close. A reused reference routes the batch to manual review; this is the fraud guard against re-submitting one slip for multiple deposits.
+- The deposit slip is evidence, not bank-ledger truth — verifying against the bank's own records stays out of scope, per [Proof of Payment Parsing](./PROOF_OF_PAYMENT_PARSING.MD).
+- A batch record stores its member collections, the slip's reference number, and `confirmed_by` with the dispatcher's IAM user ID.
+- A deposited amount below the batch total surfaces as a shortfall to the dispatcher, same as a turn-in variance — recount/override or accept, with the audit record naming who acted.
 
 ## Related Documentation
 

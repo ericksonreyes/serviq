@@ -106,6 +106,7 @@ Auth routes are throttled at 5 req/min — rapid login attempts will hit 429s.
 ### Related Documentation
 
 - [Project Purpose](workspace/specs/PROJECT_PURPOSE.MD) — portfolio goals and the engineering capabilities this project demonstrates
+- [App Features by Portal](APP_FEATURES.MD) — feature inventory per portal: ✅ implemented, unmarked proposed
 - [Workspace Specs Index](workspace/specs/README.MD)
 - [Engineering Disciplines](workspace/specs/technical/README.MD)
 - [User Experience](workspace/specs/technical/user_experience/README.MD)
