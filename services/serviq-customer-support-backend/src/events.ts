@@ -64,6 +64,25 @@ export class EventsConsumer {
               created_at: new Date(env.occurred_at ?? Date.now()),
             },
           }, { upsert: true });
+        } else if (env.type === 'Support.CaseNoted') {
+          await cases.updateOne({ _id: env.payload.case_id as string }, {
+            $push: {
+              notes: {
+                id: env.payload.note_id as string,
+                body: env.payload.body as string,
+                author_id: (env.payload.author_id as string) ?? null,
+                created_at: new Date(env.occurred_at ?? Date.now()),
+              },
+            },
+            $set: { updated_at: new Date() },
+          });
+        } else if (env.type === 'Support.CaseStatusChanged') {
+          await cases.updateOne({ _id: env.payload.case_id as string }, {
+            $set: {
+              status: env.payload.status as string,
+              updated_at: new Date(),
+            },
+          });
         } else if (env.type === 'Support.RefundDecided') {
           await cases.updateOne({ _id: env.payload.case_id as string }, {
             $set: {

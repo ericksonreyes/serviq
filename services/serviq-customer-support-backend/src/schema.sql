@@ -15,6 +15,17 @@ CREATE TABLE IF NOT EXISTS cases (
 CREATE INDEX IF NOT EXISTS cases_tenant_id_index ON cases (tenant_id);
 CREATE INDEX IF NOT EXISTS cases_job_id_index ON cases (job_id);
 
+CREATE TABLE IF NOT EXISTS case_notes (
+    id uuid PRIMARY KEY,
+    case_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    body text NOT NULL,
+    author_id uuid,
+    created_at timestamp(0) without time zone
+);
+CREATE INDEX IF NOT EXISTS case_notes_case_id_index ON case_notes (case_id);
+CREATE INDEX IF NOT EXISTS case_notes_tenant_id_index ON case_notes (tenant_id);
+
 CREATE TABLE IF NOT EXISTS refund_decisions (
     id uuid PRIMARY KEY,
     case_id uuid NOT NULL,

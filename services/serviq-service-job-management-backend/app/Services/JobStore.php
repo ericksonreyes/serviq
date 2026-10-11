@@ -66,8 +66,12 @@ class JobStore
                 'request_id' => $payload['request_id'] ?? null,
                 'service_id' => $payload['service_id'] ?? null,
                 'customer_id' => $payload['customer_id'] ?? null,
+                'scheduled_for' => $payload['scheduled_for'] ?? $payload['preferred_date'] ?? null,
             ]);
             $job->workflow_instance = array_map(fn ($s) => $s + ['state' => 'open'], $payload['steps'] ?? []);
+        }
+        if ($type === 'Job.Rescheduled') {
+            $job->scheduled_for = $payload['scheduled_for'] ?? $job->scheduled_for;
         }
         if ($type === 'Job.WorkflowStepStarted' || $type === 'Job.WorkflowStepCompleted') {
             $steps = $job->workflow_instance ?? [];
@@ -82,7 +86,10 @@ class JobStore
     /** Rebuild the projection from the stream — the milestone's "replay". */
     public function replay(Job $job): Job
     {
-        $job->fill(['status' => JobLifecycle::REQUESTED, 'workflow_instance' => null, 'assigned_agent_id' => null]);
+        $job->fill([
+            'status' => JobLifecycle::REQUESTED, 'workflow_instance' => null,
+            'assigned_agent_id' => null, 'scheduled_for' => null,
+        ]);
         foreach ($job->events()->get() as $event) {
             $this->apply($job, $event->type, $event->payload);
             $job->version = $event->seq;

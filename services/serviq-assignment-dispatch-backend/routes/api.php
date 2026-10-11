@@ -8,6 +8,7 @@ Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 
 Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function () {
     Route::get('/tenants/{tenant}/assignments', [AssignmentController::class, 'index']);
     Route::get('/tenants/{tenant}/dispatch/queue', [AssignmentController::class, 'queue']);
+    Route::get('/tenants/{tenant}/dispatch/recommend', [AssignmentController::class, 'recommend']);
     Route::get('/tenants/{tenant}/offers', [AssignmentController::class, 'offers']);
     Route::put('/tenants/{tenant}/dispatch/rules', [AssignmentController::class, 'configure']);
 

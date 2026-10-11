@@ -2,7 +2,7 @@ import express, { NextFunction, Request, Response, Router } from 'express';
 import * as jose from 'jose';
 import { dataSource } from './db';
 import { readDb, CaseDoc } from './readmodel';
-import { RefundDecision, SupportCase } from './entities';
+import { CaseNote, RefundDecision, SupportCase } from './entities';
 import { recordEvent } from './outbox';
 
 interface JwtClaims { sub: string; tenant_id?: string; roles?: string[] }
@@ -90,6 +90,87 @@ export function createApp() {
     const docs = await readDb().collection<CaseDoc>('cases')
       .find(filter).sort({ created_at: -1 }).limit(50).toArray();
     res.json({ data: docs });
+  });
+
+  // Case detail — read-model doc, notes merged from the command side so a
+  // just-posted note is never missing behind projection lag.
+  api.get('/tenants/:tenant/cases/:case', tenantScope, async (req, res) => {
+    const doc = await readDb().collection<CaseDoc>('cases').findOne({ _id: req.params.case });
+    const kase = doc ?? await dataSource.getRepository(SupportCase).findOneBy({ id: req.params.case });
+    if (!kase || (kase as { tenant_id?: string }).tenant_id !== req.params.tenant) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+    const notes = await dataSource.getRepository(CaseNote)
+      .find({ where: { case_id: req.params.case }, order: { created_at: 'ASC' } });
+    res.json({ data: { ...kase, id: doc ? doc._id : (kase as SupportCase).id, notes } });
+  });
+
+  // Staff note/reply on a case — command write + Support.CaseNoted outbox.
+  api.post('/tenants/:tenant/cases/:case/notes', tenantScope, async (req, res) => {
+    const { body } = req.body ?? {};
+    if (typeof body !== 'string' || !body.trim().length || body.length > 5000) return bad(res, 'body is required (max 5000)');
+
+    const kase = await dataSource.getRepository(SupportCase).findOneBy({ id: req.params.case });
+    if (!kase || kase.tenant_id !== req.params.tenant) return res.status(404).json({ error: 'not_found' });
+    if (kase.status === 'closed' || kase.status === 'resolved') {
+      return res.status(409).json({ error: 'conflict', message: `Case is ${kase.status}` });
+    }
+
+    const note = await dataSource.transaction(async (m) => {
+      const n = await m.save(CaseNote, m.create(CaseNote, {
+        case_id: kase.id, tenant_id: req.params.tenant,
+        body: body.trim(), author_id: req.jwt?.sub ?? null,
+      }));
+      await recordEvent(m, 'Support.CaseNoted', {
+        case_id: kase.id, note_id: n.id, body: n.body, author_id: n.author_id,
+      }, req.params.tenant);
+      return n;
+    });
+    res.status(201).json({ data: note });
+  });
+
+  // Case workflow transitions — open|in_progress|escalated|resolved.
+  const CASE_NEXT: Record<string, string[]> = {
+    open: ['in_progress', 'escalated', 'resolved'],
+    in_progress: ['escalated', 'resolved', 'open'],
+    escalated: ['in_progress', 'resolved'],
+    investigating: ['in_progress', 'escalated', 'resolved'], // legacy status name
+    decided: ['resolved'],
+    resolved: [],
+    closed: [],
+  };
+  api.post('/tenants/:tenant/cases/:case/status', tenantScope, async (req, res) => {
+    const { status } = req.body ?? {};
+    const targets = ['open', 'in_progress', 'escalated', 'resolved'];
+    if (typeof status !== 'string' || !targets.includes(status)) {
+      return bad(res, `status must be one of ${targets.join('|')}`);
+    }
+
+    const kase = await dataSource.getRepository(SupportCase).findOneBy({ id: req.params.case });
+    if (!kase || kase.tenant_id !== req.params.tenant) return res.status(404).json({ error: 'not_found' });
+    if (!(CASE_NEXT[kase.status] ?? []).includes(status)) {
+      return res.status(409).json({ error: 'illegal_transition', message: `Cannot move ${kase.status} → ${status}` });
+    }
+
+    const previous = kase.status;
+    await dataSource.transaction(async (m) => {
+      kase.status = status;
+      await m.save(kase);
+      await recordEvent(m, 'Support.CaseStatusChanged', {
+        case_id: kase.id, status, previous_status: previous, changed_by: req.jwt?.sub ?? null,
+      }, req.params.tenant);
+    });
+    res.json({ data: kase });
+  });
+
+  // Refund decisions for support/finance views.
+  api.get('/tenants/:tenant/refund-decisions', tenantScope, async (req, res) => {
+    const decisions = await dataSource.getRepository(RefundDecision).find({
+      where: { tenant_id: req.params.tenant },
+      order: { created_at: 'DESC' },
+      take: 50,
+    });
+    res.json({ data: decisions });
   });
 
   // ── Command side: case intake + refund decisions. ──

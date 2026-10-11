@@ -30,6 +30,18 @@ export class SupportCase {
   @UpdateDateColumn() updated_at!: Date;
 }
 
+// Staff notes/replies on a case — command-side table, projected into the
+// Mongo read model's `notes` array by Support.CaseNoted.
+@Entity('case_notes')
+export class CaseNote {
+  @PrimaryColumn('uuid') id = uuid7();
+  @Column('uuid') case_id!: string;
+  @Column('uuid') tenant_id!: string;
+  @Column('text') body!: string;
+  @Column('uuid', { nullable: true }) author_id!: string | null;
+  @CreateDateColumn() created_at!: Date;
+}
+
 // ADR-0004: Support DECIDES refunds, Billing EXECUTES them.
 @Entity('refund_decisions')
 export class RefundDecision {
