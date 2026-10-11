@@ -14,9 +14,17 @@ class ServiceRequest extends Model
     public const CONVERTED = 'converted';
     public const CANCELLED = 'cancelled';
 
-    protected $fillable = ['tenant_id', 'customer_id', 'service_id', 'status', 'details'];
+    protected $fillable = [
+        'tenant_id', 'customer_id', 'service_id', 'preferred_date',
+        'scheduled_for', 'address_id', 'status', 'details', 'feedback',
+    ];
 
-    protected $casts = ['details' => 'array'];
+    protected $casts = [
+        'details' => 'array',
+        'feedback' => 'array',
+        'preferred_date' => 'date',
+        'scheduled_for' => 'datetime',
+    ];
 
     public function customer()
     {

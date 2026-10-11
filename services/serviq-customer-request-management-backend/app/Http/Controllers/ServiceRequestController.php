@@ -27,8 +27,22 @@ class ServiceRequestController
             'tenant_id' => ['required', 'uuid'],
             'customer_id' => ['required', 'uuid', 'exists:customers,id'],
             'service_id' => ['nullable', 'uuid'],
+            'preferred_date' => ['nullable', 'date'],
+            'scheduled_for' => ['nullable', 'date'],
+            'address_id' => ['nullable', 'uuid', 'exists:customer_addresses,id'],
+            'address' => ['nullable', 'array'],
+            'notes' => ['nullable', 'string'],
             'details' => ['nullable', 'array'],
         ]);
+
+        // Free-form booking input folds into details — the address book
+        // entry stays a first-class `address_id` reference.
+        $data['details'] = array_filter([
+            ...($data['details'] ?? []),
+            'address' => $data['address'] ?? null,
+            'notes' => $data['notes'] ?? null,
+        ], fn ($v) => $v !== null);
+        unset($data['address'], $data['notes']);
 
         $serviceRequest = DB::transaction(function () use ($data, $events) {
             $serviceRequest = ServiceRequest::create($data + ['status' => ServiceRequest::SUBMITTED]);
@@ -38,6 +52,9 @@ class ServiceRequestController
                 'request_id' => $serviceRequest->id,
                 'customer_id' => $serviceRequest->customer_id,
                 'service_id' => $serviceRequest->service_id,
+                'preferred_date' => $serviceRequest->preferred_date?->toDateString(),
+                'scheduled_for' => $serviceRequest->scheduled_for?->toIso8601String(),
+                'address_id' => $serviceRequest->address_id,
                 'details' => $serviceRequest->details,
             ], $serviceRequest->tenant_id);
 
@@ -63,6 +80,32 @@ class ServiceRequestController
 
         $serviceRequest->update(['status' => ServiceRequest::CANCELLED]);
         $events->record('Request.Cancelled', ['request_id' => $serviceRequest->id], $serviceRequest->tenant_id);
+
+        return response()->json(['data' => $serviceRequest]);
+    }
+
+    /**
+     * Post-completion review — the customer rates a converted request;
+     * the result rides on the request's `feedback` payload.
+     */
+    public function feedback(Request $request, string $tenant, ServiceRequest $serviceRequest, DomainEventRecorder $events): JsonResponse
+    {
+        abort_unless($serviceRequest->tenant_id === $tenant, 404);
+        if ($serviceRequest->status !== ServiceRequest::CONVERTED) {
+            return response()->json(['error' => 'illegal_transition', 'message' => 'Feedback is accepted once the request has become a job'], 409);
+        }
+
+        $data = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $serviceRequest->update(['feedback' => $data + ['submitted_at' => now()->toIso8601String()]]);
+        $events->record('Request.FeedbackSubmitted', [
+            'request_id' => $serviceRequest->id,
+            'customer_id' => $serviceRequest->customer_id,
+            'rating' => $data['rating'],
+        ], $serviceRequest->tenant_id);
 
         return response()->json(['data' => $serviceRequest]);
     }

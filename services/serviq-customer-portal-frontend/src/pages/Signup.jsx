@@ -25,6 +25,10 @@ export default function Signup({ tenantSlug }) {
     try {
       const res = await api.register(form)
       setToken(res.access_token)
+      // Self-signup has no CRM customer record — provision it now so the
+      // home view and booking work on first landing. Best-effort: the
+      // first sign-in empty state catches any failure.
+      api.createProfile(res.access_token, { name: form.display_name }).catch(() => {})
     } catch (err) {
       const first = err.fields ? Object.values(err.fields).flat()[0] : null
       setError(first || err.message)
