@@ -46,6 +46,14 @@ class ExecutionController
         return response()->json(['data' => $execution]);
     }
 
+    /** An execution's evidence rows, oldest first — photos, signatures, notes, parts. */
+    public function evidence(string $tenant, Execution $execution): JsonResponse
+    {
+        abort_unless($execution->tenant_id === $tenant, 404);
+
+        return response()->json(['data' => $execution->evidence()->oldest()->get()]);
+    }
+
     /** Evidence intake — file to the evidence bucket + structured record. */
     public function uploadEvidence(Request $request, string $tenant, Execution $execution, DomainEventRecorder $events): JsonResponse
     {
