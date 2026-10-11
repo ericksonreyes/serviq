@@ -16,6 +16,13 @@ app.use((_req, res, next) => {
 const jwks = createRemoteJWKSet(
   new URL(process.env.JWT_JWKS_URL || 'http://identity-access-backend/.well-known/jwks.json'))
 
+const SERVICES = {
+  crm: process.env.CRM_URL || 'http://customer-request-backend',
+  catalog: process.env.SERVICE_MGMT_URL || 'http://service-management-backend',
+  notifications: process.env.NOTIFICATION_URL || 'http://notification-backend',
+  ai: process.env.AI_AGENT_URL || 'http://ai-agent:8000',
+}
+
 async function auth(req, res, next) {
   try {
     const token = (req.headers.authorization || '').replace('Bearer ', '')
@@ -27,27 +34,245 @@ async function auth(req, res, next) {
   }
 }
 
+// Proxied call to an owning context — the caller's JWT forwards verbatim
+// and the upstream status/body pass straight back.
+async function upstream(req, res, base, path, { method = 'GET', body } = {}) {
+  const r = await fetch(`${base}${path}`, {
+    method,
+    headers: {
+      Authorization: req.headers.authorization,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  })
+  const json = await r.json().catch(() => ({}))
+  res.status(r.status).json(json)
+  return { status: r.status, json }
+}
+
+const notFound = (res) => res.status(404).json({ message: 'Not found' })
+
 const { mongo } = await startProjector()
 const db = mongo.db()
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'customer-portal-bff' }))
 
-// Customer-facing reads — tenant-scoped, read-model only (no cross-service fan-out).
+// The caller's CRM customer record — resolved from the IAM sub. null
+// means "no profile yet" (first sign-in / not yet provisioned).
+async function resolveCustomer(req) {
+  const t = req.jwt.tenant_id
+  if (!t) return null
+  const r = await fetch(`${SERVICES.crm}/api/v1/tenants/${t}/customers/by-user/${req.jwt.sub}`,
+    { headers: { Authorization: req.headers.authorization } })
+  if (!r.ok) return null
+  const json = await r.json().catch(() => ({}))
+  return json.data || null
+}
+
+async function ensureCustomer(req, res) {
+  const customer = await resolveCustomer(req)
+  if (!customer) res.status(409).json({ message: 'Complete your profile first' })
+  return customer
+}
+
+// --- Catalog (Service Management) -------------------------------------
+
+app.get('/api/v1/catalog', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, `/api/v1/tenants/${req.jwt.tenant_id}/services`))
+
+app.get('/api/v1/catalog/:service', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, `/api/v1/tenants/${req.jwt.tenant_id}/services/${req.params.service}`))
+
+app.get('/api/v1/catalog/:service/availability', auth, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString()
+  return upstream(req, res, SERVICES.catalog,
+    `/api/v1/tenants/${req.jwt.tenant_id}/services/${req.params.service}/availability${qs ? `?${qs}` : ''}`)
+})
+
+app.get('/api/v1/catalog/:service/pricing', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, `/api/v1/tenants/${req.jwt.tenant_id}/services/${req.params.service}/pricing`))
+
+// --- Profile + address book (Customer & Request Management) -----------
+
+app.get('/api/v1/me/profile', auth, async (req, res) => {
+  const customer = await resolveCustomer(req)
+  if (!customer) return notFound(res)
+  res.json({ data: customer })
+})
+
+// First sign-in / self-signup path: provisions the CRM customer record
+// for the caller's IAM user. Idempotent — an existing record wins.
+app.post('/api/v1/me/profile', auth, async (req, res) => {
+  const existing = await resolveCustomer(req)
+  if (existing) return res.json({ data: existing })
+  if (!req.jwt.tenant_id) return res.status(400).json({ message: 'No tenant scope on this token' })
+  const name = (req.body?.name || '').trim()
+  if (!name) return res.status(422).json({ message: 'name is required' })
+  const { status, json } = await upstream(req, res, SERVICES.crm, '/api/v1/customers', {
+    method: 'POST',
+    body: {
+      tenant_id: req.jwt.tenant_id,
+      user_id: req.jwt.sub,
+      name,
+      contact: req.body?.contact,
+      address: req.body?.address,
+    },
+  })
+  return { status, json }
+})
+
+app.patch('/api/v1/me/profile', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/customers/${customer.id}`, { method: 'PATCH', body: req.body })
+})
+
+app.get('/api/v1/me/addresses', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/customers/${customer.id}/addresses`)
+})
+
+app.post('/api/v1/me/addresses', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/customers/${customer.id}/addresses`, { method: 'POST', body: req.body })
+})
+
+app.patch('/api/v1/me/addresses/:id', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/customers/${customer.id}/addresses/${req.params.id}`,
+    { method: 'PATCH', body: req.body })
+})
+
+app.delete('/api/v1/me/addresses/:id', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/customers/${customer.id}/addresses/${req.params.id}`,
+    { method: 'DELETE' })
+})
+
+// --- Requests + jobs ---------------------------------------------------
+
+// Customer-facing reads — tenant-scoped read model, filtered to the
+// caller's customer record.
 app.get('/api/v1/me/requests', auth, async (req, res) => {
+  const customer = await resolveCustomer(req)
+  if (!customer) return res.json({ data: [] })
   res.json({ data: await db.collection('portal_requests')
-    .find({ tenant_id: req.jwt.tenant_id }).sort({ _id: -1 }).limit(50).toArray() })
+    .find({ tenant_id: req.jwt.tenant_id, customer_id: customer.id }).sort({ _id: -1 }).limit(50).toArray() })
+})
+
+app.post('/api/v1/me/requests', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm, '/api/v1/requests', {
+    method: 'POST',
+    body: {
+      ...req.body,
+      tenant_id: req.jwt.tenant_id,
+      customer_id: customer.id,
+    },
+  })
+})
+
+// Command-side detail first; the read model fills in the linked job and
+// its live status for the tracking timeline.
+app.get('/api/v1/me/requests/:id', auth, async (req, res) => {
+  const customer = await resolveCustomer(req)
+  if (!customer) return notFound(res)
+  const t = req.jwt.tenant_id
+
+  const r = await fetch(`${SERVICES.crm}/api/v1/tenants/${t}/requests/${req.params.id}`,
+    { headers: { Authorization: req.headers.authorization } })
+  const json = await r.json().catch(() => ({}))
+  let request = r.ok ? json.data : null
+  if (!request || request.customer_id !== customer.id) return notFound(res)
+
+  const projection = await db.collection('portal_requests').findOne({ _id: req.params.id, tenant_id: t })
+  const jobId = projection?.job_id
+  const job = jobId
+    ? await db.collection('portal_jobs').findOne({ _id: jobId, tenant_id: t })
+    : await db.collection('portal_jobs').findOne({ request_id: req.params.id, tenant_id: t })
+
+  res.json({ data: { ...request, job: job || null } })
 })
 
 app.get('/api/v1/me/jobs', auth, async (req, res) => {
+  const customer = await resolveCustomer(req)
+  if (!customer) return res.json({ data: [] })
   res.json({ data: await db.collection('portal_jobs')
-    .find({ tenant_id: req.jwt.tenant_id }).sort({ _id: -1 }).limit(50).toArray() })
+    .find({ tenant_id: req.jwt.tenant_id, customer_id: customer.id }).sort({ _id: -1 }).limit(50).toArray() })
 })
 
 app.get('/api/v1/me/jobs/:id', auth, async (req, res) => {
-  const doc = await db.collection('portal_jobs').findOne({ _id: req.params.id, tenant_id: req.jwt.tenant_id })
-  if (!doc) return res.status(404).json({ message: 'Not found' })
+  const customer = await resolveCustomer(req)
+  if (!customer) return notFound(res)
+  const doc = await db.collection('portal_jobs')
+    .findOne({ _id: req.params.id, tenant_id: req.jwt.tenant_id, customer_id: customer.id })
+  if (!doc) return notFound(res)
   res.json({ data: doc })
 })
+
+app.post('/api/v1/me/requests/:id/feedback', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/requests/${req.params.id}/feedback`,
+    { method: 'POST', body: req.body })
+})
+
+app.post('/api/v1/me/requests/:id/cancel', auth, async (req, res) => {
+  const customer = await ensureCustomer(req, res)
+  if (!customer) return
+  return upstream(req, res, SERVICES.crm,
+    `/api/v1/tenants/${req.jwt.tenant_id}/requests/${req.params.id}/cancel`,
+    { method: 'POST', body: req.body || {} })
+})
+
+// --- Notifications (Notification service) ------------------------------
+
+// The upstream feed is tenant-wide; rows addressed to a user carry the
+// owning entity id (customer_id) — keep the caller's rows plus broadcasts.
+app.get('/api/v1/me/notifications', auth, async (req, res) => {
+  const customer = await resolveCustomer(req)
+  const qs = new URLSearchParams(req.query).toString()
+  const r = await fetch(
+    `${SERVICES.notifications}/api/v1/tenants/${req.jwt.tenant_id}/notifications${qs ? `?${qs}` : ''}`,
+    { headers: { Authorization: req.headers.authorization } })
+  const json = await r.json().catch(() => ({}))
+  if (!r.ok) return res.status(r.status).json(json)
+  const rows = json.data ?? json
+  const mine = Array.isArray(rows)
+    ? rows.filter((n) => !n.user_id || !customer || n.user_id === customer.id)
+    : rows
+  res.json({ data: mine })
+})
+
+app.post('/api/v1/me/notifications/:id/read', auth, (req, res) =>
+  upstream(req, res, SERVICES.notifications,
+    `/api/v1/tenants/${req.jwt.tenant_id}/notifications/${req.params.id}/read`,
+    { method: 'POST', body: {} }))
+
+// --- Chatbot (AI Agent, customer profile) -------------------------------
+
+// The only chat edge for the portal — the profile is pinned server-side
+// so a customer can never reach the dispatcher/support tool registries.
+app.post('/api/v1/chat', auth, (req, res) =>
+  upstream(req, res, SERVICES.ai, '/api/v1/chat', {
+    method: 'POST',
+    body: {
+      profile: 'customer',
+      message: req.body?.message,
+      context: req.body?.context,
+    },
+  }))
 
 const port = process.env.PORT || 3000
 app.listen(port, () => console.log(`[bff] customer-portal-bff :${port}`))
