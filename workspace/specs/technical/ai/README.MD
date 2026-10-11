@@ -27,6 +27,16 @@ AI Agent microservice (Python + FastAPI)
 - **One agent codebase, named agent profiles.** Each profile declares its context, system prompt, and tool registry. The number of running deployments is a separate operational decision — profiles are the isolation mechanism either way.
 - **Tools call APIs — never databases.** The agent has no access to PostgreSQL or any other service's datastore. A tool is an API call to the concerned microservice (or an external service), carrying the caller's JWT.
 
+## Model Modes: Stub and Live
+
+`AI_MODEL_MODE` (`stub` | `ollama`, default `stub`) selects the inference path — it is a code path, not a lighter model. Nothing is loaded in stub mode, so the AI Agent costs zero GPU/RAM overhead when models aren't needed.
+
+- **Stub mode** — deterministic heuristics replace inference. Parsing (`app/parser.py`) keyword-matches the upload's embedded text for a `document_type` and regex-extracts the schema fields, returning a fixed `confidence: 0.4` and `model: "stub:heuristic"`. Chat orchestration (`app/orchestrator.py`) selects tools by keyword/intent matching instead of the text model. Used for local dev without Ollama weights, CI, and the eval suite (`app/eval.py` measures extraction F1 against stubs deliberately).
+- **Ollama mode** — `/parse` calls the vision model and `/chat` calls the text model on the shared `infra-ollama` instance. A failed model call falls back to the stub path rather than erroring, so a dead model server degrades gracefully instead of breaking chat.
+- **Operator-visible difference** — stub parses return `confidence 0.4`, below Billing's low-confidence threshold, so stub-submitted evidence lands in the manual-review queue by design. To demo the accepted path without models, submit evidence via the API with confidence ≥ 0.6.
+
+Model weights live outside the codebase in the `serviq_ollama-models` volume (kept across fresh installs — re-downloading is GBs). `install.sh` offers to pull them; without weights the service runs fine in stub mode. The memory budget for live mode is documented in [Local Resource Budget](../infrastructure/LOCAL_RESOURCE_BUDGET.MD#minimum-requirements-measured-2026-10-11).
+
 ## Security Rules
 
 - The agent propagates the **caller's JWT** to all downstream services. Tenant scoping and role/permission enforcement are identical to a direct API call — the agent cannot exceed the caller's permissions.

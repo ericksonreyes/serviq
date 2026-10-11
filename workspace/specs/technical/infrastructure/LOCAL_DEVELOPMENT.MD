@@ -1,6 +1,6 @@
 # Local Development
 
-Operational detail for running the ServIQ stack locally. Install and bring-up are handled by [`scripts/install.sh`](../../../../scripts/install.sh); this document explains how the stack is wired and how to work in it day to day.
+Operational detail for running the ServIQ stack locally. Install and bring-up are handled by [`scripts/install.sh`](../../../../scripts/install.sh); this document explains how the stack is wired and how to work in it day to day. Before installing, check the measured [Minimum Requirements](./LOCAL_RESOURCE_BUDGET.MD#minimum-requirements-measured-2026-10-11) — the full stack with live AI needs ~5 GiB of Docker VM memory and ~20 GB of disk on an 8 GB host.
 
 ## The dev stack
 

@@ -7,6 +7,7 @@ This folder contains ServIQ's business-domain documentation.
 - bounded contexts and domain boundaries
 - personas and role definitions
 - assignment strategy variants
+- domain event catalog and consumer map
 
 ## Navigation
 
@@ -15,3 +16,4 @@ This folder contains ServIQ's business-domain documentation.
 - [Domain Boundaries](specs/DOMAIN_BOUNDARIES.md)
 - [Personas Overview](specs/PERSONAS.MD)
 - [Assignment Strategies](specs/assignment_strategies/README.MD)
+- [Domain Events](specs/domain_events/README.MD)

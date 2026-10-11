@@ -175,6 +175,21 @@ $cashOnly = invoice($T, null, 30000); $api('POST', "/invoices/{$cashOnly->id}/pa
 [$s, $r] = $api('POST', '/remittances/digital', ['invoice_ids' => [$cashOnly->id]]);
 check('cash invoice rejected from digital set', $s === 422, [$s, $r]);
 
+echo "== claimed vs parsed ==\n";
+[$s, $r] = $api('POST', '/payment-evidence', [
+    'document_type' => 'E_WALLET', 'file_ref' => 'minio://ev/c1', 'confidence' => 0.95,
+    'extracted' => ['reference' => 'PARSED-1', 'amount_cents' => 150000],
+    'claimed' => ['reference' => 'WRONG-1', 'amount_cents' => 150000],
+]);
+check('claimed mismatch flagged', $s === 201 && in_array('claimed_mismatch', $r['data']['flags'] ?? []), [$s, $r]);
+
+[$s, $r] = $api('POST', '/payment-evidence', [
+    'document_type' => 'E_WALLET', 'file_ref' => 'minio://ev/c2', 'confidence' => 0.95,
+    'extracted' => ['reference' => 'MATCH-1', 'amount_cents' => 150000],
+    'claimed' => ['reference' => 'match-1', 'amount_cents' => 150000],   // case-insensitive match
+]);
+check('matching claim accepted', $s === 201 && $r['data']['status'] === 'accepted', [$s, $r]);
+
 echo "== outbox audit ==\n";
 check('TurnInSubmitted events', DB::table('outbox')->where('type', 'Remittance.TurnInSubmitted')->count() >= 2);
 check('BatchSubmitted event', DB::table('outbox')->where('type', 'Remittance.BatchSubmitted')->exists());

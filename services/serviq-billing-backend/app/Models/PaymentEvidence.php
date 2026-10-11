@@ -37,7 +37,8 @@ class PaymentEvidence extends Model
 
     protected $fillable = [
         'tenant_id', 'uploader_id', 'document_type', 'file_ref', 'raw_text',
-        'extracted', 'confidence', 'status', 'flags', 'invoice_id',
+        'extracted', 'claimed_reference', 'claimed_amount_cents',
+        'confidence', 'status', 'flags', 'invoice_id',
         'reviewed_by', 'reviewed_at', 'review_notes',
     ];
 

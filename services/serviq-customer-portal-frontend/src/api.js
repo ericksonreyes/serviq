@@ -25,6 +25,9 @@ async function request(base, path, { token, method = 'GET', body } = {}) {
 export const api = {
   login: (creds) => request(IDENTITY_URL, '/api/v1/auth/login', { method: 'POST', body: creds }),
   register: (creds) => request(IDENTITY_URL, '/api/v1/auth/register', { method: 'POST', body: creds }),
+  invitation: (token) => request(IDENTITY_URL, `/api/v1/invitations/${token}`),
+  acceptInvite: (token, body) =>
+    request(IDENTITY_URL, `/api/v1/invitations/${token}/accept`, { method: 'POST', body }),
 
   catalog: (token) => request(API_URL, '/api/v1/catalog', { token }),
   service: (token, id) => request(API_URL, `/api/v1/catalog/${id}`, { token }),

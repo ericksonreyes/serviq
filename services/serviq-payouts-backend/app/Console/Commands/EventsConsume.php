@@ -14,12 +14,13 @@ class EventsConsume extends Command
 {
     protected $signature = 'events:consume';
 
-    private const BINDINGS = ['Assignment.*', 'Invoice.*', 'Support.*'];
+    private const BINDINGS = ['Assignment.*', 'Invoice.*', 'Support.*', 'Remittance.*'];
 
     private const HANDLERS = [
         'Assignment.Accepted' => PayoutEventHandler::class,
         'Invoice.Issued' => PayoutEventHandler::class,
         'Support.RefundDecided' => PayoutEventHandler::class,
+        'Remittance.ShortfallAccepted' => PayoutEventHandler::class,
     ];
 
     public function handle(RabbitMq $mq): int

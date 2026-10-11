@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\JwksController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -15,6 +16,8 @@ Route::prefix('v1')->group(function () {
     // The only anonymous routes on the service (INTERNAL_SERVICE_SECURITY.MD).
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+    Route::get('/invitations/{token}', [InvitationController::class, 'show']);
+    Route::post('/invitations/{token}/accept', [InvitationController::class, 'accept'])->middleware('throttle:5,1');
 
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -34,5 +37,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:iam.users.read');
         Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('permission:iam.users.manage');
         Route::post('/users/{user}/roles', [UserController::class, 'assignRoles'])->middleware('permission:iam.users.manage');
+
+        Route::post('/tenants/{tenant}/invitations', [InvitationController::class, 'store'])->middleware('permission:iam.users.manage');
     });
 });
