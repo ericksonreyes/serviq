@@ -1,43 +1,79 @@
-import { useEffect, useState } from 'react'
-import { api } from '../api'
-import { useAuth } from '../auth'
+import { api, rows } from '../api'
+import { useAuth, useTenant } from '../auth'
+import { useLoader } from '../hooks'
+import { Card, Empty, ErrorBox, Loading, StatusBadge, money } from '../components/ui'
 
+// Operations summary — the tenant's reports view, built from the existing
+// list endpoints (requests, jobs, invoices, remittances).
 export default function Home() {
-  const { token, setToken } = useAuth()
-  const [me, setMe] = useState(null)
-  const [error, setError] = useState(null)
+  const { token, claims } = useAuth()
+  const tenant = useTenant()
+  const { data, error, loading } = useLoader(async () => {
+    const [requests, jobs, invoices, remittances, payouts] = await Promise.all([
+      api.requests(token, tenant), api.jobs(token, tenant), api.invoices(token, tenant),
+      api.remittances(token, tenant), api.payouts(token, tenant).catch(() => []),
+    ])
+    return { requests: rows(requests), jobs: rows(jobs), invoices: rows(invoices), remittances: rows(remittances), payouts: rows(payouts) }
+  }, [token, tenant])
 
-  useEffect(() => {
-    api.me(token).then(setMe).catch((err) => setError(err.message))
-  }, [token])
+  const stats = data ? {
+    openRequests: data.requests.filter((r) => r.status === 'submitted' || r.status === 'reviewed').length,
+    activeJobs: data.jobs.filter((j) => !['completed', 'cancelled'].includes(j.status)).length,
+    expected: data.invoices.filter((i) => i.status === 'issued').reduce((s, i) => s + (i.amount_cents ?? 0), 0),
+    collected: data.invoices.filter((i) => ['paid', 'remitted'].includes(i.status)).reduce((s, i) => s + (i.amount_cents ?? 0), 0),
+    pendingRemittance: data.remittances.filter((r) => r.status !== 'remitted' && r.status !== 'rejected').length,
+    pendingPayouts: data.payouts.filter((p) => p.status !== 'settled').reduce((s, p) => s + (p.net_cents ?? p.amount_cents ?? 0), 0),
+  } : null
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="flex items-center justify-between bg-slate-900 px-6 py-4 text-white">
-        <span className="text-lg font-semibold">ServIQ Tenant Console</span>
-        <button onClick={() => setToken(null)} className="text-sm text-slate-300 hover:text-white">
-          Sign out
-        </button>
-      </header>
-      <main className="mx-auto max-w-4xl p-6">
-        <h1 className="text-lg font-semibold text-slate-900">Organization</h1>
-        {error && (
-          <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-        )}
-        {me && (
-          <div className="mt-4 rounded-lg bg-white p-4 shadow">
-            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div><dt className="text-slate-500">User</dt><dd className="font-mono">{me.sub}</dd></div>
-              <div><dt className="text-slate-500">Tenant</dt><dd className="font-mono">{me.tenant_slug ?? 'platform'}</dd></div>
-              <div><dt className="text-slate-500">Roles</dt><dd>{(me.roles || []).join(', ') || '—'}</dd></div>
-              <div><dt className="text-slate-500">Permissions</dt><dd>{(me.permissions || []).join(', ') || '—'}</dd></div>
-            </dl>
+    <div className="space-y-4">
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
+        <p className="text-sm text-slate-500">{(claims?.roles || []).join(' · ')}</p>
+      </div>
+      <ErrorBox error={error} />
+      {loading ? <Loading /> : !data ? <Empty /> : (
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat label="Open requests" value={stats.openRequests} />
+            <Stat label="Active jobs" value={stats.activeJobs} />
+            <Stat label="Pending remittances" value={stats.pendingRemittance} />
+            <Stat label="Payouts due" value={money(stats.pendingPayouts)} />
           </div>
-        )}
-        <p className="mt-4 text-sm text-slate-500">
-          Tenant management surfaces land here as their APIs come online.
-        </p>
-      </main>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card title="Revenue">
+              <dl className="space-y-2 text-sm">
+                <Row k="Expected (issued invoices)" v={money(stats.expected)} />
+                <Row k="Collected (paid + remitted)" v={money(stats.collected)} />
+                <Row k="Invoices on file" v={data.invoices.length} />
+              </dl>
+            </Card>
+            <Card title="Latest invoices">
+              {data.invoices.length === 0 ? <Empty text="No invoices yet." /> : (
+                <ul className="divide-y divide-slate-100 text-sm">
+                  {data.invoices.slice(0, 6).map((i) => (
+                    <li key={i.id} className="flex items-center justify-between py-1.5">
+                      <span className="font-mono text-xs text-slate-500">{i.id.slice(0, 8)}…</span>
+                      <span>{money(i.amount_cents, i.currency)}</span>
+                      <StatusBadge value={i.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   )
 }
+
+const Stat = ({ label, value }) => (
+  <div className="rounded-xl bg-white p-4 shadow">
+    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+  </div>
+)
+const Row = ({ k, v }) => (
+  <div className="flex justify-between"><dt className="text-slate-500">{k}</dt><dd className="font-medium">{v}</dd></div>
+)
