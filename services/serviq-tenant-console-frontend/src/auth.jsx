@@ -15,3 +15,7 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthCtx)
+
+// JWT claims carry tenant_id + role names (see api-security skill).
+export const useTenant = () => useAuth()?.claims?.tenant_id
+export const useRoles = () => useAuth()?.claims?.roles ?? []
