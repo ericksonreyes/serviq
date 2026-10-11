@@ -79,7 +79,7 @@ Homestead.json
 npm-debug.log
 auth.json
 
-# ── Node / NestJS / React+Vite ───────────────────────────────────────────
+# ── Node / React+Vite ───────────────────────────────────────────
 node_modules/
 dist/
 build/

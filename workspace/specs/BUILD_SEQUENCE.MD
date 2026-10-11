@@ -76,7 +76,7 @@ Rules of thumb behind the ordering:
 
 ## Phase 6 — Edges
 
-14. **Customer Portal BFF** (`serviq-customer-portal-bff` + consumer) — NestJS + MongoDB
+14. **Customer Portal BFF** (`serviq-customer-portal-bff` + consumer) — Express + MongoDB
     read model; projector consumes `Job.*`, `Request.*` into the portal read store.
 15. **Service Agent BFF** (`serviq-service-agent-bff`) — aggregation edge for the field app;
     no read model.

@@ -13,7 +13,7 @@ Stack policy is defined in [Service Stacks](workspace/specs/technical/SERVICE_ST
 
 - Frontends use a single React (Vite) stack, shipped as static builds — one app per user channel.
 - Command/write models use PostgreSQL.
-- The Customer Portal uses a NestJS + MongoDB read model behind its BFF; internal services query their PostgreSQL command models directly for real-time data.
+- The Customer Portal uses an Express + MongoDB read model behind its BFF; internal services query their PostgreSQL command models directly for real-time data.
 - Service Operations backends use Laravel with PHPSpec (TDD) and Behat (BDD) as the reference example for business-logic testing.
 
 Layout policy: **one deployable frontend per user channel, one backend service per bounded context**, all as
@@ -131,9 +131,10 @@ monorepo folders under `services/`.
   description: Customer Support command API — cases, complaints, escalations, refund decisions
   location: services/serviq-customer-support-backend/
   stack:
-  - Laravel
+  - Express
   - PostgreSQL
-  - PHPSpec
+  - MongoDB
+  - PostgreSQL
   - Behat
 
 - name: Notification Backend
@@ -151,14 +152,14 @@ monorepo folders under `services/`.
   description: Customer Portal Backend For Frontend — CQRS read model API; proxies customer commands to domain services
   location: services/serviq-customer-portal-bff/
   stack:
-  - NestJS
+  - Express (Node.js)
   - MongoDB
 
 - name: Service Agent BFF
   description: Service Agent Backend For Frontend — aggregates job/assignment/evidence views and proxies agent commands; no read model, queries command APIs in real time
   location: services/serviq-service-agent-bff/
   stack:
-  - NestJS
+  - Express (Node.js)
 
 ### Finance & Accounting
 

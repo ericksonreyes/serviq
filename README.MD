@@ -67,6 +67,42 @@ ServIQ is intentionally designed beyond a simple CRUD application. The project e
 
 The project is developed as an open-source reference implementation and an ongoing exploration of modern full-stack engineering practices.
 
+### Running locally
+
+```bash
+./scripts/install.sh   # env setup + staged bring-up: infra → domain → AI → frontends
+```
+
+Frontends serve on 3000–3003 (vite dev servers with hot reload), BFFs on
+8000–8001, domain APIs on 8010–8021. The script ends with smoke checks
+against every service. The compose stack is the dev environment — source is
+bind-mounted and code changes are live without rebuilds. See
+[Local Development](workspace/specs/technical/infrastructure/LOCAL_DEVELOPMENT.MD)
+for how it's wired.
+
+### Local seed accounts
+
+Demo accounts for immediate testing — **local development only, never use
+these credentials elsewhere.** Seeding runs automatically in the service
+containers on install; see [Local Development](workspace/specs/technical/infrastructure/LOCAL_DEVELOPMENT.MD#local-seed-accounts)
+for how it works and how to re-seed.
+
+| Role | App | Username | Password |
+|---|---|---|---|
+| Platform Administrator | http://localhost:3003 (Platform Admin) | `admin` | `serviq-local` |
+| Tenant Administrator | http://localhost:3002 (Tenant Console) | `acme.admin` | `demo-pass-123` |
+| Service Agent | http://localhost:3001 (Service Agent PWA) | `anna.agent` | `demo-pass-123` |
+| Customer | http://localhost:3000 (Customer Portal) | `jane.customer` | `demo-pass-123` |
+
+Tenant-scoped logins (everyone except the Platform Administrator) also need
+the tenant ID — **fixed across installs**:
+
+```
+01ac0000-0000-7000-8000-00000000acde
+```
+
+Auth routes are throttled at 5 req/min — rapid login attempts will hit 429s.
+
 ### Related Documentation
 
 - [Project Purpose](workspace/specs/PROJECT_PURPOSE.MD) — portfolio goals and the engineering capabilities this project demonstrates
@@ -76,6 +112,16 @@ The project is developed as an open-source reference implementation and an ongoi
 - [Glossary & Vocabulary](workspace/specs/GLOSSARY.MD)
 - [Domain Documentation](workspace/specs/domain/README.MD)
 - [Domain Boundaries](workspace/specs/domain/specs/DOMAIN_BOUNDARIES.md)
+
+---
+
+### Author
+
+**Erickson Reyes** — Software Architect, spec-driven AI-orchestrated delivery
+
+> "I design systems and write executable specifications; AI agents implement against them across whatever language the service needs. My job is architecture, contracts, and verification — the code is a build artifact."
+
+ServIQ is the proof of that approach: a polyglot platform — Laravel, Express, FastAPI, and React services — designed and delivered by one engineer directing AI implementation through a canonical spec tree, architecture decision records, and verification discipline. Stack-appropriate, not stack-bound.
 
 ---
 

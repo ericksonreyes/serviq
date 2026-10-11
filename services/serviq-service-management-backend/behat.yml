@@ -1,0 +1,7 @@
+default:
+  autoload:
+    'Features\Bootstrap': 'features/bootstrap'
+  suites:
+    catalog:
+      contexts:
+        - Features\Bootstrap\CatalogContext

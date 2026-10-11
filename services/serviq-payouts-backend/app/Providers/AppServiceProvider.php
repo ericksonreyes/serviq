@@ -1,0 +1,29 @@
+<?php
+
+namespace App\Providers;
+
+use App\Services\JwtVerifier;
+use App\Domain\Payouts\DisbursementPort;
+use App\Infrastructure\StubDisbursement;
+use Illuminate\Support\ServiceProvider;
+use Throwable;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(JwtVerifier::class);
+        $this->app->bind(DisbursementPort::class, StubDisbursement::class);
+    }
+
+    public function boot(JwtVerifier $issuer): void
+    {
+        // Surface the resolved signing mode at startup — a missing keypair
+        // must be visible, never a silent downgrade (JWT_SIGNING_KEYS.MD).
+        try {
+            $issuer->mode();
+        } catch (Throwable $e) {
+            logger()->warning('JWT signing mode unresolved at boot: '.$e->getMessage());
+        }
+    }
+}

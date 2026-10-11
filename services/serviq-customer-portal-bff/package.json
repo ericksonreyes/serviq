@@ -1,0 +1,16 @@
+{
+  "name": "serviq-customer-portal-bff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "consumer": "node src/consumer.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "express": "^4.21.2",
+    "jose": "^6.1.0",
+    "mongodb": "^6.20.0"
+  }
+}

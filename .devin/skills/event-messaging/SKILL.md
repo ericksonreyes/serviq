@@ -39,4 +39,4 @@ Payloads carry identifiers and facts, not hydrated entities. Consumers fetch det
 ## Wiring
 
 - Connection via `RABBITMQ_URL`/`RABBITMQ_*` env vars (see any service `.env.example`): `amqp://serviq:serviq@rabbitmq:5672`.
-- Laravel: queue/events through a RabbitMQ adapter package; NestJS: `@golevelup/nestjs-rabbitmq` or raw amqp; FastAPI: aio-pika. Pick per-stack conventions at implementation time and record them in `SERVICE_STACKS.MD`.
+- Laravel: queue/events through a RabbitMQ adapter package; Express BFFs: raw `amqplib` (current pattern); FastAPI: aio-pika. Pick per-stack conventions at implementation time and record them in `SERVICE_STACKS.MD`.

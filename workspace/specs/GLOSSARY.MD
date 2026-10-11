@@ -69,7 +69,7 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **Adapter** — a concrete implementation of a port.
 - **CQRS** — Command Query Responsibility Segregation; a pattern that separates command and query responsibilities.
 - **Command Model** — the write side of CQRS; owns business rules and state changes, stored in PostgreSQL by default.
-- **Read Model** — the query side of CQRS; a flat, denormalized view kept in sync with the command model by an event listener or subscriber. ServIQ uses one for the read-heavy Customer Portal channel (NestJS + MongoDB); internal services query their command models directly.
+- **Read Model** — the query side of CQRS; a flat, denormalized view kept in sync with the command model by an event listener or subscriber. ServIQ uses one for the read-heavy Customer Portal channel (Express + MongoDB); internal services query their command models directly.
 - **Event-Driven Architecture** — an architecture style that uses events to communicate changes between parts of the system.
 - **Event Sourcing** — a persistence pattern where the event stream is the source of truth and current state is computed by replaying events; used by business-logic-heavy services such as Service Job Management, Billing, and Payouts.
 - **Hexagonal Architecture** — an architecture style that keeps business logic isolated behind ports and adapters.

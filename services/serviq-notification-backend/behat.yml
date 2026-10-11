@@ -1,0 +1,7 @@
+default:
+  autoload:
+    'Features\Bootstrap': 'features/bootstrap'
+  suites:
+    notifications:
+      contexts:
+        - Features\Bootstrap\NotificationContext

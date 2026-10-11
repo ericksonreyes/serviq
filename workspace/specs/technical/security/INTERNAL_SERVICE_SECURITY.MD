@@ -19,12 +19,13 @@ anywhere.
 
 - **Customer Portal BFF** — customer traffic
 - **Service Agent BFF** — field agent traffic
-- **IAM auth endpoints** — login and token issuance; anonymous by necessity
+- **IAM auth endpoints** — login, customer/agent self-registration, and token issuance; anonymous by necessity
+- **Tenant self-registration** — `POST /api/v1/tenants/signup` on Platform Management; anonymous service-provider onboarding
 - **Domain command APIs** — called directly by the Tenant Console and Platform Admin frontends
 
 Controls on every browser-facing endpoint:
 
-- JWT required on every route except IAM login itself
+- JWT required on every route except IAM login/registration and tenant self-registration
 - Signature verification plus `iss`, `aud`, `exp`, tenant scope, and Redis blacklist checks — see
   [JWT Invalidation](./JWT_INVALIDATION.MD)
 - HTTPS only; CORS restricted to known UI origins

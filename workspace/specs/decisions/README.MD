@@ -54,3 +54,5 @@ What this buys us and what it costs.
 - [ADR-0016](0016-compose-file-conventions.MD) — `services/docker-compose.yml` tracked; secrets stay in gitignored `.env`
 - [ADR-0017](0017-channel-appropriate-css-frameworks.MD) — MUI on end-user channels, Tailwind on internal admin UIs
 - [ADR-0018](0018-docs-as-generated-artifacts.MD) — Playwright-generated screenshots/recordings; docs visuals are artifacts, not manual captures
+- [ADR-0019](0019-nestjs-customer-support.MD) — NestJS at the domain tier (superseded by ADR-0020)
+- [ADR-0020](0020-express-customer-support-read-model.MD) — Support backend on plain Express+Node

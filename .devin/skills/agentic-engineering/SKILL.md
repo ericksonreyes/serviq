@@ -22,7 +22,7 @@ Operating rules for agentic work in this repository.
 
 ## Repo shape
 
-- `services/` — 19 service dirs (4 React+Vite frontends, 12 Laravel context backends, 2 NestJS BFFs, 1 FastAPI AI agent). Empty scaffolds until Dockerfiles land.
+- `services/` — 19 service dirs (4 React+Vite frontends, 12 Laravel context backends, 2 Express BFFs, 1 FastAPI AI agent). Empty scaffolds until Dockerfiles land.
 - `services/docker-compose.yml` — the local stack. App entries are commented stubs: **uncomment a service's entry in the same change that adds its Dockerfile.**
 - `scripts/install.sh` — env copy + staged bring-up. `.env.example` in every service dir, Docker-network hostnames, never real secrets.
 
