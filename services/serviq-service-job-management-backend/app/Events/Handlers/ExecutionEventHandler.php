@@ -46,7 +46,9 @@ class ExecutionEventHandler
                 $store->record($job, $type, $p);
                 $steps = $job->workflow_instance ?? [];
                 if ($type === 'Job.WorkflowStepCompleted' && ($p['step_position'] ?? -1) === count($steps) - 1) {
-                    $store->record($job, 'Job.Completed', []);
+                    $store->record($job, 'Job.Completed', [
+                        'agent_id' => $job->assigned_agent_id, 'customer_id' => $job->customer_id,
+                    ]);
                 }
             }
         });

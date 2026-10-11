@@ -9,7 +9,7 @@ class Invoice extends Model
 {
     use HasUuid7;
 
-    protected $fillable = ['job_id', 'tenant_id', 'customer_id', 'status', 'amount_cents', 'currency', 'version'];
+    protected $fillable = ['job_id', 'tenant_id', 'customer_id', 'agent_id', 'status', 'amount_cents', 'currency', 'version'];
 
     public const ISSUED = 'issued';
     public const PAID = 'paid';

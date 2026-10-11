@@ -45,7 +45,7 @@ Serves the **Dispatcher** persona inside a tenant.
 | `repair_guide_search` | Search trusted troubleshooting and repair guides (RAG over the vector search port) | AI Agent (vector store) |
 | `dispatch_recommend` | Produce top-N agent recommendations for a job, with reasons | Assignment & Dispatch |
 | `cash_turnin_count` | Count photographed bills and coins during a cash turn-in and submit the count to Billing | Billing |
-| `remittance_evidence_upload` | Submit Service Agent revenue-remittance evidence for parsing and storage | Billing (via AI Agent parsing) |
+| `remittance_evidence_upload` | Submit Service Agent revenue-remittance evidence — including bank deposit slips that close a cash remittance batch — for parsing and storage | Billing (via AI Agent parsing) |
 
 Rules:
 

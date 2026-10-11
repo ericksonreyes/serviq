@@ -104,7 +104,9 @@ class JobController
 
             $steps = $job->workflow_instance;
             if ($position === count($steps) - 1) {
-                $store->record($job, 'Job.Completed', []);
+                $store->record($job, 'Job.Completed', [
+                    'agent_id' => $job->assigned_agent_id, 'customer_id' => $job->customer_id,
+                ]);
             }
         });
 

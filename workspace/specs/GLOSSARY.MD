@@ -46,6 +46,9 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **Fund Distribution** — the process of splitting a payment or net payable amount into explicit recipient buckets such as platform share, Service Provider share, Service Agent share, and other configured recipients.
 - **Settlement** — the final status of a financial transaction after payment processing and reconciliation.
 - **Reconciliation** — the process of matching platform records with payment processor records and internal financial data.
+- **Remittance** — the confirmation that funds collected on the Service Provider's behalf (digital payments or physical cash) have been turned in and verified; records are marked `REMITTED` only on human confirmation, never on AI extraction alone.
+- **Cash Turn-in** — the end-of-shift handover in which a Service Agent gives collected cash payments to a Dispatcher, verified against the expected collections list.
+- **Remittance Batch** — a group of cash collections deposited together at a bank and collectively marked remitted against a single deposit slip's reference number and amount.
 
 ## Document Processing and AI
 
