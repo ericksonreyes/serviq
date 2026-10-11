@@ -3,6 +3,7 @@ import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import { Card, Empty, ErrorBox, Loading, Notice, btn, input, label } from '../../components/ui'
+import InviteForm from '../../components/InviteForm'
 
 // Customer records — dispatcher/admin creates the account on invitation;
 // the customer logs in on the Customer Portal.
@@ -40,7 +41,10 @@ export default function Customers() {
             )}
           </Card>
         </div>
-        <NewCustomer token={token} tenant={tenant} onDone={reload} />
+        <div className="space-y-4">
+          <NewCustomer token={token} tenant={tenant} onDone={reload} />
+          <InviteForm token={token} tenant={tenant} role="Customer" />
+        </div>
       </div>
     </div>
   )

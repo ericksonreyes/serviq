@@ -9,6 +9,7 @@ This folder groups the detailed domain specifications for ServIQ.
 - [Boundary Families](domain_boundaries/README.MD)
 - [Persona Details](personas/README.MD)
 - [Assignment Strategies](assignment_strategies/README.MD)
+- [Domain Events](domain_events/README.MD)
 
 ## Notes
 

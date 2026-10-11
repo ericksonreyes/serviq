@@ -17,6 +17,13 @@ const DOC_TYPES = [
   ['BANK_CHECK', 'Check'],
 ]
 
+const fileToB64 = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader()
+  r.onload = () => resolve(r.result.split(',')[1])
+  r.onerror = reject
+  r.readAsDataURL(file)
+})
+
 function Section({ title, children }) {
   return (
     <Card sx={{ mt: 2 }}>
@@ -129,13 +136,16 @@ export default function JobDetail() {
       fileRef = up.data?.object_ref ?? null
     }
     if (!fileRef) throw new Error('Attach the customer’s receipt photo first')
+    // Claimed fields are what the agent typed; the AI parses the same
+    // photo upstream and Billing compares them (claimed_mismatch → review).
     const res = await api.submitPaymentEvidence(token, {
       document_type: payment.document_type,
       file_ref: fileRef,
-      extracted: {
+      file_b64: await fileToB64(file),
+      filename: file.name,
+      claimed: {
         reference: payment.reference,
         amount_cents: Math.round(parseFloat(payment.amount || '0') * 100),
-        ...(payment.channel ? { channel: payment.channel } : {}),
       },
     })
     const status = res.data?.status

@@ -211,6 +211,7 @@ services:
       mongo: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     mem_limit: 256m
+    restart: unless-stopped
 
   service-agent-bff:
     container_name: serviq-service-agent-bff
@@ -225,6 +226,7 @@ services:
       <<: *common-env
     depends_on: [redis]
     mem_limit: 256m
+    restart: unless-stopped
 
   # ── Domain command APIs (Laravel, php:apache) ──────────────────────────────
   # One entry per bounded context. Host port convention: 80xx range.
@@ -586,6 +588,7 @@ services:
         condition: service_started
         required: false
     mem_limit: 256m
+    restart: unless-stopped
 
   # ── Frontends (vite dev servers + hot reload, 3000-3003) ───────────────────
   # Development shape is the only frontend shape: bind-mounted source +
@@ -601,6 +604,7 @@ services:
     ports: ["3000:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
+    restart: unless-stopped
 
   service-agent-dev:
     container_name: serviq-service-agent-dev
@@ -612,6 +616,7 @@ services:
     ports: ["3001:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
+    restart: unless-stopped
 
   tenant-console-dev:
     container_name: serviq-tenant-console-dev
@@ -623,6 +628,7 @@ services:
     ports: ["3002:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
+    restart: unless-stopped
 
   platform-admin-dev:
     container_name: serviq-platform-admin-dev
@@ -634,3 +640,4 @@ services:
     ports: ["3003:5173"]
     command: 'sh -c "[ -d node_modules ] || npm install; exec npm run dev -- --host"'
     mem_limit: 1g
+    restart: unless-stopped

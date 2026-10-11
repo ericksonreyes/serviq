@@ -85,13 +85,31 @@ $COMPOSE --profile domain up -d --wait --build
 echo "==> [3/5] AI (ollama + ai-agent)"
 $COMPOSE --profile ai up -d --wait --build
 
-echo "==> [4/5] Frontends (vite dev servers with hot reload, 8080-8083)"
+# Model weights aren't part of the stack — without them ai-agent runs in
+# stub mode (heuristic parses, no vision). ~3.7GB download into the
+# serviq_ollama-models volume; kept across "fresh" installs deliberately.
+read -rp "Download AI models now (moondream + qwen2.5:3b, ~3.7GB; needs ~5GiB Docker VM memory)? [y/N] " models
+if [[ "$models" =~ ^[Yy]$ ]]; then
+  docker exec infra-ollama ollama pull moondream
+  docker exec infra-ollama ollama pull qwen2.5:3b
+  # Flip to live mode only for fresh installs; an existing .env with a
+  # deliberate AI_MODEL_MODE choice is respected.
+  if grep -q '^AI_MODEL_MODE=stub' services/serviq-ai-agent/.env 2>/dev/null; then
+    sed -i.bak 's/^AI_MODEL_MODE=stub/AI_MODEL_MODE=ollama/' services/serviq-ai-agent/.env && rm -f services/serviq-ai-agent/.env.bak
+    $COMPOSE up -d ai-agent ai-agent-consumer
+  fi
+else
+  echo "  skipped — ai-agent stays in stub mode (AI_MODEL_MODE=stub)."
+  echo "  Later: docker exec infra-ollama ollama pull moondream && docker exec infra-ollama ollama pull qwen2.5:3b"
+fi
+
+echo "==> [4/5] Frontends (vite dev servers with hot reload, 3000-3003)"
 $COMPOSE --profile dev up -d --wait
 
 # Dev containers report "running" while first-boot `npm install` is still in
 # flight — wait for vite to actually listen before smoke-checking.
 echo "  waiting for vite dev servers to accept connections..."
-for port in 8080 8081 8082 8083; do
+for port in 3000 3001 3002 3003; do
   for _ in $(seq 1 60); do
     curl -s -o /dev/null --max-time 2 "http://localhost:$port/" && break
     sleep 2
@@ -113,8 +131,8 @@ check() { # $1=url  $2=label
 }
 
 for entry in \
-  "8080 customer-portal-dev" "8081 service-agent-dev" \
-  "8082 tenant-console-dev"  "8083 platform-admin-dev"; do
+  "3000 customer-portal-dev" "3001 service-agent-dev" \
+  "3002 tenant-console-dev"  "3003 platform-admin-dev"; do
   check "http://localhost:${entry%% *}/" "${entry#* }"
 done
 for entry in \
@@ -126,8 +144,8 @@ for entry in \
   "8020 billing"                "8021 payouts"; do
   check "http://localhost:${entry%% *}/api/health" "${entry#* }"
 done
-check "http://localhost:3000/api/health" "customer-portal-bff"
-check "http://localhost:3001/api/health" "service-agent-bff"
+check "http://localhost:8000/api/health" "customer-portal-bff"
+check "http://localhost:8001/api/health" "service-agent-bff"
 check "http://localhost:8100/docs" "ai-agent"
 
 bad=$($COMPOSE ps --format '{{.Name}} {{.Status}}' | grep -ciE 'restarting|exited|unhealthy' || true)

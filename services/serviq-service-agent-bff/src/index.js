@@ -27,7 +27,17 @@ const SERVICES = {
   job: process.env.JOB_URL || 'http://service-job-backend',
   crm: process.env.CRM_URL || 'http://customer-request-backend',
   billing: process.env.BILLING_URL || 'http://billing-backend',
+  ai: process.env.AI_URL || 'http://ai-agent',
 }
+
+// AI /parse document types → Billing evidence types.
+const DOC_MAP = {
+  e_wallet_receipt: 'E_WALLET', bank_deposit_slip: 'BANK_SLIP', check: 'BANK_CHECK',
+  pos_receipt: 'POS_RECEIPT', purchase_order: 'PURCHASE_ORDER', cash_photo: 'CASH_PHOTO',
+}
+
+const toCents = (v) => v === undefined || v === null || v === '' ? null
+  : (Number.isInteger(v) && v > 10000 ? v : Math.round(Number(v) * 100))
 
 async function auth(req, res, next) {
   try {
@@ -194,12 +204,45 @@ app.post('/api/v1/executions/:id/evidence', auth, async (req, res) => {
   await proxy(res, r)
 })
 
-// Proof of payment — parsed receipt fields forwarded to Billing's evidence intake.
+// Proof of payment — receipt file → AI parse → Billing evidence intake
+// with both the parsed fields and the uploader's claimed values. Billing
+// flags claimed-vs-parsed mismatches for manual review. Parse failure
+// degrades to the claimed values alone (evidence still lands on record).
 app.post('/api/v1/payment-evidence', auth, async (req, res) => {
   const t = req.jwt.tenant_id
+  const { file_b64, filename, claimed, ...rest } = req.body ?? {}
+
+  let parsed = null
+  if (file_b64) {
+    try {
+      const fd = new FormData()
+      fd.append('file', new Blob([Buffer.from(file_b64, 'base64')]), filename || 'receipt.jpg')
+      const pr = await fetch(`${SERVICES.ai}/api/v1/parse`, { method: 'POST', body: fd })
+      if (pr.ok) parsed = await pr.json()
+    } catch { /* AI unreachable — degrade to claimed-only evidence */ }
+  }
+
+  const f = parsed?.fields ?? {}
+  const payload = {
+    ...rest,
+    document_type: DOC_MAP[parsed?.document_type] ?? rest.document_type ?? 'OTHER',
+    extracted: {
+      reference: f.reference_no ?? f.check_no ?? f.po_number ?? f.merchant
+        ?? claimed?.reference ?? rest.extracted?.reference ?? null,
+      amount_cents: toCents(f.amount ?? f.total_amount)
+        ?? claimed?.amount_cents ?? rest.extracted?.amount_cents ?? 0,
+      channel: f.provider ?? f.merchant ?? rest.extracted?.channel ?? null,
+      payer_name: f.sender ?? rest.extracted?.payer_name ?? null,
+      paid_at: f.deposit_date ?? f.date ?? rest.extracted?.paid_at ?? null,
+    },
+    claimed: claimed ?? null,
+    confidence: parsed?.confidence ?? null,
+    raw_text: parsed ? JSON.stringify(f) : (rest.raw_text ?? null),
+  }
+
   const r = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/payment-evidence`, {
     method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
-    body: JSON.stringify(req.body ?? {}),
+    body: JSON.stringify(payload),
   })
   await proxy(res, r)
 })

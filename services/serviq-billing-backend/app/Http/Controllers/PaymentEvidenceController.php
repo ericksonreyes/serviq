@@ -57,6 +57,9 @@ class PaymentEvidenceController
             'extracted.channel' => ['nullable', 'string', 'max:100'],
             'extracted.payer_name' => ['nullable', 'string', 'max:255'],
             'extracted.paid_at' => ['nullable', 'date'],
+            'claimed' => ['nullable', 'array'],
+            'claimed.reference' => ['nullable', 'string', 'max:255'],
+            'claimed.amount_cents' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $actorId = $request->attributes->get('jwt')['sub'] ?? null;
@@ -72,6 +75,8 @@ class PaymentEvidenceController
                 'tenant_id' => $tenant, 'uploader_id' => $actorId,
                 'document_type' => $data['document_type'], 'file_ref' => $data['file_ref'],
                 'raw_text' => $data['raw_text'] ?? null, 'extracted' => $data['extracted'],
+                'claimed_reference' => $data['claimed']['reference'] ?? null,
+                'claimed_amount_cents' => $data['claimed']['amount_cents'] ?? null,
                 'confidence' => $data['confidence'] ?? null,
                 'status' => $flags ? PaymentEvidence::FLAGGED : PaymentEvidence::ACCEPTED,
                 'flags' => $flags ?: null,
@@ -165,6 +170,15 @@ class PaymentEvidenceController
 
         if (isset($data['confidence']) && (float) $data['confidence'] < self::LOW_CONFIDENCE) {
             $flags[] = 'low_confidence';
+        }
+
+        // Claimed vs parsed — the uploader's word against the document.
+        $claimed = $data['claimed'] ?? null;
+        if ($claimed && (
+            (isset($claimed['amount_cents']) && $claimed['amount_cents'] !== ($data['extracted']['amount_cents'] ?? null))
+            || (isset($claimed['reference']) && strcasecmp($claimed['reference'], $data['extracted']['reference'] ?? '') !== 0)
+        )) {
+            $flags[] = 'claimed_mismatch';
         }
 
         return $flags;

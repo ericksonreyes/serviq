@@ -34,6 +34,9 @@ async function upload(token, path, formData) {
 export const api = {
   login: (creds) => request(IDENTITY_URL, '/api/v1/auth/login', { method: 'POST', body: creds }),
   register: (creds) => request(IDENTITY_URL, '/api/v1/auth/register', { method: 'POST', body: creds }),
+  invitation: (token) => request(IDENTITY_URL, `/api/v1/invitations/${token}`),
+  acceptInvite: (token, body) =>
+    request(IDENTITY_URL, `/api/v1/invitations/${token}/accept`, { method: 'POST', body }),
 
   agentHome: (token, agentId) => request(API_URL, `/api/v1/agents/${agentId}/home`, { token }),
   myJobs: (token) => request(API_URL, '/api/v1/me/jobs', { token }),

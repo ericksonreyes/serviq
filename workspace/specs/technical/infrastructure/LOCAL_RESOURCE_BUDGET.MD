@@ -4,6 +4,31 @@ This document defines the memory and disk budget for running the full ServIQ sta
 reference machine (MacBook Air M1, 8GB RAM). The POC target is **all services and infrastructure running
 simultaneously** — the budget makes that possible, and the tiered profiles are the fallback when it isn't.
 
+## Minimum Requirements (measured, 2026-10-11)
+
+Numbers below are observed on the reference machine, not estimates — the planning tables follow.
+
+### Docker Desktop VM allocation
+
+| VM memory setting | Result |
+| --- | --- |
+| ~3.8 GiB | Stack runs, but the 1 GiB default swap stays 100% allocated at idle and `moondream` **fails to load** — llama-server is OOM-killed mid-load (`signal: killed`, HTTP 500 from `/api/v1/parse`). Stub mode required. |
+| **5 GiB** | **Minimum for the full stack + live AI.** moondream loads (~1.3 GB resident), `/parse` round-trips in ~30s cold / seconds warm. Total VM usage ~3.8 GB, swap drops to ~500 MB. |
+| 6–8 GiB | Comfortable headroom; do **not** allocate this on an 8 GB host — macOS starves. |
+
+Rules of thumb for hosts with more RAM than the reference machine: the stack idles ~1.3–2.2 GB
+(containers + VM overhead), each resident model adds ~1.3–3 GB (see model sizing below).
+
+### Disk (fresh install)
+
+| Item | Size | Notes |
+| --- | --- | --- |
+| Images (all services + infra) | ~12 GB | after `docker compose build` |
+| Ollama model weights | ~3.7 GB | `moondream` 1.7 GB + `qwen2.5:3b` 1.9 GB, `serviq_ollama-models` volume |
+| Data volumes (seeded) | ~0.2 GB | postgres dominates; mongo/minio/redis/rabbitmq negligible |
+| Build cache | ~4 GB transient | reclaimable via `docker system prune` |
+| **Working minimum** | **~20 GB free** | ~16 GB retained + transient build cache |
+
 ## Memory Budget
 
 Allocations inside the Docker VM (~5–6GB usable after macOS and the VM's own overhead).

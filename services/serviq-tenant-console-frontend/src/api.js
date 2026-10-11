@@ -53,6 +53,8 @@ export const api = {
   updateUser: (token, id, body) => request(BASES.identity, `/api/v1/users/${id}`, { token, method: 'PATCH', body }),
   assignRoles: (token, id, roles) => request(BASES.identity, `/api/v1/users/${id}/roles`, { token, method: 'POST', body: { roles } }),
   roles: (token, t) => request(BASES.identity, `/api/v1/roles?scope=${t}`, { token }),
+  inviteUser: (token, t, body) =>
+    request(BASES.identity, tp(t, '/invitations'), { token, method: 'POST', body }),
 
   // Workforce — service agents.
   agents: (token, t) => request(BASES.workforce, tp(t, '/agents'), { token }),

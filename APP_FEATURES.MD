@@ -25,7 +25,7 @@ Customer-facing app for a Service Provider — signup, browsing, booking, tracki
 - ✅ Landing page
 - ✅ Tenant-scoped signup and login (`/provider/:slug/signup`, `/provider/:slug/login`)
 - ✅ Home view listing the customer's service requests and jobs via the BFF read model
-- ✅ Customer onboarding by Service Provider invitation (staff-created accounts resolve to the invited customer record on first sign-in; self-signup remains available)
+- ✅ Customer onboarding by Service Provider invitation — staff create the customer account; first sign-in links it
 - ✅ Customer account and profile management, including address book
 - ✅ Service catalog browsing and discovery
 - ✅ Service request submission and booking with schedule selection
@@ -47,7 +47,7 @@ Field agent PWA — mobile-first channel for executing field work.
 
 - ✅ Signup and login
 - ✅ Home view showing today's assignments via the Service Agent BFF
-- ✅ Onboarding by dispatcher invitation (dispatcher creates the agent account in the Tenant Console; the invitee signs in normally)
+- ✅ Onboarding by dispatcher invitation — dispatcher/admin creates the agent account
 - ✅ Accept / reject assignments
 - ✅ Job list and job detail views
 - ✅ Navigation to the customer location
@@ -57,7 +57,7 @@ Field agent PWA — mobile-first channel for executing field work.
 - ✅ Parts and materials recording
 - ✅ Proof of payment upload for digital payments — the AI Agent parses the receipt and extracts the amount and reference number ([Proof of Payment Parsing](workspace/specs/technical/ai/PROOF_OF_PAYMENT_PARSING.MD))
 - ✅ Cash turn-in at end of shift — the agent's list of cash-paid services reconciled with the dispatcher ([Cash Remittance Counting](workspace/specs/technical/ai/CASH_REMITTANCE.MD))
-- ✅ Customer confirmation capture
+- ✅ Customer confirmation capture (typed-name signature evidence)
 - ✅ Job completion
 
 ## Tenant Console

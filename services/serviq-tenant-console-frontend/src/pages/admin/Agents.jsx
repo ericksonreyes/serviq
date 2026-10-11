@@ -3,6 +3,7 @@ import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, input, label } from '../../components/ui'
+import InviteForm from '../../components/InviteForm'
 
 const csv = (s) => s.split(',').map((x) => x.trim()).filter(Boolean)
 
@@ -57,7 +58,10 @@ export default function Agents() {
             )}
           </Card>
         </div>
-        <NewAgent token={token} tenant={tenant} onDone={reload} />
+        <div className="space-y-4">
+          <NewAgent token={token} tenant={tenant} onDone={reload} />
+          <InviteForm token={token} tenant={tenant} role="Service Agent" />
+        </div>
       </div>
     </div>
   )
