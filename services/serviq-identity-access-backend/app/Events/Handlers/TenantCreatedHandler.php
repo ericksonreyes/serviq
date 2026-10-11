@@ -24,7 +24,9 @@ class TenantCreatedHandler
             throw new \RuntimeException('Platform.TenantCreated missing tenant_id');
         }
 
-        TenantScope::firstOrCreate(
+        // updateOrCreate so replay heals scopes provisioned before slug
+        // projection existed (slug-null rows block tenant-slug logins).
+        TenantScope::updateOrCreate(
             ['id' => $tenantId],
             [
                 'name' => $envelope['payload']['name'] ?? null,

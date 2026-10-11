@@ -35,6 +35,20 @@ Test strategy, scenario inventory, and run instructions for the ServIQ stack. Th
 - `services/serviq-billing-backend/verify_remittance.php` — 36-check smoke harness through the real HTTP kernel; pattern worth copying per service
 - `services/serviq-ai-agent/app/eval.py` + `evals/dataset.jsonl` — 20-fixture parse-accuracy eval on stub mode
 - `install.sh` smoke checks — `/api/health` on all 19 ports + frontends
+- `tests/e2e/` — Playwright golden-chain spike (`golden-chain.mjs`): customer books → dispatcher converts → auto-assign → agent checks in, across three browser contexts. Opt-in — `./scripts/test.sh tests/e2e` — needs the running stack, not part of the default glob.
+
+## Browser E2E conventions
+
+Established by the `tests/e2e` spike — follow these for new E2E tests:
+
+- **Runtime is the official Playwright image** (`mcr.microsoft.com/playwright:v1.55.0-noble`) — `playwright` is an exact-pinned dev dep in `tests/e2e/package.json` (version must match the image's baked browsers; `^` resolves newer and breaks).
+- **`--host-resolver-rules=MAP localhost <gateway>`** — frontends bake `VITE_* = localhost:PORT` for host browsers. Inside the container we remap the *browser's* localhost to `host.docker.internal` so page loads AND API calls land on host-mapped ports. Zero frontend config needed.
+- **Tokens are in-memory only** (React state, no localStorage) — a `page.goto` reload loses auth. After login, all navigation is in-app clicks.
+- **Tenant logins go through `/provider/{slug}/login`** — bare `/login` resolves platform scope and rejects tenant users.
+- **IAM throttles login 5/min per client IP** — repeated runs share the container's IP; back off ~65s on "Too Many Attempts" rather than failing.
+- **Seed through APIs, never through unrelated UI** — the seed block logs into IAM directly (with the same throttle backoff) and drives lifecycle transitions the console doesn't expose (see "product gap" below).
+- **Match rows by your marker, not position** — bookings carry `E2E-<ts>` notes rendered in the console queue; the job lookup binds by `request_id`, not "first requested row" (stale leftovers poison positional matches).
+- **Selectors: prefer role/label/text** — MUI labels resolve via `getByLabel`; Tailwind `<label>`s aren't `for`-associated (fall back to input types); hidden `<option>`s pollute `/status/i` text waits — match notice strings exactly.
 
 ## Environment quirks
 
@@ -45,6 +59,7 @@ Test strategy, scenario inventory, and run instructions for the ServIQ stack. Th
 - **SQLite per service.** Feature tests use `DB_CONNECTION=sqlite` + a temp file — no shared test DB, no cross-service tables.
 - **JWT in tests.** Laravel `JwtVerifier` falls back to HS256 when `JWT_JWKS_URL`/`JWT_PUBLIC_KEY` are empty; `JWT_SECRET` must be ≥32 bytes (see billing's `phpunit.xml`). Redis-unreachable is expected — the blacklist degrades to expiry-only validation.
 - **No real secrets.** Test JWTs, demo accounts, and MinIO keys are local-only; never commit real credentials.
+- **E2E-found product gaps.** The spike surfaced real defects, fixed where mechanical: frontend `.env` `VITE_API_BASE_URL` pointed at the frontends' own ports (all data calls returned vite's index.html); `tenant_scopes.slug` was NULL for pre-slug rows (handler now `updateOrCreate`); `DemoAgentSeeder` emitted no `Workforce.AgentRegistered` (dispatch agents projection stayed empty → every assign "invalid agent") and never linked `user_id` (BFF couldn't resolve IAM sub → workforce id — new `agents?user_id=` filter + `resolveAgentId` in the agent BFF). **Still open:** the console has no UI for `requested → confirmed → ready_for_assignment` — converted jobs stall until seeded via API; and with the default `automatic` strategy, dispatch assigns instantly on ready, so the manual Assign UI path needs a `self`/`broadcast` tenant to exercise.
 
 ## Documents
 

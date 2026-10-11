@@ -1,0 +1,7 @@
+{
+  "name": "serviq-e2e",
+  "private": true,
+  "dependencies": {
+    "playwright": "1.55.0"
+  }
+}

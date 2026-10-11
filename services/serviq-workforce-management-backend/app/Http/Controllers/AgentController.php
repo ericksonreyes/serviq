@@ -15,6 +15,7 @@ class AgentController
         $agents = Agent::with('availability')
             ->where('tenant_id', $tenant)
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->query('user_id'), fn ($q, $u) => $q->where('user_id', $u))
             ->orderBy('name')
             ->paginate(50);
 
