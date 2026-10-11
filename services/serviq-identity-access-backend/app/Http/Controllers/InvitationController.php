@@ -59,7 +59,7 @@ class InvitationController
             'invited_by' => $actorId,
         ], $tenant);
 
-        return response()->json(['data' => $invite->makeHidden('token_hash') + ['accept_url' => $url]], 201);
+        return response()->json(['data' => $invite->makeHidden('token_hash')->toArray() + ['accept_url' => $url]], 201);
     }
 
     /** Public — the accept page reads invite details by token. */

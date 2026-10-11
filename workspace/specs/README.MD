@@ -11,6 +11,7 @@ This folder is the canonical documentation hub for shared ServIQ specifications.
 - `decisions/` — architecture decision records (ADRs): the *why* behind each locked decision
 - `domain/` — business boundaries, personas, and assignment strategy documentation
 - `technical/` — engineering disciplines, UX guidance, and infrastructure guidance
+- `testing/` — test strategy, scenario inventory, and run instructions
 
 ## Navigation
 
@@ -22,3 +23,4 @@ This folder is the canonical documentation hub for shared ServIQ specifications.
 - [Architecture Decision Records](decisions/README.MD)
 - [Domain Documentation](domain/README.MD)
 - [Technical Documentation](technical/README.MD)
+- [Testing](testing/README.MD)

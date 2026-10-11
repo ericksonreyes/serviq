@@ -10,6 +10,6 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/api/health');
 
-        $response->assertStatus(200)->assertJson(['service' => 'serviq-field-service-execution-backend']);
+        $response->assertStatus(200)->assertJson(['service' => 'field-service-execution-backend']);
     }
 }

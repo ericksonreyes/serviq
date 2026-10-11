@@ -30,6 +30,13 @@ This file guides documentation-oriented work in the ServIQ repository.
 - When a service gains its `Dockerfile`, uncomment its entry in `services/docker-compose.yml` in the same change — the commented entries are the implementation checklist.
 - Prefer a simple per-service record with `name`, `description`, and `location` fields.
 
+## Runtime and Toolchain
+
+- **Never run host-installed language runtimes or package managers** (php, node, python, composer, npm, pip) for repo tasks — tests, builds, dependency installs, and script executions all run inside Docker. Host toolchains drift from the service's declared requirements and are a source of lockfile divergence: e.g., running `composer update` under an older host PHP can resolve a dependency set the production image can't run.
+- **Derive the container from the manifest, not from whatever image happens to be built.** `composer.json require.php` → `php:X.Y-cli`; `package.json engines.node` → `node:N-alpine` (fall back to `@types/node` major, then 22); Python services run in their own image whose pip-installed deps are the pinned contract.
+- For dependency installs prefer the tool's official image: `composer:2` for PHP deps (with `--ignore-platform-req=ext-sockets` as `install.sh` does), `node:N` for npm work. Never let the package manager run on the host — its `*-lock`/`composer.lock` output differs across runtime versions and that divergence ships bugs.
+- `scripts/test.sh` is the reference implementation — use it rather than ad-hoc commands; extend it rather than working around it.
+
 ## Session Handoffs
 
 - Use `workspace/handoff/` for session handoff notes; see `workspace/handoff/README.MD` for the format.
