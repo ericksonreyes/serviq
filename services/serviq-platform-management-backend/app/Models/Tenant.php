@@ -6,6 +6,7 @@ use App\Domain\Tenancy\TenantLifecycle;
 use App\Models\Concerns\HasUuid7;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use RuntimeException;
 
 /**
@@ -24,6 +25,11 @@ class Tenant extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
     }
 
     public function isActive(): bool

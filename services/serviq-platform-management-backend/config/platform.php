@@ -18,6 +18,10 @@ return [
         'audience' => env('JWT_AUDIENCE', 'serviq'),
     ],
 
+    // Identity & Access — used for live cross-service lookups (e.g. the
+    // user count in the metrics summary). Caller's JWT is forwarded.
+    'iam_url' => env('IAM_API_URL', 'http://identity-access-backend'),
+
     'rabbitmq' => [
         'host' => env('RABBITMQ_HOST', 'rabbitmq'),
         'port' => (int) env('RABBITMQ_PORT', 5672),
