@@ -48,6 +48,24 @@ fi
 
 fail=0
 for d in "${services[@]}"; do
+  # Browser E2E (Playwright): dirs declaring a playwright dep run in the
+  # official image. Requires the running stack — opt-in, never in the
+  # default services/* glob. Invoke: ./scripts/test.sh tests/e2e
+  if [ -f "$d/package.json" ] && grep -q '"playwright"' "$d/package.json"; then
+    echo "==> $d (playwright)"
+    PW_IMG=mcr.microsoft.com/playwright:v1.55.0-noble
+    docker run --rm -v "$PWD/$d:/app" -w /app --entrypoint bash \
+      "$PW_IMG" -lc "npm i --no-audit --no-fund -q" || { echo "  FAIL $d (deps)"; fail=$((fail + 1)); continue; }
+    if docker run --rm --add-host host.docker.internal:host-gateway \
+      -v "$PWD/$d:/tests" -w /tests --entrypoint bash \
+      "$PW_IMG" -lc "for t in *.mjs; do node \"\$t\" || exit 1; done"; then
+      echo "  PASS $d"
+    else
+      echo "  FAIL $d"; fail=$((fail + 1))
+    fi
+    continue
+  fi
+
   # Python (FastAPI): tests/test_*.py via stdlib unittest in the service's
   # own image — it ships exactly the runtime requirements.txt pinned.
   if [ -d "$d/tests" ] && ls "$d/tests"/test_*.py >/dev/null 2>&1; then

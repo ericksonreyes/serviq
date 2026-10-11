@@ -124,3 +124,4 @@ models/
 *.sqlite3
 *.db
 docker-data/
+tests/e2e/node_modules/

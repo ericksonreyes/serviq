@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Containerized E2E + LAN/mobile dev testing reach vite by service name.
+  server: { allowedHosts: true },
   plugins: [
     react(),
     VitePWA({

@@ -3,7 +3,13 @@ import { createRemoteJWKSet, jwtVerify } from 'jose'
 
 // Aggregation edge for field agents — fans out to owning services with
 // the caller's JWT forwarded verbatim. No read model here by design.
-// The agent's id IS the IAM user id (req.jwt.sub) — never trusted from a body.
+// Agent identity: the JWT sub is the IAM user id; domain rows (offers,
+// executions, remittances) key on the workforce agents.id — resolved via
+// the agents.user_id link. Never trusted from a body.
+async function resolveAgentId(req, tenant) {
+  const res = await get(`${SERVICES.workforce}/api/v1/tenants/${tenant}/agents?user_id=${req.jwt.sub}`, req)
+  return res?.data?.[0]?.id ?? req.jwt.sub // fallback: pre-linkage identities
+}
 
 const app = express()
 app.use(express.json())
@@ -112,7 +118,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'service-
 // Agent home: my profile + open offers + active executions, one round trip.
 app.get('/api/v1/agents/:agentId/home', auth, async (req, res) => {
   const t = req.jwt.tenant_id
-  const { agentId } = req.params
+  // Callers pass the IAM user id (claims.sub); resolve to the workforce id.
+  const agentId = await resolveAgentId(req, t)
   const [offersRes, executions, agent] = await Promise.all([
     get(`${SERVICES.dispatch}/api/v1/tenants/${t}/offers?agent_id=${agentId}`, req),
     get(`${SERVICES.field}/api/v1/tenants/${t}/executions?agent_id=${agentId}`, req),
@@ -127,7 +134,7 @@ app.get('/api/v1/agents/:agentId/home', auth, async (req, res) => {
 // The agent's job list — executions enriched with job + customer + address.
 app.get('/api/v1/me/jobs', auth, async (req, res) => {
   const t = req.jwt.tenant_id
-  const executions = await myExecutions(req, t, req.jwt.sub)
+  const executions = await myExecutions(req, t, await resolveAgentId(req, t))
   const jobs = await Promise.all(executions.map((e) => enrich(req, t, e)))
   res.json({ data: jobs })
 })
@@ -145,7 +152,7 @@ app.post('/api/v1/assignments/:id/accept', auth, async (req, res) => {
   const t = req.jwt.tenant_id
   const r = await fetch(`${SERVICES.dispatch}/api/v1/tenants/${t}/assignments/${req.params.id}/accept`, {
     method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agent_id: req.jwt.sub }),
+    body: JSON.stringify({ agent_id: await resolveAgentId(req, t) }),
   })
   await proxy(res, r)
 })
@@ -154,7 +161,7 @@ app.post('/api/v1/assignments/:id/reject', auth, async (req, res) => {
   const t = req.jwt.tenant_id
   const r = await fetch(`${SERVICES.dispatch}/api/v1/tenants/${t}/assignments/${req.params.id}/reject`, {
     method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agent_id: req.jwt.sub }),
+    body: JSON.stringify({ agent_id: await resolveAgentId(req, t) }),
   })
   await proxy(res, r)
 })
@@ -251,7 +258,7 @@ app.post('/api/v1/payment-evidence', auth, async (req, res) => {
 app.get('/api/v1/remittances/expected', auth, async (req, res) => {
   const t = req.jwt.tenant_id
   const r = await fetch(
-    `${SERVICES.billing}/api/v1/tenants/${t}/remittances/expected?agent_id=${req.jwt.sub}`,
+    `${SERVICES.billing}/api/v1/tenants/${t}/remittances/expected?agent_id=${await resolveAgentId(req, t)}`,
     { headers: AUTH(req) })
   await proxy(res, r)
 })
@@ -260,7 +267,7 @@ app.post('/api/v1/remittances/turn-ins', auth, async (req, res) => {
   const t = req.jwt.tenant_id
   const r = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/remittances/turn-ins`, {
     method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...(req.body ?? {}), agent_id: req.jwt.sub }),
+    body: JSON.stringify({ ...(req.body ?? {}), agent_id: await resolveAgentId(req, t) }),
   })
   await proxy(res, r)
 })
