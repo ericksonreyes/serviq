@@ -17,6 +17,7 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function ()
     Route::post('/tenants/{tenant}/jobs/{job}/accept', [JobController::class, 'accept']);
     Route::post('/tenants/{tenant}/jobs/{job}/start', [JobController::class, 'start']);
     Route::post('/tenants/{tenant}/jobs/{job}/cancel', [JobController::class, 'cancel']);
+    Route::post('/tenants/{tenant}/jobs/{job}/reschedule', [JobController::class, 'reschedule']);
     Route::put('/tenants/{tenant}/jobs/{job}/steps', [JobController::class, 'reorder']);
     Route::post('/tenants/{tenant}/jobs/{job}/steps/{position}/start', [JobController::class, 'stepStart']);
     Route::post('/tenants/{tenant}/jobs/{job}/steps/{position}/close', [JobController::class, 'stepClose']);

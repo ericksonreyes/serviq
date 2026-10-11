@@ -140,6 +140,52 @@ class DispatchService
         });
     }
 
+    /**
+     * Advisory top-N for a job — same eligibility data the automatic strategy
+     * uses, with the score decomposed into reasons. Never creates offers or
+     * assignments; the dispatcher (or `assign`) still decides.
+     */
+    public function recommend(DispatchableJob $job, int $limit = 5): array
+    {
+        $workload = Assignment::where('tenant_id', $job->tenant_id)
+            ->whereIn('status', [Assignment::OFFERED, Assignment::ACCEPTED])
+            ->selectRaw('agent_id, count(*) as open_count')
+            ->groupBy('agent_id')
+            ->pluck('open_count', 'agent_id');
+
+        $scored = [];
+        foreach ($this->candidates($job) as $agent) {
+            $capacity = max(1, (int) ($agent->capacity ?? 5));
+            $open = (int) ($workload[$agent->agent_id] ?? 0);
+            $headroom = max(0, $capacity - $open);
+
+            $reasons = [
+                $open === 0
+                    ? 'no open assignments'
+                    : "{$open} of {$capacity} assignment slots in use",
+            ];
+            if (($agent->skills ?? []) !== []) {
+                $reasons[] = 'declared skills: '.implode(', ', $agent->skills);
+            }
+            if (($agent->service_areas ?? []) !== []) {
+                $reasons[] = 'covers: '.implode(', ', $agent->service_areas);
+            }
+            if ($headroom === 0) {
+                $reasons[] = 'at capacity';
+            }
+
+            $scored[] = [
+                'agent_id' => $agent->agent_id,
+                'name' => $agent->name,
+                'score' => (int) round(($headroom / $capacity) * 100),
+                'reasons' => $reasons,
+            ];
+        }
+        usort($scored, fn ($a, $b) => $b['score'] <=> $a['score'] ?: strcmp($a['name'], $b['name']));
+
+        return array_slice($scored, 0, max(1, min($limit, 20)));
+    }
+
     private function candidates(DispatchableJob $job): iterable
     {
         return Agent::where('tenant_id', $job->tenant_id)->where('status', 'active')->get();

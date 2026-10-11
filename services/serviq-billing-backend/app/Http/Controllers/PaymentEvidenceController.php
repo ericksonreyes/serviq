@@ -30,12 +30,14 @@ class PaymentEvidenceController
 
     public function index(string $tenant, Request $request): JsonResponse
     {
-        return response()->json(
-            PaymentEvidence::where('tenant_id', $tenant)
-                ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
-                ->when($request->query('document_type'), fn ($q, $t) => $q->where('document_type', $t))
-                ->latest()->paginate(50)
-        );
+        $page = PaymentEvidence::where('tenant_id', $tenant)
+            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->query('document_type'), fn ($q, $t) => $q->where('document_type', $t))
+            ->latest()->paginate(50);
+
+        $this->annotateDuplicates($tenant, collect($page->items()));
+
+        return response()->json($page);
     }
 
     public function store(string $tenant, Request $request): JsonResponse
@@ -114,6 +116,29 @@ class PaymentEvidenceController
         });
 
         return response()->json(['data' => $evidence->fresh()]);
+    }
+
+    /**
+     * Fraud guard on reads: `duplicate_reference` is true when the parsed
+     * reference appears on another (non-rejected) evidence record for the
+     * tenant — same signal the intake guardrail flags.
+     */
+    private function annotateDuplicates(string $tenant, $items): void
+    {
+        $refs = $items->map(fn ($e) => $e->extracted['reference'] ?? null)->filter()->unique()->values();
+        $counts = $refs->isEmpty() ? collect() : PaymentEvidence::where('tenant_id', $tenant)
+            ->where('status', '!=', PaymentEvidence::REJECTED)
+            ->whereIn('extracted->reference', $refs)
+            ->groupByRaw("extracted->>'reference'")
+            ->selectRaw("extracted->>'reference' AS ref, COUNT(*) AS dupes")
+            ->pluck('dupes', 'ref');
+
+        foreach ($items as $e) {
+            $ref = $e->extracted['reference'] ?? null;
+            $seen = $ref === null ? 0 : (int) ($counts[$ref] ?? 0);
+            $others = $e->status === PaymentEvidence::REJECTED ? $seen : $seen - 1;
+            $e->setAttribute('duplicate_reference', $ref !== null && $others >= 1);
+        }
     }
 
     /** Billing guardrails — duplicate reference, under-remittance, low confidence. */

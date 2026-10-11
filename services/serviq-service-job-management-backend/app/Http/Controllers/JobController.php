@@ -77,6 +77,29 @@ class JobController
         return $this->transition($tenant, $job, 'Job.Cancelled', [], $store);
     }
 
+    /** Move the appointment — only while the job is unassigned and unstarted. */
+    public function reschedule(Request $request, string $tenant, Job $job, JobStore $store): JsonResponse
+    {
+        abort_unless($job->tenant_id === $tenant, 404);
+
+        $data = $request->validate(['scheduled_for' => ['required', 'date']]);
+
+        if ($job->assigned_agent_id !== null
+            || in_array($job->status, [JobLifecycle::IN_PROGRESS, JobLifecycle::COMPLETED, JobLifecycle::CANCELLED], true)) {
+            return response()->json([
+                'error' => 'illegal_transition',
+                'message' => "Cannot reschedule a {$job->status} job",
+            ], 409);
+        }
+
+        DB::transaction(fn () => $store->record($job, 'Job.Rescheduled', [
+            'scheduled_for' => $data['scheduled_for'],
+            'previous_scheduled_for' => $job->scheduled_for?->toIso8601String(),
+        ]));
+
+        return response()->json(['data' => $job->fresh()]);
+    }
+
     /** Generic step events — the step name is payload, not event type. */
     public function stepStart(string $tenant, Job $job, int $position, JobStore $store): JsonResponse
     {

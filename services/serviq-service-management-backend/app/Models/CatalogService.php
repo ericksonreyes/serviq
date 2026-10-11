@@ -18,7 +18,7 @@ class CatalogService extends Model
     protected $table = 'services';
 
     protected $fillable = [
-        'tenant_id', 'name', 'description', 'price_cents', 'currency',
+        'tenant_id', 'name', 'description', 'price_cents', 'currency', 'price_type',
         'estimated_minutes', 'required_skills', 'service_areas', 'active',
     ];
 

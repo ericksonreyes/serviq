@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentEvidenceController;
+use App\Http\Controllers\RefundRequestController;
 use App\Http\Controllers\RemittanceController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +12,11 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function ()
     Route::get('/tenants/{tenant}/invoices', [InvoiceController::class, 'index']);
     Route::get('/tenants/{tenant}/invoices/{invoice}', [InvoiceController::class, 'show']);
     Route::post('/tenants/{tenant}/invoices/{invoice}/pay', [InvoiceController::class, 'pay']);
+
+    // Refunds — request intake, Support decision approves, gated execute.
+    Route::get('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'index']);
+    Route::post('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'store']);
+    Route::post('/tenants/{tenant}/refund-requests/{refundRequest}/execute', [RefundRequestController::class, 'execute']);
 
     // AI-parsed payment evidence — intake, review queue, dispatcher resolution.
     Route::get('/tenants/{tenant}/payment-evidence', [PaymentEvidenceController::class, 'index']);
