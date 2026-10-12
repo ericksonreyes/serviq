@@ -1,6 +1,8 @@
-# Handoff — 2026-10-13 — Support IAM split + AI agent UX hardening
+# Handoff — 2026-10-13 — Support IAM + AI agent UX + coverage/dispatch UX
 
 ## Done This Session
+
+### Session A — Support IAM split + AI agent UX hardening
 
 - **Nav reorder** (`tenant-console/Layout.jsx`): Overview → Dispatch → Support → Administration; Customers moved into the Support section (route stays `/admin/customers`).
 - **Least-privilege IAM** (`identity-access-backend`): new `iam.invitations.manage` permission; `Customer Support` default bundle = `requests.manage` + `iam.invitations.manage`; `RequirePermission` now variadic any-of; invites route accepts either key; `InvitationController` restricts invitation-only callers to `Customer` invites; backfill migration `2026_10_12_000001_grant_customer_support_permissions.php`; `Customers.jsx` gates create/invite cards on JWT permission claims; **ADR-0022** written + indexed. IAM suite: 25 tests green.
@@ -9,12 +11,32 @@
 - **"Thinking" loading idiom** — input disables + button animates the ellipsis 1/s while an AI call is in flight. Shared `ThinkingLabel` in console `ui.jsx` (CommandBox + ChatPanel); `ThinkingDots` in portal `ChatWidget` and new `service-agent-frontend/src/ThinkingDots.jsx` applied to the two AI-parse submits (JobDetail receipt, TurnIn deposit slip — both hit `aiParse` in the BFF).
 - **Repaired a pre-existing broken test**: `TenantAdministratorScopeTest` referenced nonexistent `TENANT_ADMINISTRATOR_PERMISSIONS` and didn't seed the permission catalog.
 
+### Session B — Coverage enforcement, booking gate, dispatch UX, reassignment
+
+- **Service-area coverage (ADR-0023)**: `locations` table (code/name/level/parent_code, country-agnostic) seeded with all 43,769 PSGC rows; `GET /v1/locations/roots|search|{code}|{code}/children` (JWT, not tenant-scoped); `GET /v1/tenants/{t}/coverage/check?code=` walks ancestors — nearest explicit node wins, exclusions carve out, `countrywide` short-circuits; `service_areas.geo` validated `{admin_areas[], exclusions[], countrywide}`.
+- **CRM booking gate** (`CoverageGate`): `store` resolves `admin_code` → probes coverage with caller JWT forwarded verbatim → `outside`/`excluded` 422, unverifiable-while-binding 422 `address_unverifiable`, probe down 503 fail-closed. Portal BFF proxies `/locations/*` + `/coverage/check`. Book.jsx: cascading searchable pickers + preflight warning.
+- **Coverage-interest demand loop**: `coverage_interest` table (`tenant_id, admin_code, user_id` — idempotent per user+location); `POST /coverage/interest`, `GET /coverage/demand`; `ServiceManagement.CoverageInterested` event → notification template → tenant-wide in-app notification; tenant console gained a `/notifications` page + unread badge (first notification surface the console ever had); Areas page shows demand-by-location card; outside verdicts return `covered_names`.
+- **Pagination everywhere**: backend already `paginate(50)` — frontends dropped the envelope (51st row unreachable). Shared `Pager` (top+bottom) wired into 11 console pages, 2 platform-admin pages, portal Notifications, agent Jobs. BFF notification fix: `?user_id=` server-side filter in notification backend (BFF was filtering one page client-side — meaningless). 16px font floor across all 4 portals (Tailwind `@theme` remap + MUI theme variants).
+- **Status wording**: `converted` → "Job created" badge/toast (presentation-only; domain term unchanged — same pattern as portal's `converted` → "Scheduled").
+- **Converted-request hand-off**: agent check only for `submitted`/`reviewed`; converted requests show "View job →" via new `?request_id=` filter on jobs index → `/dispatch/jobs?job=<id>`.
+- **UUID cleanup**: jobs list shows customer name + service/schedule/agent names (client-side id→name maps); detail shows names, `Request` became short link back to request. `rows()` now recursively unwraps — `CustomerController` double-wraps `{data: paginator}` and silently broke the Customers page + Jobs name maps.
+- **Assign race → 409**: auto-dispatch assigned a job 7s before a manual Assign click → `assignments_one_accepted` partial unique index → raw SQLSTATE 500. Now `assign`/`broadcast` 409 `job_already_assigned` on assigned projections + `UniqueConstraintViolationException` catch; action failures reload job+list (stale UI self-heals).
+- **Reassignment flow**: `POST /dispatch/reassign` — `DispatchService::reassign` atomically locks+revokes current accepted → `Assignment.Revoked` (payload `agent_id`, `superseded_by`) → `createAccepted` (same-agent = idempotent no-op); 409 `job_not_assigned` / `reassign_window_closed`. Projection gained `agent_accepted`/`in_progress` (was lumped into `assigned`) — distinguishes dispatch-committed from agent-committed. Job-side `AssignmentAcceptedHandler` now re-records `Job.Assigned` when the agent differs on an `assigned` job (was blanket-skip). UI relabels section "Reassign service agent" while `assigned`, hides once agent commits. `Assignment.Revoked` notification template seeded.
+- **JWT boot-probe repo-wide**: all 9 remaining services switched to throwaway-probe `boot()` — the injected singleton froze the signing mode before test config overrides (RS256 suites silently 401ed). Missing-`permissions` fixtures fixed across billing (17 failures healed), payouts, dispatch, job-mgmt.
+- **`CustomerController` normalized**: index returns the paginator directly (was `['data' => paginate]` — the only double-wrapped endpoint).
+- **Form-on-top layout convention**: `LAYOUT.MD` written + linked from UX README; applied to `Users`, `Customers`, `Agents`, `Services` (forms were in right rails beside the lists).
+- **List-first CTA pattern (user directive, supersedes form-always-visible)**: `LAYOUT.MD` rewritten — lists render by default; a CTA in the list card's `actions` opens the form, which *replaces* the list; submit and cancel both restore it. Tenant console: `Users` (New user), `Customers` (Add customer + Invite by email via `'create'|'invite'|null` view-state), `Agents` (same pair), `Services` (New service), `Areas` (Add area + edit reuses the swap; demand card stays visible in both modes), `Cases` (New case replaces the list+detail grid; ChatPanel untouched). `InviteForm`/`NewUser`/`NewCustomer`/`NewAgent`/`NewService`/`OpenCase`/`CreateUser` gained `onCancel`. Platform admin aligned: `Tenants` (search+table hide while creating), `Plans` (table hides while `editing` covers create *and* edit), `Users` (`CreateUser` got `onCancel` + user table hides; `RolePanel` role list hides while creating + Cancel added). Customer portal + service-agent audited — no list+create pairings exist (booking is a dedicated page; `CompleteProfile` is a first-run gate; settings forms are their page's purpose).
+- **Admin edit flows (Session B close)**: every administration module now edits records — backends already had `PATCH`; the gaps were UI. `Users.jsx`: shared `useUserRow` hook drives an expanding per-row panel — **Roles** (checkbox assign), **Edit** (display name, email, optional password reset), plus **Disable/Enable** status toggle on every row (desktop `tr` + mobile card). `Agents.jsx`: `AgentRow`/`AgentCard` with expanding `EditAgent` panel (name, skills CSV, service-areas CSV, capacity) alongside the existing Deactivate/Reactivate. `Customers.jsx`: `CustomerRow`/`CustomerCard` with expanding `EditCustomer` (name, phone, email, address line1+city) via new `api.updateCustomer` (CRM `PATCH` existed) — gated on the `requests.manage` claim like the create CTA. `Services.jsx`: rows already expanded to `ServiceDetail` (edit + steps + pricing) but had zero affordance — added an explicit "Edit/Close" label per row. `Areas.jsx`: already had Edit on both breakpoints; its `mr-2` action pair realigned to `gap-3`. Pattern: edit opens a slate-50 panel *inside* the list (unlike create, which swaps the whole list out) — multiple rows can't conflict since each owns its state.
+- **Row-action idiom (Session B close)**: `link`/`linkDanger` constants in console `ui.jsx` — per-record actions inside table rows / list-row cards are text links (violet / red-destructive); real `btn`-family buttons stay for detail panes, form footers, and card-level CTAs. Applied to every row in the console: Agents (Deactivate/Reactivate were `btn`/`btnDanger`), Areas (Remove was `btnDanger`), Dashboard (Assign + Broadcast), Finance (Execute refund + Settle), Remittances (4 review actions), Evidence (accept/reject + Review opener), Users/Customers/Services unified onto the constants. Platform admin was already link-idiomatic — untouched.
+- **Self-assign strategy closed end-to-end**: `self` was backend-only — agents had no way to pull jobs. Now: `GET /api/v1/me/open-jobs` on the agent BFF (rules probe + dispatch queue → `jobDetails` fan-out, strategy returned so the client knows whether to render the section), `POST /api/v1/jobs/:jobId/claim` → `dispatch/self-assign` with agent_id resolved from JWT. `Home.jsx` gained an "Open jobs" pool section (only rendered when tenant strategy is `self`) with per-card Claim + friendly taken-race error. **Strategy gate added**: `selfAssign` 409s `self_assign_disabled` unless the rule is `self` — under broadcast it would have stolen jobs with live offers; under dispatcher it bypassed the human gate. **`accept()` bug fixed**: the offer-accept path never flipped `dispatchable_jobs` to `assigned` — the job stayed in the open pool until `Job.Assigned` round-tripped (races hit the unique-index backstop as 409s). Now flipped synchronously, matching `createAccepted`. `SelfAssignTest`: 3 cases; dispatch suite 19/19.
+
 ## Current State
 
-- Docker VM was 4.8 GiB — **below the documented 5 GiB minimum** (`LOCAL_RESOURCE_BUDGET.MD`); both `qwen2.5:3b` and `moondream` OOM-killed on load. User raised the VM to ~6 GiB; both models verified loading + generating live. Everything works now.
-- All changes **uncommitted**, hot-reloaded live (uvicorn `--reload`, vite HMR — all files transform clean).
-- `test.sh` contract-check still flags the pre-existing `GET /api/v1/providers` miss (customer portal BFF) — unrelated, untouched.
+- All changes **uncommitted** (66 files, ~1037 insertions), hot-reloaded live; `locations` + `coverage_interest` migrations applied and seeded in the dev stack.
+- Test suites green: service-mgmt 25/25, CRM 8/8, dispatch 16/16, job-mgmt 10/10, notification suite green, IAM 25. Contract check: only the pre-existing `GET /api/v1/providers` miss.
+- Docker VM is ~6 GiB (raised from 4.8); both Ollama models load.
 - Permission changes need **re-login** — new JWTs carry the new claims; stored roles were backfilled by the migration.
+- `test.sh` contract-check still flags the pre-existing `GET /api/v1/providers` miss (customer portal BFF) — unrelated, untouched.
 
 ## Decisions Made
 
@@ -25,20 +47,31 @@
 - Keep `qwen2.5:3b` despite size — only one model is ever resident, so it costs disk (~1.9 GB) not RAM; keywords already cover canned queries but the model buys phrasing flexibility.
 - Result rows deep-link to owning pages — the command box is a shortcut surface, not a transcript.
 - "Thinking" idiom scoped to AI round-trips only — plain API submits (turn-in count, status changes) keep normal busy states; mislabeled "Thinking" would misrepresent them.
+- Coverage gate **blocks** rather than soft-submits — enforcement must mean something; the interest loop is the landing pad that makes blocking acceptable UX (ADR-0023).
+- "Nearest covered area" rejected — come-to-you service can't ask the customer to move; showing *what is* covered (`covered_names`) is the actionable version.
+- Generic `admin_areas` codes over PH-specific implementation — `locations` is country-agnostic, PSGC is just the first dataset.
+- JWT boot-probe fix (throwaway `JwtVerifier` for the `mode()` call) — boot was memoizing HS256 on the singleton before tests set `public_key` → every RS256 suite silently red. Fixed in service-mgmt + CRM; **8 other services still carry the pattern**.
+- UUIDs stay (user chose) over SQID/JOB-xxxx reference numbers — presentation-layer name resolution instead; ADR-0006's transactional-id lanes remain unimplemented.
+- Reassign is atomic revoke+accept, not unassign-then-assign — a gap would let auto-dispatch reclaim the job. Reassignable only while `assigned` (dispatch-committed); once agent accepts it's a cancel flow, not an assign click.
+- List-first CTA over always-mounted forms — user found forms-on-load premature; the CTA keeps the action discoverable on the list it feeds. Multi-entry modules (Customers, Agents) use one view-state so surfaces never stack. `Areas` demand card deliberately stays visible during form-open — it's the input signal for what coverage to add.
+- Auto-dispatch racing manual assign kept as-is — `strategy: automatic` is the tenant's chosen policy; reassign is the corrective path. Optional future knob: `auto_assign_after_seconds` grace period.
 
 ## Next Steps
 
-1. Draft a commit when the user asks (AGENTS.md: draft only) — diff is self-contained across IAM + frontends + ai-agent.
-2. Verify Customers page end-to-end as a re-logged Customer Support user (new claims → both cards usable).
-3. Fix `.env` var-name drift in `serviq-ai-agent/.env`: code reads `AI_TEXT_MODEL`/`AI_VISION_MODEL`, the file sets inert `OLLAMA_*` names — works only because defaults coincide.
-4. Optional: per-agent detail/`?agent=` deep-link — agent result rows currently land on the roster page.
-5. Backlog (pre-existing, not this session's scope): `/api/v1/providers` contract miss; IAM `composer.lock` drift; BFFs :8000/:8001 lack CORS headers (same `Access-Control-*` fix needed if portals hit it); avoid `qwen3` as text model — `<think>` blocks break the strict `json.loads` parse.
+1. Draft a commit when the user asks (AGENTS.md: draft only) — diff is now large across many services.
+2. Verify reassign live: on an `assigned` job → "Reassign service agent" → swap agents → check `assigned_agent_id` updated + revoked agent notified.
+3. ~~Boot-probe JWT bug~~ — **done**: throwaway-probe fix applied to all 9 remaining services (`boot(): void` + `(new JwtVerifier|JwtIssuer)->mode()`). Same session healed the missing-`permissions`-claim test fixtures: billing 21/21, payouts 6/6 (both were mostly-red).
+4. ~~`CustomerController::index` double-wrap~~ — **done**: returns the paginator directly like every other list endpoint; `rows()` still tolerates both shapes; Customers pager meta unwraps correctly either way.
+5. Notification pagination gap on customer portal is fixed server-side; demand-signal → "we now cover you" notify-on-expansion consumer (`ServiceArea.Created` × `coverage_interest`) is the natural next coverage step.
+6. Backlog: `/api/v1/providers` contract miss; IAM `composer.lock` drift; BFFs :8000/:8001 lack CORS headers; `.env` var-name drift in `serviq-ai-agent/.env`; avoid `qwen3` as text model.
 
 ## Key Files
 
-- `workspace/specs/decisions/0022-least-privilege-invitations.MD` — the permission-split rationale.
-- `services/serviq-ai-agent/app/{main,orchestrator,parser}.py` — CORS, data passthrough, timeouts.
-- `services/serviq-tenant-console-frontend/src/components/{CommandBox,ChatPanel,ui,Layout}.jsx` — results rows + Thinking idiom + nav order.
-- `services/serviq-service-agent-frontend/src/ThinkingDots.jsx` + `pages/{JobDetail,TurnIn}.jsx`; `serviq-customer-portal-frontend/src/ChatWidget.jsx`.
-- `services/serviq-identity-access-backend/database/migrations/2026_10_12_000001_grant_customer_support_permissions.php` — role backfill.
+- `workspace/specs/decisions/0022-least-privilege-invitations.MD`, `0023-*.MD` — permission split + coverage model rationale.
+- `services/serviq-service-management-backend/app/{Http/Controllers/{Location,Coverage}Controller.php,Services/Coverage.php}` + `database/data/locations_ph.csv` — coverage model.
+- `services/serviq-customer-request-management-backend/app/Services/CoverageGate.php` — booking gate.
+- `services/serviq-assignment-dispatch-backend/app/{Services/DispatchService.php,Http/Controllers/AssignmentController.php,Events/Handlers/JobEventHandler.php}` + `tests/Feature/AssignConflictTest.php` — assign guard + reassign.
+- `services/serviq-service-job-management-backend/app/Events/Handlers/AssignmentAcceptedHandler.php` — reassign-aware dedup.
+- `services/serviq-tenant-console-frontend/src/pages/dispatch/{Jobs,Requests}.jsx` + `api.js` (`rows()` unwrap) + `components/ui.jsx` (`Pager`, `statusLabel`).
+- `services/serviq-notification-backend/app/Http/Controllers/NotificationController.php` + `database/seeders/DatabaseSeeder.php` — `user_id` filter + templates.
 - `workspace/specs/technical/infrastructure/LOCAL_RESOURCE_BUDGET.MD` — the 5 GiB floor.

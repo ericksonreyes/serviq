@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { useDebounced } from '../hooks'
-import { Badge, Empty, ErrorBox, btn, btnSecondary, input, label, td, th } from '../ui'
+import { Badge, Empty, ErrorBox, PageHead, Pager, btn, btnSecondary, input, label, td, th } from '../ui'
 
 function RolePicker({ roles, selected, onToggle, locked = [] }) {
   return (
@@ -37,7 +37,7 @@ function RolePicker({ roles, selected, onToggle, locked = [] }) {
   )
 }
 
-function CreateUser({ scope, roles, onDone }) {
+function CreateUser({ scope, roles, onDone, onCancel }) {
   const { token } = useAuth()
   const [form, setForm] = useState({ username: '', password: '', email: '', display_name: '', roles: [] })
   const [busy, setBusy] = useState(false)
@@ -93,9 +93,14 @@ function CreateUser({ scope, roles, onDone }) {
         <label className={label}>Roles</label>
         <RolePicker roles={roles} selected={form.roles} onToggle={toggleRole} />
       </div>
-      <button type="submit" className={btn} disabled={busy}>
-        {busy ? 'Creating…' : 'Create user'}
-      </button>
+      <div className="flex gap-3">
+        <button type="submit" className={btn} disabled={busy}>
+          {busy ? 'Creating…' : 'Create user'}
+        </button>
+        <button type="button" className={btnSecondary} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
     </form>
   )
 }
@@ -326,11 +331,18 @@ function RolePanel({ scope, permissions, onError }) {
               ))}
             </div>
           </div>
-          <button type="submit" className={btn} disabled={busy}>
-            Create role
-          </button>
+          <div className="flex gap-3">
+            <button type="submit" className={btn} disabled={busy}>
+              Create role
+            </button>
+            <button type="button" className={btnSecondary} onClick={() => setCreating(false)}>
+              Cancel
+            </button>
+          </div>
         </form>
       )}
+      {!creating && (
+      <>
       {!roles && <p className="text-sm text-slate-500">Loading…</p>}
       {roles && roles.length === 0 && <Empty>No roles in this scope.</Empty>}
       {roles &&
@@ -387,6 +399,8 @@ function RolePanel({ scope, permissions, onError }) {
             )}
           </div>
         ))}
+      </>
+      )}
     </section>
   )
 }
@@ -473,6 +487,8 @@ export default function Users() {
   const [scope, setScope] = useState('platform')
   const [tenants, setTenants] = useState([])
   const [users, setUsers] = useState(null)
+  const [meta, setMeta] = useState(null)
+  const [page, setPage] = useState(1)
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
   const [creating, setCreating] = useState(false)
@@ -481,8 +497,8 @@ export default function Users() {
   const load = () => {
     setError(null)
     api
-      .iamUsers(token, scope)
-      .then((res) => setUsers(res.data ?? []))
+      .iamUsers(token, scope, page)
+      .then((res) => { setUsers(res.data ?? []); setMeta(res.data ? res : null) })
       .catch((err) => {
         setUsers([])
         setError(err.message)
@@ -493,7 +509,7 @@ export default function Users() {
       .catch(() => setRoles([]))
   }
 
-  useEffect(load, [token, scope])
+  useEffect(load, [token, scope, page])
   useEffect(() => {
     api.tenants(token).then((res) => setTenants(res.data ?? [])).catch(() => {})
     api.iamPermissions(token).then((res) => setPermissions(res.data ?? [])).catch(() => {})
@@ -507,10 +523,10 @@ export default function Users() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Users & roles</h1>
+        <PageHead title="Users & roles" desc="Platform staff accounts and admin roles." />
         <div className="flex items-center gap-3">
           <label className={label}>Scope</label>
-          <ScopePicker tenants={tenants} value={scope} onChange={setScope} />
+          <ScopePicker tenants={tenants} value={scope} onChange={(s) => { setScope(s); setPage(1) }} />
           <button className={btn} onClick={() => setCreating((v) => !v)}>
             {creating ? 'Close' : 'New user'}
           </button>
@@ -518,12 +534,14 @@ export default function Users() {
       </div>
       <ErrorBox error={error} />
       {creating && (
-        <CreateUser scope={scope} roles={roles} onDone={() => { setCreating(false); load() }} />
+        <CreateUser scope={scope} roles={roles} onDone={() => { setCreating(false); load() }} onCancel={() => setCreating(false)} />
       )}
+      {!creating && (
       <section className="overflow-hidden rounded-lg bg-white shadow">
         <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
           Users — {scopeName}
         </div>
+        <Pager meta={meta} onPage={setPage} top />
         {!users && !error && <p className="p-4 text-sm text-slate-500">Loading…</p>}
         {users && users.length === 0 && <div className="p-4"><Empty>No users in this scope.</Empty></div>}
         {users && users.length > 0 && (
@@ -573,7 +591,9 @@ export default function Users() {
           </div>
           </>
         )}
+        <Pager meta={meta} onPage={setPage} />
       </section>
+      )}
       <RolePanel scope={scope} permissions={permissions} onError={setError} />
     </div>
   )

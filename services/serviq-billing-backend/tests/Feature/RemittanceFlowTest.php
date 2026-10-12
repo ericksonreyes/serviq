@@ -36,6 +36,7 @@ class RemittanceFlowTest extends TestCase
             'iss' => 'serviq-iam', 'aud' => 'serviq',
             'sub' => (string) Str::uuid7(), 'tenant_id' => $this->tenant,
             'roles' => ['Dispatcher'], 'jti' => (string) Str::uuid(),
+            'permissions' => ['billing.payments.record', 'billing.remit'],
             'iat' => time(), 'exp' => time() + 3600,
         ], config('platform.jwt.secret'), 'HS256');
     }

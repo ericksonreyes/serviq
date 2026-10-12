@@ -130,6 +130,35 @@ app.get('/api/v1/catalog/:service/availability', auth, (req, res) => {
 app.get('/api/v1/catalog/:service/pricing', auth, (req, res) =>
   upstream(req, res, SERVICES.catalog, `/api/v1/tenants/${req.jwt.tenant_id}/services/${req.params.service}/pricing`))
 
+// --- Locations + coverage (Service Management) --------------------------
+// Reference hierarchy + the coverage probe — powers the booking
+// address cascade and early "outside service area" feedback.
+
+app.get('/api/v1/locations/roots', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, '/api/v1/locations/roots'))
+
+app.get('/api/v1/locations/search', auth, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString()
+  return upstream(req, res, SERVICES.catalog, `/api/v1/locations/search${qs ? `?${qs}` : ''}`)
+})
+
+app.get('/api/v1/locations/:code/children', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, `/api/v1/locations/${req.params.code}/children`))
+
+app.get('/api/v1/locations/:code', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, `/api/v1/locations/${req.params.code}`))
+
+app.get('/api/v1/coverage/check', auth, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString()
+  return upstream(req, res, SERVICES.catalog,
+    `/api/v1/tenants/${req.jwt.tenant_id}/coverage/check${qs ? `?${qs}` : ''}`)
+})
+
+// "I'm interested" — demand signal from rejected bookings.
+app.post('/api/v1/coverage/interest', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog,
+    `/api/v1/tenants/${req.jwt.tenant_id}/coverage/interest`, { method: 'POST', body: req.body }))
+
 // --- Profile + address book (Customer & Request Management) -----------
 
 app.get('/api/v1/me/profile', auth, async (req, res) => {
@@ -276,23 +305,23 @@ app.post('/api/v1/me/requests/:id/cancel', auth, async (req, res) => {
 
 // --- Notifications (Notification service) ------------------------------
 
-// The upstream feed is tenant-wide; rows addressed to a user carry the
-// owning entity id (customer_id) — keep the caller's rows plus broadcasts.
+// The upstream feed is tenant-wide; the customer only gets rows addressed
+// to them, so the BFF injects user_id server-side (tenant-wide rows with no
+// user_id are staff traffic and must not leak). Caller-controlled params are
+// whitelisted to page/unread — user_id can never come from the query.
 app.get('/api/v1/me/notifications', auth, async (req, res) => {
   const customer = await resolveCustomer(req)
-  const qs = new URLSearchParams(req.query).toString()
+  if (!customer) return res.json({ data: [], total: 0 })
+  const qs = new URLSearchParams()
+  if (req.query.page) qs.set('page', req.query.page)
+  if (req.query.unread) qs.set('unread', req.query.unread)
+  qs.set('user_id', customer.id)
   const r = await fetch(
-    `${SERVICES.notifications}/api/v1/tenants/${req.jwt.tenant_id}/notifications${qs ? `?${qs}` : ''}`,
+    `${SERVICES.notifications}/api/v1/tenants/${req.jwt.tenant_id}/notifications?${qs}`,
     { headers: { Authorization: req.headers.authorization } })
   const json = await r.json().catch(() => ({}))
   if (!r.ok) return res.status(r.status).json(json)
-  const rows = json.data ?? json
-  // Only notifications addressed to this customer — tenant-wide rows
-  // (no user_id) are staff traffic and must not leak to customers.
-  const mine = Array.isArray(rows) && customer
-    ? rows.filter((n) => n.user_id === customer.id)
-    : []
-  res.json({ data: mine })
+  res.json(json)
 })
 
 app.post('/api/v1/me/notifications/:id/read', auth, (req, res) =>

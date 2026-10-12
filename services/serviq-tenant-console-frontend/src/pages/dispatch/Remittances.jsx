@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, btnGhost, input, label, money, select } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, PageHead, Pager, StatusBadge, btn, input, label, link, linkDanger, money, select } from '../../components/ui'
 
 // Remittance desk — cash turn-ins, digital-payment remittance, deposit
 // batches, and manual review of flagged records. Money flows require
@@ -10,27 +10,28 @@ import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, bt
 export default function Remittances() {
   const { token } = useAuth()
   const tenant = useTenant()
+  const [page, setPage] = useState(1)
   const { data, error, loading, reload } = useLoader(async () => {
     const [remittances, agents, invoices, digital, evidence] = await Promise.all([
-      api.remittances(token, tenant),
+      api.remittances(token, tenant, page),
       api.agents(token, tenant).catch(() => []),
       api.invoices(token, tenant).catch(() => []),
       api.digitallyPaidInvoices(token, tenant).catch(() => []),
       api.paymentEvidence(token, tenant).catch(() => []),
     ])
-    return { remittances: rows(remittances), agents: rows(agents), invoices: rows(invoices), digital: rows(digital), evidence: rows(evidence) }
-  }, [token, tenant])
+    return { remittances: rows(remittances), remMeta: remittances, agents: rows(agents), invoices: rows(invoices), digital: rows(digital), evidence: rows(evidence) }
+  }, [token, tenant, page])
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Remittances</h1>
+      <PageHead title="Remittances" desc="Agent cash turn-ins and over-the-counter deposits awaiting confirmation." />
       <ErrorBox error={error} />
       {loading ? <Loading /> : !data ? <Empty /> : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <TurnIn token={token} tenant={tenant} agents={data.agents} onDone={reload} />
           <DigitalRemit token={token} tenant={tenant} invoices={data.digital} onDone={reload} />
           <BatchRemit token={token} tenant={tenant} invoices={data.invoices} evidence={data.evidence} onDone={reload} />
-          <RemittanceList token={token} tenant={tenant} list={data.remittances} onDone={reload} />
+          <RemittanceList token={token} tenant={tenant} list={data.remittances} meta={data.remMeta} onPage={setPage} onDone={reload} />
         </div>
       )}
     </div>
@@ -226,7 +227,7 @@ function BatchRemit({ token, tenant, invoices, evidence, onDone }) {
   )
 }
 
-function RemittanceList({ token, tenant, list, onDone }) {
+function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(null)
   const [notes, setNotes] = useState({})
@@ -245,8 +246,9 @@ function RemittanceList({ token, tenant, list, onDone }) {
   }
 
   return (
-    <Card title={`Remittance records${list.length ? ` (${list.length})` : ''}`} className="xl:col-span-2">
+    <Card title={`Remittance records${meta?.total ? ` (${meta.total})` : list.length ? ` (${list.length})` : ''}`} className="xl:col-span-2">
       <ErrorBox error={err} />
+      <Pager meta={meta} onPage={onPage} top />
       {list.length === 0 ? <Empty text="No remittances yet." /> : (
         <>
         <div className="hidden sm:block overflow-x-auto"><table className="w-full">
@@ -266,11 +268,11 @@ function RemittanceList({ token, tenant, list, onDone }) {
                     {reviewable && (
                       <div className="space-y-1">
                         <input className="w-44 rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
-                        <div className="flex flex-wrap gap-1">
-                          <button onClick={() => confirm(r.id, 'confirm')} disabled={!!busy} className={btn}>Confirm</button>
-                          <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={btnGhost}>Override</button>
-                          <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={btnGhost}>Accept shortfall</button>
-                          <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={btnDanger}>Reject</button>
+                        <div className="flex flex-wrap gap-3">
+                          <button onClick={() => confirm(r.id, 'confirm')} disabled={!!busy} className={link}>Confirm</button>
+                          <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={link}>Override</button>
+                          <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={link}>Accept shortfall</button>
+                          <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={linkDanger}>Reject</button>
                         </div>
                       </div>
                     )}
@@ -298,11 +300,11 @@ function RemittanceList({ token, tenant, list, onDone }) {
                 {reviewable && (
                   <div className="space-y-2 pt-1">
                     <input className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => confirm(r.id, 'confirm')} disabled={!!busy} className={btn}>Confirm</button>
-                      <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={btnGhost}>Override</button>
-                      <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={btnGhost}>Accept shortfall</button>
-                      <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={btnDanger}>Reject</button>
+                    <div className="flex flex-wrap gap-3">
+                      <button onClick={() => confirm(r.id, 'confirm')} disabled={!!busy} className={link}>Confirm</button>
+                      <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={link}>Override</button>
+                      <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={link}>Accept shortfall</button>
+                      <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={linkDanger}>Reject</button>
                     </div>
                   </div>
                 )}
@@ -312,6 +314,7 @@ function RemittanceList({ token, tenant, list, onDone }) {
         </div>
         </>
       )}
+      <Pager meta={meta} onPage={onPage} />
     </Card>
   )
 }

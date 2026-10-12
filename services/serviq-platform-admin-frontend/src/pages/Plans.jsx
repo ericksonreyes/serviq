@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, Empty, ErrorBox, btn, btnSecondary, input, label, money, td, th } from '../ui'
+import { Badge, Empty, ErrorBox, PageHead, btn, btnSecondary, input, label, money, td, th } from '../ui'
 
 const BLANK = { code: '', name: '', description: '', price_cents: '', currency: 'PHP', features: '', active: true }
 
@@ -160,7 +160,7 @@ export default function Plans() {
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Plans & subscriptions</h1>
+          <PageHead title="Plans & subscriptions" desc="Subscription tiers, limits, and pricing." />
           <p className="mt-1 text-sm text-slate-500">
             Plan catalog shown below — assign a plan to a provider from the provider's detail page.
           </p>
@@ -180,6 +180,8 @@ export default function Plans() {
           }}
         />
       )}
+      {!editing && (
+      <>
       {!plans && !error && <p className="text-sm text-slate-500">Loading…</p>}
       {plans && plans.length === 0 && <Empty>No plans defined yet.</Empty>}
       {plans && plans.length > 0 && (
@@ -235,6 +237,8 @@ export default function Plans() {
             </div>
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   )

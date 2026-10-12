@@ -60,6 +60,8 @@ ServIQ is designed around a generalized service model rather than a single indus
 - **Field Operations** — Give service agents the tools they need to execute jobs
 - **Real-time Tracking** — Monitor active service operations
 - **Notifications** — Keep customers and service teams informed
+- **AI Assistant** — Per-persona chat (customer, dispatcher, support) powered by a local Ollama LLM, calling domain APIs through a strict per-profile tool boundary with the caller's own permissions
+- **Document Intelligence** — Vision-model parsing of payment evidence — receipts and deposit slips — into structured data for billing review
 - **Role-Based Access Control** — Control access across platform and tenant roles
 - **Audit Trail** — Maintain a history of important operational events
 - **API-first Architecture** — Designed for web, mobile, and third-party integrations
@@ -123,6 +125,8 @@ Auth routes are throttled at 5 req/min — rapid login attempts will hit 429s.
 > "I design systems and write executable specifications; AI agents implement against them across whatever language the service needs. My job is architecture, contracts, and verification — the code is a build artifact."
 
 ServIQ is the proof of that approach: a polyglot platform — Laravel, Express, FastAPI, and React services — designed and delivered by one engineer directing AI implementation through a canonical spec tree, architecture decision records, and verification discipline. Stack-appropriate, not stack-bound.
+
+Implementation agent: **[Devin](https://devin.ai)** — AI software engineer by Cognition.
 
 ---
 

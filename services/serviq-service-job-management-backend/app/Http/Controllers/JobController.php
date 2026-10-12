@@ -15,7 +15,10 @@ class JobController
     public function index(Request $request, string $tenant): JsonResponse
     {
         $jobs = Job::where('tenant_id', $tenant)
-            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->query('status'), fn ($q, $s) => $s === 'open'
+                ? $q->whereNotIn('status', [JobLifecycle::COMPLETED, JobLifecycle::CANCELLED])
+                : $q->where('status', $s))
+            ->when($request->query('request_id'), fn ($q, $r) => $q->where('request_id', $r))
             ->latest()
             ->paginate(50);
 

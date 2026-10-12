@@ -36,6 +36,29 @@ export function ErrorBox({ error }) {
   return <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
 }
 
+// Laravel pagination controls — pass the paginated envelope straight in.
+// Render at the top and bottom of long lists.
+export function Pager({ meta, onPage, top = false }) {
+  if (!meta || !meta.last_page || meta.last_page <= 1) return null
+  const btn = 'rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40'
+  return (
+    <div className={`flex items-center justify-between px-4 py-3 text-xs text-slate-500 ${top ? 'border-b border-slate-100' : 'border-t border-slate-100'}`}>
+      <span>
+        Page {meta.current_page} of {meta.last_page}
+        {meta.total != null && ` · ${meta.total} total`}
+      </span>
+      <div className="flex gap-1.5">
+        <button className={btn} disabled={meta.current_page <= 1} onClick={() => onPage(meta.current_page - 1)}>
+          ← Prev
+        </button>
+        <button className={btn} disabled={meta.current_page >= meta.last_page} onClick={() => onPage(meta.current_page + 1)}>
+          Next →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function Empty({ children }) {
   return <p className="text-sm text-slate-500">{children}</p>
 }
@@ -61,4 +84,15 @@ export function money(cents, currency = 'PHP') {
   } catch {
     return `${(cents / 100).toFixed(2)} ${currency}`
   }
+}
+
+// Page header idiom — every app page gets a heading plus one line saying
+// what the page is for. Sits fine inside a `flex justify-between` row.
+export function PageHead({ title, desc }) {
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+      {desc && <p className="mt-0.5 text-sm text-slate-500">{desc}</p>}
+    </div>
+  )
 }

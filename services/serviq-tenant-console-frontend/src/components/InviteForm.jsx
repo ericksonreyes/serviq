@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { Card, Notice, btn, input, label } from './ui'
+import { Card, Notice, btn, btnGhost, input, label } from './ui'
 
 // Email invitation — IAM issues a hashed token and the notification
 // pipeline renders the email. Until an SMTP adapter ships, the accept
 // link comes back in the response and is surfaced here for hand-off.
-export default function InviteForm({ token, tenant, role }) {
+export default function InviteForm({ token, tenant, role, onCancel }) {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -43,7 +43,10 @@ export default function InviteForm({ token, tenant, role }) {
           <label className={label}>Email</label>
           <input className={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
-        <button className={btn} disabled={busy}>{busy ? 'Sending…' : 'Send invite'}</button>
+        <div className="flex gap-3">
+          <button className={btn} disabled={busy}>{busy ? 'Sending…' : 'Send invite'}</button>
+          {onCancel && <button type="button" onClick={onCancel} className={btnGhost}>Back to list</button>}
+        </div>
       </form>
     </Card>
   )

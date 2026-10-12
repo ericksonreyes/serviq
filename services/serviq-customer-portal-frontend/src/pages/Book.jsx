@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
+  Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress,
   Container, MenuItem, Stack, TextField, Typography,
 } from '@mui/material'
 import { api } from '../api'
@@ -21,8 +21,19 @@ export default function Book() {
   const [addresses, setAddresses] = useState([])
   const [form, setForm] = useState({
     service_id: serviceId || '', date: '', time: '',
-    address_id: '', address: { line1: '', barangay: '', city: '' }, notes: '',
+    address_id: '', address: { line1: '' }, notes: '',
   })
+  // Cascading location pick — city/municipality (search) then barangay
+  // (children). The submitted code is the deepest pick; `coverage` holds
+  // the preflight verdict so unsupported areas fail before submission.
+  const [city, setCity] = useState(null)
+  const [barangay, setBarangay] = useState(null)
+  const [cityInput, setCityInput] = useState('')
+  const [cityOpts, setCityOpts] = useState([])
+  const [brgyOpts, setBrgyOpts] = useState([])
+  const [citySearching, setCitySearching] = useState(false)
+  const [coverage, setCoverage] = useState(null)
+  const [interest, setInterest] = useState(null) // null | 'sending' | 'sent'
   const [slots, setSlots] = useState(null) // null = availability unknown
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -53,6 +64,45 @@ export default function Book() {
       .then((res) => setSlots(Object.fromEntries((res.data || []).map((d) => [d.date, d]))))
       .catch(() => setSlots(null))
   }, [token, form.service_id])
+
+  // City/municipality search — debounced like the other filter inputs.
+  useEffect(() => {
+    if (form.address_id || cityInput.length < 2) { setCityOpts([]); return }
+    const t = setTimeout(() => {
+      setCitySearching(true)
+      api.locationSearch(token, cityInput, 'city,municipality,submunicipality')
+        .then((res) => setCityOpts(res.data || []))
+        .catch(() => setCityOpts([]))
+        .finally(() => setCitySearching(false))
+    }, 500)
+    return () => clearTimeout(t)
+  }, [token, cityInput, form.address_id])
+
+  // Picking a city loads its barangays; a new city resets the pick.
+  useEffect(() => {
+    setBarangay(null)
+    setBrgyOpts([])
+    setCoverage(null)
+    setInterest(null)
+    if (!city) return
+    api.locationChildren(token, city.code)
+      .then((res) => setBrgyOpts(res.data || []))
+      .catch(() => setBrgyOpts([]))
+  }, [token, city])
+
+  // Preflight coverage once the deepest pick resolves — the backend
+  // re-checks at submission; this only shapes early feedback.
+  useEffect(() => {
+    setCoverage(null)
+    setInterest(null)
+    const code = form.address_id
+      ? addresses.find((a) => a.id === form.address_id)?.address?.admin_code
+      : barangay?.code
+    if (!code) return
+    api.coverageCheck(token, code)
+      .then((res) => setCoverage(res.data))
+      .catch(() => setCoverage(null))
+  }, [token, barangay, form.address_id, addresses])
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
   const setAddr = (key) => (e) =>
@@ -102,19 +152,29 @@ export default function Book() {
       setError('Pick a preferred date for your visit.')
       return
     }
+    if (coverage?.covered === false) {
+      setError('That address is outside the provider\'s service area — pick a different location.')
+      return
+    }
     setBusy(true)
     setError(null)
     const scheduled = form.date
       ? `${form.date}T${form.time || '09:00'}:00`
       : null
+    const address = form.address_id
+      ? null
+      : {
+          line1: form.address.line1,
+          city: city?.name,
+          barangay: barangay?.name,
+          admin_code: barangay?.code,
+        }
     try {
       const res = await api.createRequest(token, {
         service_id: form.service_id,
         preferred_date: form.date || null,
         scheduled_for: scheduled,
-        ...(form.address_id
-          ? { address_id: form.address_id }
-          : { address: Object.values(form.address).some(Boolean) ? form.address : null }),
+        ...(form.address_id ? { address_id: form.address_id } : { address }),
         notes: form.notes || null,
       })
       navigate(`/requests/${res.data.id}`)
@@ -130,6 +190,9 @@ export default function Book() {
   return (
     <Container maxWidth="sm" sx={{ mt: 4, pb: 10 }}>
       <Typography variant="h5" gutterBottom>Book a service</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Tell us what you need, where, and when — we'll confirm your booking.
+      </Typography>
       {services.length === 0 && !error ? (
         <Alert severity="info" sx={{ mt: 2 }}>
           No bookable services yet. <Link to="/">Back home</Link>
@@ -163,8 +226,67 @@ export default function Book() {
             {!form.address_id && (
               <Stack spacing={2}>
                 <TextField label="Street / house no." required {...{ value: form.address.line1, onChange: setAddr('line1') }} />
-                <TextField label="Barangay / district" {...{ value: form.address.barangay, onChange: setAddr('barangay') }} />
-                <TextField label="City" required {...{ value: form.address.city, onChange: setAddr('city') }} />
+                <Autocomplete
+                  options={cityOpts}
+                  value={city}
+                  inputValue={cityInput}
+                  loading={citySearching}
+                  filterOptions={(x) => x}
+                  getOptionLabel={(o) => o.name}
+                  isOptionEqualToValue={(o, v) => o.code === v.code}
+                  onChange={(_e, v) => setCity(v)}
+                  onInputChange={(_e, v, reason) => { if (reason !== 'reset') setCityInput(v) }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="City / municipality" required
+                      helperText={cityInput.length < 2 ? 'Type at least 2 letters to search' : ' '}
+                    />
+                  )}
+                  renderOption={(props, o) => (
+                    <li {...props} key={o.code}>
+                      <Box>
+                        <Typography variant="body2">{o.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{o.path}</Typography>
+                      </Box>
+                    </li>
+                  )}
+                />
+                <Autocomplete
+                  options={brgyOpts}
+                  value={barangay}
+                  disabled={!city}
+                  getOptionLabel={(o) => o.name}
+                  isOptionEqualToValue={(o, v) => o.code === v.code}
+                  onChange={(_e, v) => setBarangay(v)}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Barangay" required
+                      helperText={city ? ' ' : 'Pick a city first'}
+                    />
+                  )}
+                />
+                {coverage?.covered === false && (
+                  <Alert severity="warning"
+                    action={barangay && interest !== 'sent' && (
+                      <Button size="small" disabled={interest === 'sending'}
+                        onClick={async () => {
+                          setInterest('sending')
+                          try { await api.coverageInterest(token, barangay.code); setInterest('sent') }
+                          catch { setInterest(null) }
+                        }}
+                      >
+                        {interest === 'sending' ? 'Sending…' : 'Let them know I\'m interested'}
+                      </Button>
+                    )}
+                  >
+                    {interest === 'sent'
+                      ? 'Done — the provider can see demand from your area.'
+                      : <>
+                          Sorry — we don't cover {barangay?.name ?? 'this location'} yet.
+                          {coverage.covered_names?.length > 0 && (
+                            <> We currently serve: <strong>{coverage.covered_names.join(', ')}</strong>.</>
+                          )}
+                        </>}
+                  </Alert>
+                )}
               </Stack>
             )}
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { useDebounced } from '../hooks'
-import { Badge, Empty, ErrorBox, STATUS_TONE, btn, btnSecondary, input, label, select, td, th } from '../ui'
+import { Badge, Empty, ErrorBox, PageHead, Pager, STATUS_TONE, btn, btnSecondary, input, label, select, td, th } from '../ui'
 
 const STATUSES = ['', 'pending', 'active', 'suspended', 'deactivated']
 
@@ -93,21 +93,24 @@ export default function Tenants() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [meta, setMeta] = useState(null)
+  const [page, setPage] = useState(1)
 
-  const load = (term) => {
+  const load = (term, p) => {
     setLoading(true)
     api
-      .tenants(token, status, term)
-      .then((res) => setTenants(res.data ?? []))
+      .tenants(token, status, term, p)
+      .then((res) => { setTenants(res.data ?? []); setMeta(res.data ? res : null) })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => load(dq), [token, status, dq])
+  useEffect(() => load(dq, page), [token, status, dq, page])
 
   const search = (e) => {
     e.preventDefault()
-    load(q)
+    setPage(1)
+    load(q, 1)
   }
   useEffect(() => {
     api.plans(token).then((res) => setPlans(res.data ?? [])).catch(() => {})
@@ -116,22 +119,31 @@ export default function Tenants() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Service providers</h1>
+        <PageHead title="Service providers" desc="Organizations on the platform — plan, status, and drill-in." />
         <button type="button" className={`${btn} whitespace-nowrap`} onClick={() => setCreating((v) => !v)}>
           {creating ? 'Close' : 'New provider'}
         </button>
       </div>
+      {creating && (
+        <CreateTenant
+          plans={plans}
+          onCancel={() => setCreating(false)}
+          onCreated={(t) => navigate(`/providers/${t.id}`)}
+        />
+      )}
+      {!creating && (
+      <>
       <form onSubmit={search} className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           className={`${input} sm:max-w-xs`}
           placeholder="Search name or slug…"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => { setQ(e.target.value); setPage(1) }}
         />
         <button type="submit" className={btnSecondary} disabled={loading}>
           {loading ? 'Searching…' : 'Search'}
         </button>
-        <select className={select} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className={select} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {s === '' ? 'All statuses' : s}
@@ -141,13 +153,7 @@ export default function Tenants() {
       </form>
       <ErrorBox error={error} />
       {loading && <p className="text-sm text-slate-500">Searching…</p>}
-      {creating && (
-        <CreateTenant
-          plans={plans}
-          onCancel={() => setCreating(false)}
-          onCreated={(t) => navigate(`/providers/${t.id}`)}
-        />
-      )}
+      <Pager meta={meta} onPage={setPage} top />
       {!tenants && !error && <p className="text-sm text-slate-500">Loading…</p>}
       {tenants && tenants.length === 0 && <Empty>No service providers match.</Empty>}
       {tenants && tenants.length > 0 && (
@@ -193,6 +199,9 @@ export default function Tenants() {
             </div>
           ))}
         </div>
+      )}
+      <Pager meta={meta} onPage={setPage} />
+      </>
       )}
     </div>
   )

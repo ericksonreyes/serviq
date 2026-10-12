@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { useAuth, useTenant } from '../../auth'
-import { Card, ErrorBox, Notice, btn, input, label, select } from '../../components/ui'
+import { Card, ErrorBox, Notice, PageHead, btn, fmtDay, fmtMonthDay, input, label, select } from '../../components/ui'
 
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -36,7 +36,7 @@ function DateList({ title, hint, values, onChange, recurring }) {
       <div className="mt-2 flex flex-wrap gap-1.5">
         {values.map((v) => (
           <span key={v} className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-1 text-sm font-medium text-brand-800">
-            {v}
+            {recurring ? fmtMonthDay(v) : fmtDay(v)}
             <button type="button" aria-label={`Remove ${v}`} className="text-brand-500 hover:text-brand-800"
               onClick={() => onChange(values.filter((x) => x !== v))}>×</button>
           </span>
@@ -56,8 +56,8 @@ function HoursEditor({ hours, onChange }) {
         {WEEKDAYS.map((d) => {
           const w = hours[d]
           return (
-            <div key={d} className="flex items-center gap-2 text-sm">
-              <label className="flex w-28 items-center gap-1.5 capitalize">
+            <div key={d} className="grid grid-cols-[7rem_minmax(0,1fr)_auto_minmax(0,1fr)_3.5rem] items-center gap-2 text-sm">
+              <label className="flex items-center gap-1.5 capitalize">
                 <input
                   type="checkbox"
                   checked={!!w}
@@ -68,20 +68,20 @@ function HoursEditor({ hours, onChange }) {
               {w ? (
                 w.close === '24:00' ? (
                   <>
-                    <span className="text-sm text-slate-600">Open 24 hours</span>
-                    <button type="button" className="text-sm text-brand-600 hover:underline"
+                    <span className="col-span-3 text-sm text-slate-600">Open 24 hours</span>
+                    <button type="button" className="justify-self-end text-sm text-brand-600 hover:underline"
                       onClick={() => onChange({ ...hours, [d]: { open: '08:00', close: '17:00' } })}>
                       set times
                     </button>
                   </>
                 ) : (
                   <>
-                    <input type="time" className={input} value={w.open}
+                    <input type="time" className={`${input} min-w-0`} value={w.open}
                       onChange={(e) => onChange({ ...hours, [d]: { ...w, open: e.target.value } })} />
-                    <span className="text-slate-400">–</span>
-                    <input type="time" className={input} value={w.close}
+                    <span className="text-center text-slate-400">–</span>
+                    <input type="time" className={`${input} min-w-0`} value={w.close}
                       onChange={(e) => onChange({ ...hours, [d]: { ...w, close: e.target.value } })} />
-                    <button type="button" className="text-sm text-brand-600 hover:underline"
+                    <button type="button" className="justify-self-end text-sm text-brand-600 hover:underline"
                       title="Open around the clock"
                       onClick={() => onChange({ ...hours, [d]: { open: '00:00', close: '24:00' } })}>
                       24h
@@ -89,7 +89,10 @@ function HoursEditor({ hours, onChange }) {
                   </>
                 )
               ) : (
-                <span className="text-xs text-slate-400">Closed</span>
+                <>
+                  <span className="col-span-3 text-xs text-slate-400">Closed</span>
+                  <span />
+                </>
               )}
             </div>
           )
@@ -166,7 +169,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Business settings</h1>
+      <PageHead title="Business settings" desc="Provider profile, contact details, and dispatch preferences." />
       <ErrorBox error={err} />
       <Card title="Operations">
         {loading ? <p className="text-sm text-slate-400">Loading…</p> : (

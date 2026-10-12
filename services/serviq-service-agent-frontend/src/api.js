@@ -22,6 +22,7 @@ async function request(base, path, { token, method = 'GET', body, _retried } = {
   }
   if (!res.ok) {
     const err = new Error(json.message || json.error || `Request failed (${res.status})`)
+    err.status = res.status
     err.fields = json.errors || null
     throw err
   }
@@ -50,13 +51,17 @@ export const api = {
     request(IDENTITY_URL, `/api/v1/invitations/${token}/accept`, { method: 'POST', body }),
 
   agentHome: (token, agentId) => request(API_URL, `/api/v1/agents/${agentId}/home`, { token }),
-  myJobs: (token) => request(API_URL, '/api/v1/me/jobs', { token }),
+  myJobs: (token, page = 1) => request(API_URL, `/api/v1/me/jobs?page=${page}`, { token }),
   myJob: (token, id) => request(API_URL, `/api/v1/me/jobs/${id}`, { token }),
 
   acceptAssignment: (token, id) =>
     request(API_URL, `/api/v1/assignments/${id}/accept`, { token, method: 'POST' }),
   rejectAssignment: (token, id) =>
     request(API_URL, `/api/v1/assignments/${id}/reject`, { token, method: 'POST' }),
+
+  openJobs: (token) => request(API_URL, '/api/v1/me/open-jobs', { token }),
+  claimJob: (token, jobId) =>
+    request(API_URL, `/api/v1/jobs/${jobId}/claim`, { token, method: 'POST' }),
 
   checkIn: (token, id) =>
     request(API_URL, `/api/v1/executions/${id}/check-in`, { token, method: 'POST' }),

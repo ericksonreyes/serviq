@@ -15,10 +15,22 @@ class NotificationController
 
         $feed = Notification::where('tenant_id', $tenant)
             ->when($request->query('unread'), fn ($q) => $q->whereNull('read_at'))
+            ->when($request->query('user_id'), fn ($q, $u) => $q->where('user_id', $u))
             ->latest()
             ->paginate(50);
 
         return response()->json($feed);
+    }
+
+    /** Bulk read — same visibility as the feed (tenant-wide, or per user_id). */
+    public function markAllRead(Request $request, string $tenant): JsonResponse
+    {
+        $marked = Notification::where('tenant_id', $tenant)
+            ->whereNull('read_at')
+            ->when($request->query('user_id'), fn ($q, $u) => $q->where('user_id', $u))
+            ->update(['read_at' => now()]);
+
+        return response()->json(['data' => ['marked' => $marked]]);
     }
 
     public function markRead(Request $request, string $tenant, Notification $notification): JsonResponse

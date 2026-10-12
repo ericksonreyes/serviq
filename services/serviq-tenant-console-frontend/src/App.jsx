@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Home from './pages/Home'
+import Notifications from './pages/Notifications'
 import Users from './pages/admin/Users'
 import Agents from './pages/admin/Agents'
 import Customers from './pages/admin/Customers'
@@ -40,6 +41,7 @@ export default function App() {
       <Route path="/provider/:slug" element={<Navigate to="login" replace />} />
       <Route element={token ? <Layout /> : <Navigate to="/login" />}>
         <Route path="/" element={<Home />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/admin/users" element={<Users />} />
         <Route path="/admin/agents" element={<Agents />} />
         <Route path="/admin/customers" element={<Customers />} />

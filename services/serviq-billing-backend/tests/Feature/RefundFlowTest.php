@@ -29,7 +29,7 @@ class RefundFlowTest extends TestCase
         $this->dispatcher = (string) Str::uuid7();
     }
 
-    private function token(array $roles = ['Dispatcher'], array $permissions = []): string
+    private function token(array $roles = ['Dispatcher'], array $permissions = ['billing.payments.record', 'billing.remit']): string
     {
         return JWT::encode([
             'iss' => 'serviq-iam', 'aud' => 'serviq',

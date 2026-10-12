@@ -40,7 +40,7 @@ class JobProjectionTest extends TestCase
         $this->handle('Job.Started', ['job_id' => $job, 'agent_id' => (string) Str::uuid7()], $tenant);
 
         $row = DispatchableJob::find($job);
-        $this->assertSame('assigned', $row->status);
+        $this->assertSame('in_progress', $row->status);
         $this->assertSame($service, $row->service_id);
 
         $this->handle('Job.Cancelled', ['job_id' => $job, 'reason' => null], $tenant);

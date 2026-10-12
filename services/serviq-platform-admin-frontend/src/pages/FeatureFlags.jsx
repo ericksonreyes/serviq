@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, Empty, ErrorBox, td, th } from '../ui'
+import { Badge, Empty, ErrorBox, PageHead, td, th } from '../ui'
 
 export default function FeatureFlags() {
   const { token } = useAuth()
@@ -32,7 +32,7 @@ export default function FeatureFlags() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Feature flags</h1>
+      <PageHead title="Feature flags" desc="Capability switches — services check these at runtime." />
       <p className="text-sm text-slate-500">
         Kill-switches for platform capabilities. A flag only works where a consumer checks it —
         new gates ship with the codebase, not this page.

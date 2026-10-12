@@ -82,7 +82,7 @@ export default function MiniCalendar({ enabled, value, onChange, maxMonths = 2 }
                 borderRadius: 1.5,
                 cursor: off ? 'default' : 'pointer',
                 font: 'inherit',
-                fontSize: '0.875rem',
+                fontSize: '1rem',
                 fontWeight: selected ? 800 : 500,
                 color: off ? 'text.disabled' : selected ? 'primary.contrastText' : 'text.primary',
                 bgcolor: selected ? 'primary.main' : 'transparent',

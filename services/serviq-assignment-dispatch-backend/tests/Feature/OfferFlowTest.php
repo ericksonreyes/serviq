@@ -31,7 +31,8 @@ class OfferFlowTest extends TestCase
         return JWT::encode([
             'iss' => 'serviq-iam', 'aud' => 'serviq',
             'sub' => (string) Str::uuid7(), 'tenant_id' => $this->tenant,
-            'roles' => ['Service Agent'], 'jti' => (string) Str::uuid(),
+            'roles' => ['Service Agent'], 'permissions' => ['jobs.execute'],
+            'jti' => (string) Str::uuid(),
             'iat' => time(), 'exp' => time() + 3600,
         ], config('platform.jwt.secret'), 'HS256');
     }

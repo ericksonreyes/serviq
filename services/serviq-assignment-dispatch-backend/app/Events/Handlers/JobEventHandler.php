@@ -21,7 +21,9 @@ class JobEventHandler
 
         $status = match ($envelope['type']) {
             'Job.ReadyForAssignment' => 'ready_for_assignment',
-            'Job.Assigned', 'Job.Accepted' => 'assigned',
+            'Job.Assigned' => 'assigned',
+            'Job.Accepted' => 'agent_accepted',
+            'Job.Started' => 'in_progress',
             'Job.Completed', 'Job.Cancelled' => 'closed',
             default => null,
         };

@@ -98,6 +98,11 @@ class DispatchService
                 ->where('id', '!=', $offer->id)
                 ->update(['status' => Assignment::REVOKED]);
 
+            // Drop the job from the open pool immediately — the Job.Assigned
+            // event will set this again, but until it arrives the queue would
+            // still list the job as claimable (createAccepted does the same).
+            DispatchableJob::where('job_id', $offer->job_id)->update(['status' => 'assigned']);
+
             $this->events->record('Assignment.Accepted', [
                 'job_id' => $offer->job_id,
                 'agent_id' => $agentId,
@@ -137,6 +142,38 @@ class DispatchService
             ], $job->tenant_id);
 
             return $assignment;
+        });
+    }
+
+    /**
+     * Dispatcher reassign — revoke the current accepted assignment and accept
+     * a new pick atomically, so the job never returns to the dispatchable
+     * pool (auto-dispatch would snap it back before a human could pick).
+     * Only valid while the job is dispatch-committed ('assigned') — once the
+     * agent accepts or the job closes, reassignment is a cancel flow.
+     */
+    public function reassign(DispatchableJob $job, string $agentId): Assignment
+    {
+        return DB::transaction(function () use ($job, $agentId) {
+            $current = Assignment::where('job_id', $job->job_id)
+                ->where('status', Assignment::ACCEPTED)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Idempotent — re-picking the same agent is a no-op.
+            if ($current->agent_id === $agentId) {
+                return $current;
+            }
+
+            $current->update(['status' => Assignment::REVOKED]);
+            $this->events->record('Assignment.Revoked', [
+                'job_id' => $job->job_id,
+                'agent_id' => $current->agent_id,
+                'assignment_id' => $current->id,
+                'superseded_by' => $agentId,
+            ], $job->tenant_id);
+
+            return $this->createAccepted($job, $agentId, 'dispatcher');
         });
     }
 

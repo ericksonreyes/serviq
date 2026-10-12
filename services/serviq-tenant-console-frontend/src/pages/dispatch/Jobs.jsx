@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, btnGhost, fmtDate, input, label, select } from '../../components/ui'
-
-const OPEN = ['requested', 'confirmed', 'pending', 'ready_for_assignment', 'assigned', 'accepted', 'en_route', 'started', 'in_progress']
+import { Card, Empty, ErrorBox, Loading, Notice, PageHead, Pager, StatusBadge, btn, btnDanger, btnGhost, fmtDate, input, label, select } from '../../components/ui'
 
 // Jobs monitor — active jobs with assign/reassign (advisory recommendations
 // from dispatch), reschedule, and cancel.
@@ -15,37 +13,53 @@ export default function Jobs() {
   const [params] = useSearchParams()
   const [sel, setSel] = useState(params.get('job'))
   const [showAll, setShowAll] = useState(false)
+  const [page, setPage] = useState(1)
+  // Job rows carry ids only — customers/services/agents are fetched to
+  // render names instead of raw UUIDs.
   const { data, error, loading, reload } = useLoader(async () => {
-    const [jobs, executions] = await Promise.all([
-      api.jobs(token, tenant),
+    const [jobs, executions, customers, services, agents] = await Promise.all([
+      api.jobs(token, tenant, showAll ? '' : '?status=open', page),
       api.executions(token, tenant).catch(() => []),
+      api.customers(token, tenant).catch(() => []),
+      api.services(token, tenant).catch(() => []),
+      api.agents(token, tenant).catch(() => []),
     ])
-    return { jobs: rows(jobs), executions: rows(executions) }
-  }, [token, tenant])
+    const byId = (list) => Object.fromEntries(rows(list).map((x) => [x.id, x.name]))
+    // /services returns {data: {services: [...], areas: [...]}}, not a row list.
+    const svcBody = services?.data ?? services ?? {}
+    const serviceRows = Array.isArray(svcBody) ? svcBody : (svcBody.services ?? [])
+    return {
+      jobs: rows(jobs), jobsMeta: jobs, executions: rows(executions),
+      names: { customers: byId(customers), services: byId(serviceRows), agents: byId(agents) },
+    }
+  }, [token, tenant, page, showAll])
 
-  const jobs = (data?.jobs ?? []).filter((j) => showAll || OPEN.includes(j.status))
+  const names = data?.names ?? { customers: {}, services: {}, agents: {} }
+
+  const jobs = data?.jobs ?? []
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Jobs</h1>
+        <PageHead title="Jobs" desc="Scheduled work — confirm appointments, release for assignment, and dispatch agents." />
         <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+          <input type="checkbox" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); setPage(1) }} />
           Show completed/cancelled
         </label>
       </div>
       <ErrorBox error={error} />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-4 ${sel ? 'xl:grid-cols-2' : ''}`}>
         <Card title={showAll ? 'All jobs' : 'Active jobs'}>
+          <Pager meta={data?.jobsMeta} onPage={setPage} top />
           {loading ? <Loading /> : jobs.length === 0 ? <Empty text="No active jobs." /> : (
             <ul className="divide-y divide-slate-100">
               {jobs.map((j) => (
                 <li key={j.id}>
                   <button onClick={() => setSel(j.id)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel === j.id ? 'bg-violet-50' : ''}`}>
                     <span>
-                      <span className="block font-mono text-xs text-slate-700">{j.id}</span>
+                      <span className="block text-sm font-medium">{names.customers[j.customer_id] || `Job ${j.id.slice(0, 8)}…`}</span>
                       <span className="block text-xs text-slate-400">
-                        {j.scheduled_for ? `Scheduled ${fmtDate(j.scheduled_for)}` : 'Unscheduled'} · agent {j.assigned_agent_id ? j.assigned_agent_id.slice(0, 8) + '…' : '—'}
+                        {names.services[j.service_id] || '—'} · {j.scheduled_for ? fmtDate(j.scheduled_for) : 'Unscheduled'} · {j.assigned_agent_id ? (names.agents[j.assigned_agent_id] || 'Agent') : 'unassigned'}
                       </span>
                     </span>
                     <StatusBadge value={j.status} />
@@ -54,18 +68,17 @@ export default function Jobs() {
               ))}
             </ul>
           )}
+          <Pager meta={data?.jobsMeta} onPage={setPage} />
         </Card>
-        {sel ? (
-          <JobDetail key={sel} jobId={sel} token={token} tenant={tenant} executions={data?.executions ?? []} onDone={reload} />
-        ) : (
-          <Card title="Job detail"><Empty text="Select a job." /></Card>
+        {sel && (
+          <JobDetail key={sel} jobId={sel} token={token} tenant={tenant} names={names} executions={data?.executions ?? []} onDone={reload} />
         )}
       </div>
     </div>
   )
 }
 
-function JobDetail({ jobId, token, tenant, executions, onDone }) {
+function JobDetail({ jobId, token, tenant, names, executions, onDone }) {
   const { data: job, error, loading, reload: reloadJob } = useLoader(async () => {
     const res = await api.job(token, tenant, jobId)
     return res.data ?? res
@@ -89,6 +102,9 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
       reloadJob()
     } catch (e) {
       setErr(e.message)
+      // Failures are usually stale state (e.g. auto-assign won the race) — refresh.
+      onDone()
+      reloadJob()
     } finally {
       setBusy(false)
     }
@@ -113,12 +129,21 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
     }
   }
 
-  const assign = (id) => run(() => api.dispatchAssign(token, tenant, { job_id: jobId, agent_id: id }), 'Agent assigned.')
   const exec = executions.filter((x) => x.job_id === jobId)
 
   if (loading) return <Card title="Job detail"><Loading /></Card>
   if (error) return <Card title="Job detail"><ErrorBox error={error} /></Card>
   const j = job?.job ?? job
+
+  // Past 'assigned' the agent has committed (accepted/en route/working) —
+  // reassignment is a cancel flow, so the section hides entirely.
+  const assignable = !['accepted', 'en_route', 'started', 'in_progress', 'completed', 'cancelled'].includes(j.status)
+  const assign = (id) => run(
+    () => j.status === 'assigned'
+      ? api.dispatchReassign(token, tenant, { job_id: jobId, agent_id: id })
+      : api.dispatchAssign(token, tenant, { job_id: jobId, agent_id: id }),
+    j.status === 'assigned' ? 'Agent reassigned.' : 'Agent assigned.',
+  )
 
   return (
     <Card title="Job detail">
@@ -126,11 +151,16 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
       <ErrorBox error={err} />
       <dl className="space-y-2 text-sm">
         <Row k="Job" v={j.id} mono />
+        <Row k="Customer" v={names.customers[j.customer_id] || j.customer_id || '—'} />
         <Row k="Status" v={<StatusBadge value={j.status} />} />
         <Row k="Scheduled" v={fmtDate(j.scheduled_for)} />
-        <Row k="Assigned agent" v={j.assigned_agent_id || '—'} mono />
-        <Row k="Request" v={j.request_id || '—'} mono />
-        <Row k="Service" v={j.service_id || '—'} mono />
+        <Row k="Assigned agent" v={j.assigned_agent_id ? (names.agents[j.assigned_agent_id] || j.assigned_agent_id) : '—'} />
+        <Row
+          k="Request"
+          v={j.request_id ? <Link to={`/dispatch/requests?request=${j.request_id}`} className="text-violet-700 hover:underline">{`${j.request_id.slice(0, 8)}…`}</Link> : '—'}
+          mono
+        />
+        <Row k="Service" v={names.services[j.service_id] || j.service_id || '—'} />
       </dl>
       {(j.workflow_instance || []).length > 0 && (
         <div className="mt-3">
@@ -154,7 +184,7 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
                 ? 'Confirm the appointment with the customer, then release the job for assignment.'
                 : 'Confirmed — release the job so dispatch can assign an agent.'}
             </p>
-            <div className="mt-1 flex gap-2">
+            <div className="mt-1 flex gap-3">
               {j.status === 'requested' && (
                 <button onClick={() => run(() => api.confirmJob(token, tenant, jobId), 'Job confirmed.')} disabled={busy} className={btn}>
                   Confirm job
@@ -169,9 +199,9 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
           </div>
         )}
 
-        <div>
-          <p className={label}>Assign service agent</p>
-          <div className="mt-1 flex gap-2">
+        {assignable && <div>
+          <p className={label}>{j.status === 'assigned' ? 'Reassign service agent' : 'Assign service agent'}</p>
+          <div className="mt-1 flex gap-3">
             <button onClick={recommend} className={btnGhost}>Get recommendations</button>
             <button onClick={loadAgents} className={btnGhost}>Browse eligible agents</button>
           </div>
@@ -198,7 +228,7 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
               <button onClick={() => assign(agentId)} disabled={busy || !agentId} className={btn}>Assign</button>
             </div>
           )}
-        </div>
+        </div>}
 
         <div>
           <p className={label}>Reschedule</p>

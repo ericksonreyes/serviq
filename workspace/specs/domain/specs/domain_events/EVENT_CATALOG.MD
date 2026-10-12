@@ -51,6 +51,7 @@ Consumers: Service Job Management (`Request.Submitted` → job creation), Custom
 | `ServiceManagement.ServicePricingUpdated` | Pricing rules changed | `service_id`, pricing fields |
 | `ServiceManagement.WorkflowTemplateChanged` | Service steps edited | `service_id`, step template |
 | `ServiceManagement.ServiceAreaCreated` / `ServiceAreaUpdated` / `ServiceAreaDeleted` | Service area CRUD | area fields |
+| `ServiceManagement.CoverageInterested` | Customer registered demand for an uncovered location | `admin_code` |
 | `ServiceManagement.SettingsUpdated` | Tenant operational settings saved | `settings` |
 
 Consumers: Service Job Management (`ServiceCreated`, `WorkflowTemplateChanged` → workflow-template projection).
@@ -92,6 +93,7 @@ Consumers: Assignment & Dispatch (`Workforce.*` → eligible-agent projection).
 | `Assignment.OfferExpired` | Offer TTL lapses (sweeper command) | `job_id`, `agent_id`, `offer_id`, `assignment_id` (same id, legacy key) |
 | `Assignment.Accepted` | Offer accepted or dispatcher direct-assigns | `job_id`, `agent_id`, `assignment_id`, `strategy` |
 | `Assignment.Rejected` | Agent declines an offer | `job_id`, `agent_id` |
+| `Assignment.Revoked` | Dispatcher reassigns — prior accepted assignment revoked | `job_id`, `agent_id`, `assignment_id`, `superseded_by` |
 | `Assignment.Unassigned` | No eligible agents found | `job_id`, `reason` |
 
 Consumers: Field Execution (`Assignment.Accepted` → execution projection), Service Job Management (`Assignment.Accepted` → job status), Payouts (`Assignment.Accepted` → payout job projection), Customer Portal BFF (`Assignment.*` → read model).

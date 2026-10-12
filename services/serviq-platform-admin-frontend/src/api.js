@@ -41,8 +41,8 @@ export const api = {
   me: (token) => get(IDENTITY_URL, '/api/v1/auth/me', token),
   logout: (token, refreshToken) =>
     request(IDENTITY_URL, '/api/v1/auth/logout', { method: 'POST', token, body: { refresh_token: refreshToken } }),
-  iamUsers: (token, scope) =>
-    get(IDENTITY_URL, `/api/v1/users${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`, token),
+  iamUsers: (token, scope, page = 1) =>
+    get(IDENTITY_URL, `/api/v1/users?${scope ? `scope=${encodeURIComponent(scope)}&` : ''}page=${page}`, token),
   createIamUser: (token, data) => send(IDENTITY_URL, '/api/v1/users', token, 'POST', data),
   updateIamUser: (token, id, data) => send(IDENTITY_URL, `/api/v1/users/${id}`, token, 'PATCH', data),
   assignIamRoles: (token, id, roles) =>
@@ -56,12 +56,12 @@ export const api = {
   iamTenants: (token) => get(IDENTITY_URL, '/api/v1/tenants', token),
 
   // Platform Management
-  tenants: (token, status, q) => {
+  tenants: (token, status, q, page = 1) => {
     const params = new URLSearchParams()
     if (status) params.set('status', status)
     if (q) params.set('q', q)
-    const qs = params.toString()
-    return get(PLATFORM_URL, `/api/v1/tenants${qs ? `?${qs}` : ''}`, token)
+    params.set('page', page)
+    return get(PLATFORM_URL, `/api/v1/tenants?${params}`, token)
   },
   tenant: (token, id) => get(PLATFORM_URL, `/api/v1/tenants/${id}`, token),
   createTenant: (token, data) => send(PLATFORM_URL, '/api/v1/tenants', token, 'POST', data),

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { api } from '../api'
-import { useAuth, useRoles } from '../auth'
+import { api, rows } from '../api'
+import { useAuth, useRoles, useTenant } from '../auth'
 
 const ADMIN = 'Tenant Administrator'
 const DISPATCHER = 'Dispatcher'
@@ -49,7 +49,22 @@ const NAV = [
 export default function Layout() {
   const { claims, token, refreshToken, setToken } = useAuth()
   const roles = useRoles()
+  const tenant = useTenant()
   const navigate = useNavigate()
+
+  // Unread badge on the nav — polls the notification feed so demand
+  // signals (e.g. coverage interest) surface without opening the page.
+  const [unread, setUnread] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      api.notifications(token, tenant, true)
+        .then((j) => { if (!cancelled) setUnread(rows(j).length) })
+        .catch(() => {})
+    load()
+    const t = setInterval(load, 60_000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [token, tenant])
 
   const visible = NAV.map((s) => ({
     ...s,
@@ -89,6 +104,14 @@ export default function Layout() {
         </div>
         <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4" onClick={() => setNavOpen(false)}>
           <NavLink to="/" end className={navClass}>Overview</NavLink>
+          <NavLink to="/notifications" className={navClass}>
+            Notifications
+            {unread > 0 && (
+              <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-violet-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
+          </NavLink>
           {visible.filter((s) => s.show).map((s) => (
             <div key={s.section}>
               <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{s.section}</p>

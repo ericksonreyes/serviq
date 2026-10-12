@@ -180,11 +180,15 @@ app.get('/api/v1/agents/:agentId/home', auth, async (req, res) => {
 })
 
 // The agent's job list — executions enriched with job + customer + address.
+// ?page=N forwards to the field-service paginator; the envelope's meta rides
+// alongside the enriched rows so the client can page.
 app.get('/api/v1/me/jobs', auth, async (req, res) => {
   const t = req.jwt.tenant_id
-  const executions = await myExecutions(req, t, await resolveAgentId(req, t))
-  const jobs = await mapLimit(executions, 4, (e) => enrich(req, t, e))
-  res.json({ data: jobs })
+  const page = Number(req.query.page) || 1
+  const env = await get(
+    `${SERVICES.field}/api/v1/tenants/${t}/executions?agent_id=${await resolveAgentId(req, t)}&page=${page}`, req)
+  const jobs = await mapLimit(env?.data ?? [], 4, (e) => enrich(req, t, e))
+  res.json({ data: jobs, current_page: env?.current_page, last_page: env?.last_page, total: env?.total })
 })
 
 app.get('/api/v1/me/jobs/:id', auth, async (req, res) => {
@@ -210,6 +214,35 @@ app.post('/api/v1/assignments/:id/reject', auth, async (req, res) => {
   const r = await fetch(`${SERVICES.dispatch}/api/v1/tenants/${t}/assignments/${req.params.id}/reject`, {
     method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
     body: JSON.stringify({ agent_id: await resolveAgentId(req, t) }),
+  })
+  await proxy(res, r)
+})
+
+// Open jobs pool — the self-assign strategy's job list. Populated only when
+// the tenant rule is `self`; the strategy rides along so the client knows
+// whether to render the section at all.
+app.get('/api/v1/me/open-jobs', auth, async (req, res) => {
+  const t = req.jwt.tenant_id
+  const [rules, queue] = await Promise.all([
+    get(`${SERVICES.dispatch}/api/v1/tenants/${t}/dispatch/rules`, req),
+    get(`${SERVICES.dispatch}/api/v1/tenants/${t}/dispatch/queue`, req),
+  ])
+  const strategy = rules?.data?.strategy ?? 'automatic'
+  const pool = strategy === 'self'
+    ? await mapLimit((queue?.data ?? []).slice(0, 10), 4, async (j) => ({
+        job_id: j.job_id,
+        ...(await jobDetails(req, t, j.job_id)),
+      }))
+    : []
+  res.json({ data: pool, strategy })
+})
+
+// Claim an open job — agent_id resolved from the JWT, never the body.
+app.post('/api/v1/jobs/:jobId/claim', auth, async (req, res) => {
+  const t = req.jwt.tenant_id
+  const r = await fetch(`${SERVICES.dispatch}/api/v1/tenants/${t}/dispatch/self-assign`, {
+    method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_id: req.params.jobId, agent_id: await resolveAgentId(req, t) }),
   })
   await proxy(res, r)
 })

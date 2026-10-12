@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerAddress;
 use App\Models\ServiceRequest;
+use App\Services\CoverageGate;
 use App\Services\DomainEventRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +23,7 @@ class ServiceRequestController
         return response()->json($requests);
     }
 
-    public function store(Request $request, DomainEventRecorder $events): JsonResponse
+    public function store(Request $request, DomainEventRecorder $events, CoverageGate $coverage): JsonResponse
     {
         $data = $request->validate([
             'tenant_id' => ['required', 'uuid'],
@@ -35,9 +37,39 @@ class ServiceRequestController
             'details' => ['nullable', 'array'],
         ]);
 
+        // Coverage gate (ADR-0023): the booking address's admin code is
+        // checked against the tenant's declared service areas before the
+        // request exists. Resolved from the inline address or the saved
+        // address book entry; missing codes reject only when the tenant
+        // has actually configured coverage (unverifiable ≠ uncovered).
+        $adminCode = $data['address']['admin_code']
+            ?? CustomerAddress::find($data['address_id'] ?? '')?->address['admin_code']
+            ?? null;
+
+        $verdict = $coverage->check($data['tenant_id'], $adminCode, $request->bearerToken());
+        if (! ($verdict['covered'] ?? false)) {
+            return match ($verdict['reason'] ?? 'outside') {
+                'unavailable' => response()->json([
+                    'error' => 'coverage_unavailable',
+                    'message' => 'Service-area verification is temporarily unavailable — try again shortly.',
+                ], 503),
+                'unverifiable' => response()->json([
+                    'error' => 'address_unverifiable',
+                    'message' => 'We could not verify that address against the service coverage — please pick your city and barangay again.',
+                ], 422),
+                default => response()->json([
+                    'error' => 'outside_coverage',
+                    'message' => 'That address is outside the provider\'s service area.',
+                    'covered_names' => $verdict['covered_names'] ?? [],
+                ], 422),
+            };
+        }
+
         // Free-form booking input folds into details — the address book
-        // entry stays a first-class `address_id` reference.
+        // entry stays a first-class `address_id` reference. The resolved
+        // admin code rides along for later dispatch/area matching.
         $data['details'] = array_filter([
+            'admin_code' => $adminCode,
             ...($data['details'] ?? []),
             'address' => $data['address'] ?? null,
             'notes' => $data['notes'] ?? null,

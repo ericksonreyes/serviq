@@ -6,6 +6,7 @@ import {
 } from '@mui/material'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { fmtDay, fmtDateTime } from '../format'
 
 const STATUS_LABELS = {
   submitted: 'Received', converted: 'Scheduled', cancelled: 'Cancelled',
@@ -67,8 +68,8 @@ function ItemList({ title, items, empty, serviceNames }) {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {STATUS_LABELS[item.status] || item.status || ''}
-                {item.preferred_date ? ` · Preferred ${item.preferred_date}` : ''}
-                {item.scheduled_for ? ` · Scheduled ${new Date(item.scheduled_for).toLocaleString()}` : ''}
+                {item.preferred_date ? ` · Preferred ${fmtDay(item.preferred_date)}` : ''}
+                {item.scheduled_for ? ` · Scheduled ${fmtDateTime(item.scheduled_for)}` : ''}
               </Typography>
             </CardContent>
           </Card>
@@ -158,6 +159,9 @@ export default function Home() {
   return (
     <Container sx={{ mt: 4, pb: 10 }}>
       <Typography variant="h5">Welcome{profile?.name ? `, ${profile.name}` : ''}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Your services, requests, and bills in one place.
+      </Typography>
       {state.loading && <CircularProgress sx={{ mt: 4 }} />}
       {state.error && <Alert severity="error" sx={{ mt: 2 }}>{state.error}</Alert>}
       {state.profileMissing && <CompleteProfile onDone={load} />}

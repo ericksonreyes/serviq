@@ -22,7 +22,7 @@ class ServiceAreaController
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'geo' => ['nullable', 'array'],
+            ...$this->geoRules(),
         ]);
 
         $area = ServiceArea::create($data + ['tenant_id' => $tenant]);
@@ -40,7 +40,7 @@ class ServiceAreaController
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'geo' => ['nullable', 'array'],
+            ...$this->geoRules(),
         ]);
 
         $serviceArea->update($data);
@@ -61,5 +61,21 @@ class ServiceAreaController
         ], $tenant);
 
         return response()->json(['data' => ['id' => $serviceArea->id, 'deleted' => true]]);
+    }
+
+    /**
+     * Coverage spec shape: `admin_areas` + `exclusions` hold location
+     * codes at any hierarchy level — codes must exist in `locations`.
+     */
+    private function geoRules(): array
+    {
+        return [
+            'geo' => ['nullable', 'array'],
+            'geo.countrywide' => ['nullable', 'boolean'],
+            'geo.admin_areas' => ['nullable', 'array'],
+            'geo.admin_areas.*' => ['string', 'exists:locations,code'],
+            'geo.exclusions' => ['nullable', 'array'],
+            'geo.exclusions.*' => ['string', 'exists:locations,code'],
+        ];
     }
 }

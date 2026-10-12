@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, StatusBadge, btn, btnDanger, fmtDate, money, selectCompact } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, Pager, StatusBadge, fmtDate, link, linkDanger, money, selectCompact } from '../../components/ui'
 
 // Payment evidence review — parsed receipts and deposit slips. Flagged
 // records (low confidence, duplicate references) need a human decision.
@@ -10,15 +10,17 @@ export default function Evidence() {
   const { token } = useAuth()
   const tenant = useTenant()
   const [status, setStatus] = useState('')
-  const { data: list, error, loading, reload } = useLoader(
-    async () => rows(await api.paymentEvidence(token, tenant, status ? `?status=${status}` : '')), [token, tenant, status],
+  const [page, setPage] = useState(1)
+  const { data, error, loading, reload } = useLoader(
+    async () => api.paymentEvidence(token, tenant, status ? `?status=${status}` : '', page), [token, tenant, status, page],
   )
+  const list = rows(data)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Payment evidence</h1>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCompact}>
+        <PageHead title="Payment evidence" desc="Receipts and slips — what was claimed vs. what the AI read." />
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className={selectCompact}>
           <option value="">all statuses</option>
           <option value="flagged">flagged</option>
           <option value="accepted">accepted</option>
@@ -27,7 +29,8 @@ export default function Evidence() {
       </div>
       <ErrorBox error={error} />
       <Card title="Evidence records">
-        {loading ? <Loading /> : !list || list.length === 0 ? <Empty /> : (
+        <Pager meta={data} onPage={setPage} top />
+        {loading ? <Loading /> : list.length === 0 ? <Empty /> : (
           <>
           <div className="hidden sm:block overflow-x-auto"><table className="w-full">
             <thead><tr className="border-b border-slate-200"><Th>Type</Th><Th>Reference</Th><Th>Amount</Th><Th>Confidence</Th><Th>Flags</Th><Th>Status</Th><Th>Received</Th><Th /></tr></thead>
@@ -40,6 +43,7 @@ export default function Evidence() {
           </div>
           </>
         )}
+        <Pager meta={data} onPage={setPage} />
       </Card>
     </div>
   )
@@ -77,10 +81,10 @@ function ReviewPanel({ e, s }) {
   return (
     <>
       {s.err && <p className="mb-2 text-sm text-red-600">{s.err}</p>}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <input className="w-64 rounded border border-slate-300 px-2 py-1.5 text-sm" placeholder="Review note — what did you verify?" value={s.notes} onChange={(x) => s.setNotes(x.target.value)} />
-        <button onClick={() => s.review('accept')} disabled={s.busy} className={btn}>Accept — record payment</button>
-        <button onClick={() => s.review('reject')} disabled={s.busy} className={btnDanger}>Reject</button>
+        <button onClick={() => s.review('accept')} disabled={s.busy} className={link}>Accept — record payment</button>
+        <button onClick={() => s.review('reject')} disabled={s.busy} className={linkDanger}>Reject</button>
       </div>
       {e.raw_text && <pre className="mt-2 max-h-32 overflow-y-auto rounded bg-white p-2 text-xs text-slate-500">{e.raw_text}</pre>}
     </>
@@ -108,7 +112,7 @@ function Row({ e, token, tenant, onDone }) {
         <Td>{fmtDate(e.created_at)}</Td>
         <Td>
           {e.status === 'flagged' && (
-            <button onClick={() => s.setOpen(!s.open)} className="text-sm font-medium text-violet-700 hover:underline">
+            <button onClick={() => s.setOpen(!s.open)} className={link}>
               {s.open ? 'Close' : 'Review'}
             </button>
           )}
@@ -149,7 +153,7 @@ function RowCard({ e, token, tenant, onDone }) {
       {(e.flags || []).length > 0 && <div className="text-sm text-red-600">{e.flags.join(', ')}</div>}
       {e.status === 'flagged' && (
         <div className="pt-1">
-          <button onClick={() => s.setOpen(!s.open)} className="text-sm font-medium text-violet-700 hover:underline">
+          <button onClick={() => s.setOpen(!s.open)} className={link}>
             {s.open ? 'Close review' : 'Review'}
           </button>
         </div>
