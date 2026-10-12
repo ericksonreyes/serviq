@@ -39,7 +39,7 @@ export default function Dashboard() {
       {!metrics && !error && <p className="text-sm text-slate-500">Loading…</p>}
       {metrics && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Stat title="Tenants" value={metrics.tenants?.total}>
+          <Stat title="Service providers" value={metrics.tenants?.total}>
             {chips(metrics.tenants?.by_status)}
           </Stat>
           <Stat title="Subscription plans" value={metrics.plans?.total}>

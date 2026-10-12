@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, btnGhost, fmtDate, input, label } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, btnGhost, fmtDate, input, label, select } from '../../components/ui'
 
 const OPEN = ['requested', 'confirmed', 'pending', 'ready_for_assignment', 'assigned', 'accepted', 'en_route', 'started', 'in_progress']
 
@@ -41,7 +41,7 @@ export default function Jobs() {
             <ul className="divide-y divide-slate-100">
               {jobs.map((j) => (
                 <li key={j.id}>
-                  <button onClick={() => setSel(j.id)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel === j.id ? 'bg-teal-50' : ''}`}>
+                  <button onClick={() => setSel(j.id)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel === j.id ? 'bg-violet-50' : ''}`}>
                     <span>
                       <span className="block font-mono text-xs text-slate-700">{j.id}</span>
                       <span className="block text-xs text-slate-400">
@@ -137,7 +137,7 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
           <p className={label}>Workflow</p>
           <ol className="mt-1 flex flex-wrap gap-1">
             {j.workflow_instance.map((s, i) => (
-              <li key={i} className={`rounded-full px-2 py-0.5 text-xs ${s.state === 'done' ? 'bg-green-100 text-green-800' : s.state === 'in_progress' ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600'}`}>
+              <li key={i} className={`rounded-full px-2.5 py-0.5 text-sm ${s.state === 'done' ? 'bg-green-100 text-green-800' : s.state === 'in_progress' ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600'}`}>
                 {s.name}
               </li>
             ))}
@@ -191,7 +191,7 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
           )}
           {agents && (
             <div className="mt-2 flex gap-2">
-              <select className={input} value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+              <select className={select} value={agentId} onChange={(e) => setAgentId(e.target.value)}>
                 <option value="">Pick an agent…</option>
                 {agents.map((a) => <option key={a.id} value={a.agent_id || a.id}>{a.name}</option>)}
               </select>

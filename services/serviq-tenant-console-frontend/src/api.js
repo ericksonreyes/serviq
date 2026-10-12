@@ -19,7 +19,12 @@ export const BASES = {
 // Tenant-scoped API path — every domain call carries the JWT's tenant_id.
 export const tp = (tenant, path) => `/api/v1/tenants/${tenant}${path}`
 
-async function request(base, path, { token, method = 'GET', body, form } = {}) {
+// auth.jsx registers a refresh handler — a 401 on an authed call tries one
+// silent refresh + retry before surfacing the error.
+let onUnauthorized = null
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
+
+async function request(base, path, { token, method = 'GET', body, form, _retried } = {}) {
   const res = await fetch(`${base}${path}`, {
     method,
     headers: {
@@ -29,6 +34,10 @@ async function request(base, path, { token, method = 'GET', body, form } = {}) {
     ...(form ? { body: form } : body ? { body: JSON.stringify(body) } : {}),
   })
   const json = await res.json().catch(() => ({}))
+  if (res.status === 401 && token && !_retried && onUnauthorized) {
+    const newToken = await onUnauthorized()
+    if (newToken) return request(base, path, { token: newToken, method, body, form, _retried: true })
+  }
   if (!res.ok) {
     const err = new Error(json.message || json.error || `Request failed (${res.status})`)
     err.fields = json.errors || null
@@ -44,6 +53,8 @@ export const rows = (json) => json?.data ?? json ?? []
 
 export const api = {
   login: (creds) => request(BASES.identity, '/api/v1/auth/login', { method: 'POST', body: creds }),
+  logout: (token, refreshToken) =>
+    request(BASES.identity, '/api/v1/auth/logout', { method: 'POST', token, body: { refresh_token: refreshToken } }),
   me: (token) => request(BASES.identity, '/api/v1/auth/me', { token }),
   signup: (body) => request(BASES.platform, '/api/v1/tenants/signup', { method: 'POST', body }),
 

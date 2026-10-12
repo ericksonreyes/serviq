@@ -24,6 +24,24 @@ class Permission extends Model
 
     public const TENANTS_MANAGE = 'iam.tenants.manage';
 
+    public const PLATFORM_ADMIN = 'platform.admin';
+
+    public const WORKFORCE_AGENTS_MANAGE = 'workforce.agents.manage';
+
+    public const CATALOG_SERVICES_MANAGE = 'catalog.services.manage';
+
+    public const DISPATCH_ASSIGNMENTS_MANAGE = 'dispatch.assignments.manage';
+
+    public const JOBS_EXECUTE = 'jobs.execute';
+
+    public const REQUESTS_MANAGE = 'requests.manage';
+
+    public const BILLING_PAYMENTS_RECORD = 'billing.payments.record';
+
+    public const BILLING_REMIT = 'billing.remit';
+
+    public const NOTIFY_TEMPLATES_MANAGE = 'notify.templates.manage';
+
     public const CATALOG = [
         self::USERS_READ => 'List and view users',
         self::USERS_MANAGE => 'Create, update, disable users and assign roles',
@@ -31,6 +49,15 @@ class Permission extends Model
         self::ROLES_MANAGE => 'Create roles and grant permissions',
         self::TENANTS_READ => 'List registered tenant scopes',
         self::TENANTS_MANAGE => 'Register tenant scopes for provisioning',
+        self::PLATFORM_ADMIN => 'Operate the platform: tenants, plans, flags, settings',
+        self::WORKFORCE_AGENTS_MANAGE => 'Create and edit field agents',
+        self::CATALOG_SERVICES_MANAGE => 'Manage service catalog, pricing, areas, and settings',
+        self::DISPATCH_ASSIGNMENTS_MANAGE => 'Configure dispatch and assign jobs to agents',
+        self::JOBS_EXECUTE => 'Execute assigned jobs: accept, start, steps, evidence, complete',
+        self::REQUESTS_MANAGE => 'Manage customer profiles and service requests',
+        self::BILLING_PAYMENTS_RECORD => 'Record payments and submit payment evidence',
+        self::BILLING_REMIT => 'Process remittances, refunds, and payouts',
+        self::NOTIFY_TEMPLATES_MANAGE => 'Manage notification templates and channels',
     ];
 
     protected $fillable = ['name', 'description'];

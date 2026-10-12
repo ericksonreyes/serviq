@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, money } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, money, select } from '../../components/ui'
 
 const csv = (s) => s.split(',').map((x) => x.trim()).filter(Boolean)
 
@@ -209,7 +209,7 @@ function PricingEditor({ service, token, tenant }) {
         <div><label className="text-xs text-slate-400">Currency</label><input className={`${input} w-24`} maxLength={3} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} /></div>
         <div>
           <label className="text-xs text-slate-400">Type</label>
-          <select className={input} value={form.price_type} onChange={(e) => setForm({ ...form, price_type: e.target.value })}>
+          <select className={select} value={form.price_type} onChange={(e) => setForm({ ...form, price_type: e.target.value })}>
             <option value="fixed">Fixed</option>
             <option value="hourly">Hourly</option>
             <option value="estimate">Estimate</option>

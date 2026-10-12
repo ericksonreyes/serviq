@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  Alert, Button, Card, CardContent, Chip, CircularProgress,
+  Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
   Container, MenuItem, Stack, TextField, Typography,
 } from '@mui/material'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import MiniCalendar from '../MiniCalendar'
 
 const isoDate = (d) => d.toISOString().slice(0, 10)
 
@@ -39,14 +40,17 @@ export default function Book() {
       .finally(() => setLoading(false))
   }, [token])
 
-  // Availability is advisory — if the catalog has no endpoint yet, the
-  // plain date picker still submits preferred_date.
+  // Availability drives the pickers when known — the calendar only
+  // enables dates the service reports as bookable, and start times come
+  // from the day's hourly `hours` (server-flagged by agent coverage).
+  // If the endpoint can't be reached (slots === null) the plain
+  // date/time fields stay as the fallback.
   useEffect(() => {
     if (!form.service_id) { setSlots(null); return }
     const from = new Date()
-    const to = new Date(Date.now() + 14 * 86400000)
+    const to = new Date(Date.now() + 45 * 86400000)
     api.availability(token, form.service_id, isoDate(from), isoDate(to))
-      .then((res) => setSlots(Object.fromEntries((res.data || []).map((d) => [d.date, d.slots]))))
+      .then((res) => setSlots(Object.fromEntries((res.data || []).map((d) => [d.date, d]))))
       .catch(() => setSlots(null))
   }, [token, form.service_id])
 
@@ -54,14 +58,50 @@ export default function Book() {
   const setAddr = (key) => (e) =>
     setForm({ ...form, address: { ...form.address, [key]: e.target.value } })
 
-  const dates = useMemo(() => {
+  // Hourly candidate starts for the chosen date — the server emits
+  // `hours` flagged by agent coverage; fall back to deriving hourly
+  // starts from the operating window (all assumed available).
+  const hourOptions = useMemo(() => {
+    const day = slots?.[form.date]
+    if (!day) return []
+    if (Array.isArray(day.hours)) return day.hours
+    if (!day?.open || !day?.close || !day?.job_minutes) return []
+    const [oh, om] = day.open.split(':').map(Number)
+    const [ch, cm] = day.close.split(':').map(Number)
     const out = []
-    for (let i = 1; i <= 14; i++) out.push(isoDate(new Date(Date.now() + i * 86400000)))
+    for (let t = oh * 60 + om; t < ch * 60 + cm; t += 60) {
+      out.push({
+        time: `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`,
+        available: t + day.job_minutes <= ch * 60 + cm,
+      })
+    }
     return out
-  }, [])
+  }, [slots, form.date])
+
+  // Keep the selection valid: a date that lost capacity is cleared, a
+  // time outside the day's bookable hours snaps to the first available.
+  useEffect(() => {
+    if (slots !== null && form.date && !slots[form.date]) {
+      setForm((f) => ({ ...f, date: '', time: '' }))
+      return
+    }
+    const bookable = hourOptions.filter((h) => h.available).map((h) => h.time)
+    if (hourOptions.length && !bookable.includes(form.time)) {
+      setForm((f) => ({ ...f, time: bookable[0] || '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots, form.date, hourOptions])
+
+  const fmtTime = (t) => t === '24:00'
+    ? 'midnight'
+    : new Date(`2000-01-01T${t}:00`).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 
   const submit = async (e) => {
     e.preventDefault()
+    if (!form.date) {
+      setError('Pick a preferred date for your visit.')
+      return
+    }
     setBusy(true)
     setError(null)
     const scheduled = form.date
@@ -128,29 +168,62 @@ export default function Book() {
               </Stack>
             )}
 
-            <TextField
-              label="Preferred date" type="date" required InputLabelProps={{ shrink: true }}
-              value={form.date} onChange={set('date')}
-            />
-            {slots && form.service_id && (
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                {dates.map((d) => (
-                  <Chip
-                    key={d}
-                    size="small"
-                    label={`${new Date(`${d}T00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${slots[d] ? ` · ${slots[d]}` : ''}`}
-                    color={form.date === d ? 'primary' : 'default'}
-                    variant={slots[d] ? 'filled' : 'outlined'}
-                    onClick={() => setForm({ ...form, date: d })}
-                    disabled={!slots[d]}
+            {slots === null ? (
+              // Availability unknown — plain pickers; still bookable.
+              <>
+                <TextField
+                  label="Preferred date" type="date" required
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={form.date} onChange={set('date')}
+                />
+                <TextField
+                  label="Preferred time" type="time"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={form.time} onChange={set('time')}
+                />
+              </>
+            ) : (
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>Preferred date</Typography>
+                  <MiniCalendar
+                    enabled={slots}
+                    value={form.date}
+                    onChange={(d) => setForm({ ...form, date: d })}
                   />
-                ))}
+                </Box>
+                {form.date && hourOptions.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Start time
+                      {slots[form.date]?.open && slots[form.date]?.close && (
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                          {fmtTime(slots[form.date].open)} – {fmtTime(slots[form.date].close)}
+                        </Typography>
+                      )}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {hourOptions.map((h) => (
+                        <Chip
+                          key={h.time}
+                          size="small"
+                          label={fmtTime(h.time)}
+                          color={form.time === h.time ? 'primary' : 'default'}
+                          variant={form.time === h.time ? 'filled' : 'outlined'}
+                          disabled={!h.available}
+                          onClick={() => h.available && setForm({ ...form, time: h.time })}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                {form.date && hourOptions.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No start times fit that day — pick another date.
+                  </Typography>
+                )}
               </Stack>
             )}
-            <TextField
-              label="Preferred time" type="time" InputLabelProps={{ shrink: true }}
-              value={form.time} onChange={set('time')}
-            />
             <TextField
               label="Notes for the technician" multiline minRows={2}
               value={form.notes} onChange={set('notes')}

@@ -30,8 +30,8 @@ are Linux binaries for the containers; the IDE indexes them fine either way.
 ## Local seed accounts
 
 Demo accounts for immediate testing — **local development only, never use
-these credentials elsewhere.** The credential table and tenant ID live in
-the [root README](../../../../README.MD#local-seed-accounts); this section
+these credentials elsewhere.** The credential table lives in the
+[root README](../../../../README.MD#local-seed-accounts); this section
 documents how the seeding works.
 
 Seeding happens automatically inside the service containers on start: the
@@ -45,8 +45,10 @@ after migrations.
   the real `Platform.TenantCreated` event with `initial_users`, so IAM's
   consumer provisions the scope and accounts through the normal onboarding
   pipeline — no cross-service database writes.
-- **Demo business data** — the tenant ID is a **fixed UUID**, so each
-  context's own seeder can write tenant-scoped rows without a cross-DB lookup:
+- **Demo business data** — the tenant ID is a **fixed UUID**
+  (`01ac0000-0000-7000-8000-00000000acde`, also the value to use in
+  `/api/v1/tenants/{id}/...` paths), so each context's own seeder can write
+  tenant-scoped rows without a cross-DB lookup:
   - `service-management` `DemoCatalogSeeder` — 3 catalog services (Aircon
     Cleaning ₱1,500, Plumbing Repair ₱2,500, Home Deep Cleaning ₱3,500)
     with 3 workflow steps each, covering Antipolo/Cainta

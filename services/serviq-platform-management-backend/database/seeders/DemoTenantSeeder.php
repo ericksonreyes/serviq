@@ -50,6 +50,12 @@ class DemoTenantSeeder extends Seeder
                 $tenant->save();
             }
 
+            // Public directory blurb — backfill so older local installs get it too.
+            if ($tenant->description === null) {
+                $tenant->description = 'Appliance repair, installations, and on-demand home services across the metro.';
+                $tenant->save();
+            }
+
             // Existing tenant (e.g. created by an earlier session's API call):
             // re-emit TenantCreated — IAM's firstOrCreate scope + firstOrCreate
             // users make replay idempotent, so demo accounts still provision.
@@ -60,6 +66,9 @@ class DemoTenantSeeder extends Seeder
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
                 'plan_id' => $tenant->plan_id,
+                'plan' => $tenant->plan
+                    ? ['code' => $tenant->plan->code, 'features' => $tenant->plan->features]
+                    : null,
                 // Hashed here — the outbox row never holds plaintext.
                 'initial_users' => array_map(
                     fn (array $u) => $u + ['password' => Hash::make(self::DEMO_PASSWORD)],

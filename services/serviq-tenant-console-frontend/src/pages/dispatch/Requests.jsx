@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, fmtDate } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, fmtDate, selectCompact } from '../../components/ui'
 
 const STATUSES = ['', 'submitted', 'reviewed', 'converted', 'cancelled']
 
@@ -21,7 +21,7 @@ export default function Requests() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">Service requests</h1>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCompact}>
           {STATUSES.map((s) => <option key={s} value={s}>{s || 'all statuses'}</option>)}
         </select>
       </div>
@@ -32,7 +32,7 @@ export default function Requests() {
             <ul className="divide-y divide-slate-100">
               {list.map((r) => (
                 <li key={r.id}>
-                  <button onClick={() => setSel(r)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel?.id === r.id ? 'bg-teal-50' : ''}`}>
+                  <button onClick={() => setSel(r)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel?.id === r.id ? 'bg-violet-50' : ''}`}>
                     <span>
                       <span className="block text-sm font-medium">{r.customer?.name || 'Customer'}</span>
                       <span className="block text-xs text-slate-400">{fmtDate(r.created_at)} · {r.details?.notes || r.details?.description || '—'}</span>

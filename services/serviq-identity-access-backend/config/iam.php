@@ -19,6 +19,8 @@ return [
         'issuer' => env('JWT_ISSUER', 'serviq-iam'),
         'audience' => env('JWT_AUDIENCE', 'serviq'),
         'ttl' => (int) env('JWT_TTL', 3600),
+        // Refresh tokens are opaque DB rows, not JWTs — 30-day default.
+        'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 30 * 24 * 3600),
         'private_key_path' => env('JWT_PRIVATE_KEY_PATH', storage_path('keys/jwt-private.pem')),
         'public_key_path' => env('JWT_PUBLIC_KEY_PATH', storage_path('keys/jwt-public.pem')),
     ],

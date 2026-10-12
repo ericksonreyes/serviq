@@ -1,7 +1,12 @@
 const API_URL = import.meta.env.VITE_API_BASE_URL
 const IDENTITY_URL = import.meta.env.VITE_IDENTITY_API_URL
 
-async function request(base, path, { token, method = 'GET', body } = {}) {
+// auth.jsx registers a refresh handler — a 401 on an authed call tries one
+// silent refresh + retry before surfacing the error.
+let onUnauthorized = null
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
+
+async function request(base, path, { token, method = 'GET', body, _retried } = {}) {
   const res = await fetch(`${base}${path}`, {
     method,
     headers: {
@@ -11,6 +16,10 @@ async function request(base, path, { token, method = 'GET', body } = {}) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
   const json = await res.json().catch(() => ({}))
+  if (res.status === 401 && token && !_retried && onUnauthorized) {
+    const newToken = await onUnauthorized()
+    if (newToken) return request(base, path, { token: newToken, method, body, _retried: true })
+  }
   if (!res.ok) {
     const err = new Error(json.message || json.error || `Request failed (${res.status})`)
     err.fields = json.errors || null
@@ -33,6 +42,8 @@ async function upload(token, path, formData) {
 
 export const api = {
   login: (creds) => request(IDENTITY_URL, '/api/v1/auth/login', { method: 'POST', body: creds }),
+  logout: (token, refreshToken) =>
+    request(IDENTITY_URL, '/api/v1/auth/logout', { method: 'POST', token, body: { refresh_token: refreshToken } }),
   register: (creds) => request(IDENTITY_URL, '/api/v1/auth/register', { method: 'POST', body: creds }),
   invitation: (token) => request(IDENTITY_URL, `/api/v1/invitations/${token}`),
   acceptInvite: (token, body) =>

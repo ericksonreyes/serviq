@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CatalogService;
+use App\Models\ProjectedAgentAvailability;
 use App\Models\TenantSetting;
 use App\Services\DomainEventRecorder;
 use Illuminate\Http\JsonResponse;
@@ -30,10 +31,11 @@ class ServiceOperationsController
     private const MAX_RANGE_DAYS = 92;
 
     /**
-     * Bookable capacity per date, derived from the tenant's operating-hours
-     * settings and the service's estimated_minutes — crews × slots/day.
-     * Config-derived, not booked-net: netting against live jobs belongs to
-     * Job Management's schedule projection, not a cross-context read.
+     * Bookable capacity per date, factoring the tenant's operating
+     * hours/days, declared holidays and non-working days, and projected
+     * crew schedules (Workforce events). Config- and projection-derived,
+     * not booked-net: netting against live jobs belongs to Job
+     * Management's schedule projection, not a cross-context read.
      */
     public function availability(Request $request, string $tenant, CatalogService $service): JsonResponse
     {
@@ -53,21 +55,92 @@ class ServiceOperationsController
         $crews = max(1, (int) ($settings['crews'] ?? 1));
         $minutesPerJob = max(1, (int) ($service->estimated_minutes ?? 60));
 
+        // Provider-declared closures — recurring holidays as MM-DD,
+        // one-off non-working days as Y-m-d.
+        $holidays = collect($settings['holidays'] ?? []);
+        $nonWorkingDays = collect($settings['non_working_days'] ?? []);
+
+        // Projected crew schedules (Workforce events). Fall back to the
+        // blunt `crews` setting only when the tenant has NO projection at
+        // all (fresh signup, no events yet) — a projection containing only
+        // inactive agents means "nobody works", not "use crews".
+        $useAgents = ProjectedAgentAvailability::where('tenant_id', $tenant)->exists();
+        $agentRows = ProjectedAgentAvailability::where('tenant_id', $tenant)
+            ->where('status', 'active')
+            ->get()
+            ->groupBy('day_of_week');
+
+        $toMinutes = fn (string $t) => ((int) explode(':', $t)[0]) * 60 + ((int) explode(':', $t)[1] ?? 0);
+        $toTime = fn (int $m) => sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
+
         $days = [];
         for ($date = $from->copy(); $date->lte($to); $date->addDay()) {
+            if ($nonWorkingDays->contains($date->toDateString())
+                || $holidays->contains($date->format('m-d'))) {
+                continue;
+            }
             $window = $hours[strtolower($date->format('l'))] ?? null;
             if (! is_array($window) || empty($window['open']) || empty($window['close'])) {
                 continue;
             }
-            [$oh, $om] = array_map('intval', array_pad(explode(':', (string) $window['open']), 2, 0));
-            [$ch, $cm] = array_map('intval', array_pad(explode(':', (string) $window['close']), 2, 0));
-            $workMinutes = ($ch * 60 + $cm) - ($oh * 60 + $om);
-            if ($workMinutes <= 0) {
+            $open = $toMinutes((string) $window['open']);
+            $close = $toMinutes((string) $window['close']);
+            if ($close - $open <= 0) {
                 continue;
             }
-            $slots = intdiv($workMinutes, $minutesPerJob) * $crews;
+
+            if ($useAgents) {
+                // Capacity = sum over agents of their overlap with the
+                // business window, in whole jobs × concurrent capacity.
+                $agents = $agentRows[$date->dayOfWeek] ?? collect();
+                $slots = 0;
+                foreach ($agents as $a) {
+                    $overlapStart = max($open, $toMinutes((string) $a->start_time));
+                    $overlapEnd = min($close, $toMinutes((string) $a->end_time));
+                    if ($overlapEnd - $overlapStart > 0) {
+                        $slots += intdiv($overlapEnd - $overlapStart, $minutesPerJob)
+                            * max(1, (int) $a->capacity);
+                    }
+                }
+                $fitsShift = fn (int $t) => $agents->contains(fn ($a) =>
+                    $toMinutes((string) $a->start_time) <= $t
+                    && $toMinutes((string) $a->end_time) >= $t + $minutesPerJob);
+            } else {
+                $slots = intdiv($close - $open, $minutesPerJob) * $crews;
+                $fitsShift = fn (int $t) => true;
+            }
+
+            // Candidate starts on the hour from open: `hours` carries every
+            // start inside the window with a coverage flag (a start is only
+            // bookable when the whole job fits inside an agent's shift AND
+            // the business window); `times` is the bookable subset at the
+            // job's natural cadence. close may reach 24:00 for 24/7
+            // operations (overnight windows spanning midnight are not
+            // representable — providers set 00:00–24:00 instead).
+            $hourOptions = [];
+            $times = [];
+            for ($t = $open; $t < $close; $t += 60) {
+                $available = $t + $minutesPerJob <= $close && $fitsShift($t);
+                $hourOptions[] = ['time' => $toTime($t), 'available' => $available];
+            }
+            for ($t = $open; $t + $minutesPerJob <= $close; $t += $minutesPerJob) {
+                if ($t + $minutesPerJob <= $close && $fitsShift($t)) {
+                    $times[] = $toTime($t);
+                }
+            }
+
             if ($slots > 0) {
-                $days[] = ['date' => $date->toDateString(), 'slots' => $slots];
+                $days[] = [
+                    'date' => $date->toDateString(),
+                    'slots' => $slots,
+                    // Operating window + pre-computed candidate starts —
+                    // clients render `hours`/`times` as-is when present.
+                    'open' => (string) $window['open'],
+                    'close' => (string) $window['close'],
+                    'job_minutes' => $minutesPerJob,
+                    'hours' => $hourOptions,
+                    'times' => $times,
+                ];
             }
         }
 

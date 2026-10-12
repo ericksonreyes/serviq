@@ -22,7 +22,8 @@ export default function Customers() {
         <div className="xl:col-span-2">
           <Card title="Customer list">
             {loading ? <Loading /> : !customers || customers.length === 0 ? <Empty /> : (
-              <table className="w-full">
+              <>
+              <div className="hidden sm:block overflow-x-auto"><table className="w-full">
                 <thead><tr className="border-b border-slate-200"><Th>Name</Th><Th>Contact</Th><Th>Address</Th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {customers.map((c) => (
@@ -37,7 +38,17 @@ export default function Customers() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
+              <div className="sm:hidden divide-y divide-slate-100">
+                {customers.map((c) => (
+                  <div key={c.id} className="space-y-1 px-1 py-3">
+                    <div className="text-sm font-medium">{c.name}</div>
+                    <div className="text-sm text-slate-600">{[c.contact?.phone, c.contact?.email].filter(Boolean).join(' · ') || '—'}</div>
+                    <div className="text-xs text-slate-500">{[c.address?.line1, c.address?.city].filter(Boolean).join(', ') || '—'}</div>
+                  </div>
+                ))}
+              </div>
+              </>
             )}
           </Card>
         </div>

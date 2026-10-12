@@ -40,7 +40,7 @@ export default function Signup({ tenantSlug }) {
       const res = invite
         ? await api.acceptInvite(inviteToken, form)
         : await api.register({ ...form, role: 'Service Agent' })
-      setToken(res.access_token)
+      setToken(res.access_token, false, res.refresh_token)
     } catch (err) {
       const first = err.fields ? Object.values(err.fields).flat()[0] : null
       setError(first || err.message)
@@ -50,13 +50,13 @@ export default function Signup({ tenantSlug }) {
   }
 
   return (
-    <Container maxWidth="xs" sx={{ mt: 6 }}>
-      <Paper sx={{ p: { xs: 3, sm: 4 }, width: "100%" }}>
+    <Container maxWidth="sm" sx={{ minHeight: "100vh", display: "flex", alignItems: "center", py: { xs: 3, sm: 8 } }}>
+      <Paper sx={{ p: { xs: 4, sm: 6 }, width: "100%", maxWidth: 460, mx: "auto" }}>
         <Typography variant="h5" gutterBottom>Join as a service agent</Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Apply to a service provider — like a rider signing up with a fleet.
         </Typography>
-        <Stack component="form" spacing={2} onSubmit={submit} sx={{ mt: 2 }}>
+        <Stack component="form" spacing={2.5} onSubmit={submit} sx={{ mt: 3 }}>
           {error && <Alert severity="error">{error}</Alert>}
           {inviteErr && <Alert severity="warning">Invitation link is invalid or expired — you can still sign up normally.</Alert>}
           {invite && <Alert severity="info">You were invited by {invite.tenant_slug} — finish creating your account.</Alert>}
@@ -65,7 +65,7 @@ export default function Signup({ tenantSlug }) {
           <TextField label="Email" type="email" required disabled={!!invite} {...field('email')} />
           <TextField label="Password" type="password" required {...field('password')} />
           <TextField label="Confirm password" type="password" required {...field('password_confirmation')} />
-          <Button type="submit" variant="contained" size="large" disabled={busy}>
+          <Button type="submit" variant="contained" size="large" disabled={busy} sx={{ py: 1.25 }}>
             {busy ? 'Submitting…' : 'Sign up'}
           </Button>
           <Typography variant="body2">

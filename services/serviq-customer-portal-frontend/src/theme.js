@@ -1,19 +1,23 @@
 import { createTheme } from '@mui/material'
 
-// Shared ServIQ look — deep indigo brand, comfortable 16px base type,
-// soft cards. Mobile-first: components size up, not down.
+// Shared ServIQ look — pastel violet/teal brand (Magic poster palette),
+// Nunito rounded sans + Caveat script accents. Mobile-first: components
+// size up, not down.
 export const theme = createTheme({
   palette: {
-    primary: { main: '#0f766e' },
-    secondary: { main: '#334155' },
-    background: { default: '#f1f5f9', paper: '#ffffff' },
+    primary: { main: '#7c3aed' },
+    secondary: { main: '#14b8a6' },
+    background: { default: '#faf5ff', paper: '#ffffff' },
+    text: { primary: '#1e1b4b' },
   },
   typography: {
-    fontSize: 15,
-    fontFamily: '"Inter", "Roboto", "Segoe UI", system-ui, sans-serif',
+    fontSize: 16,
+    fontFamily: '"Nunito", "Segoe UI", system-ui, sans-serif',
     h3: { fontWeight: 800, letterSpacing: '-0.02em' },
     h5: { fontWeight: 700 },
     h6: { fontWeight: 700 },
+    body2: { fontSize: '0.95rem', fontWeight: 500 },
+    caption: { fontSize: '0.8rem' },
     button: { textTransform: 'none', fontWeight: 600, fontSize: '0.95rem' },
   },
   shape: { borderRadius: 12 },
@@ -30,7 +34,7 @@ export const theme = createTheme({
     },
     MuiTextField: { defaultProps: { variant: 'outlined' } },
     MuiAppBar: {
-      styleOverrides: { root: { background: '#0f172a' } },
+      styleOverrides: { root: { background: '#1e1b4b' } },
     },
   },
 })

@@ -37,7 +37,8 @@ export default function Dashboard() {
       <ErrorBox error={err} />
       <Card title={`Dispatch queue${queue ? ` (${queue.length})` : ''}`}>
         {loading ? <Loading /> : !queue || queue.length === 0 ? <Empty text="Queue is clear — no jobs waiting for assignment." /> : (
-          <table className="w-full">
+          <>
+          <div className="hidden sm:block overflow-x-auto"><table className="w-full">
             <thead><tr className="border-b border-slate-200"><Th>Job</Th><Th>Status</Th><Th /></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {queue.map((j) => (
@@ -53,7 +54,24 @@ export default function Dashboard() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
+          <div className="sm:hidden divide-y divide-slate-100">
+            {queue.map((j) => (
+              <div key={j.job_id || j.id} className="space-y-2 px-1 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-xs text-slate-700">{j.job_id || j.id}</span>
+                  <StatusBadge value={j.status} />
+                </div>
+                <div className="flex gap-2">
+                  <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={`${btnGhost} inline-block`}>Assign</Link>
+                  <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={btn}>
+                    {busy === (j.job_id || j.id) ? 'Broadcasting…' : 'Broadcast offers'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </Card>
     </div>

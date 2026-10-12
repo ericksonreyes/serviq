@@ -25,6 +25,8 @@ Suggested claim shape:
 {
   "sub": "user-id",
   "tenant_id": "tenant-id",
+  "username": "jane.customer",
+  "display_name": "Jane Customer",
   "roles": ["Tenant Administrator", "Dispatcher"],
   "permissions": ["payout.read", "payout.execute"],
   "iss": "serviq-identity-access",
@@ -36,6 +38,7 @@ Suggested claim shape:
 ```
 
 - `sub` identifies the authenticated user.
+- `username` and `display_name` carry the human-facing login handle and name for display (`display_name` may be null — fall back to `username`).
 - `tenant_id` scopes the user to a tenant when applicable.
 - `roles` contains the canonical role names assigned to the user.
 - `permissions` contains fine-grained grants used for endpoint or action checks.

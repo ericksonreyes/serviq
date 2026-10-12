@@ -16,6 +16,7 @@ Route::prefix('v1')->group(function () {
     // The only anonymous routes on the service (INTERNAL_SERVICE_SECURITY.MD).
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+    Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:30,1');
     Route::get('/invitations/{token}', [InvitationController::class, 'show']);
     Route::post('/invitations/{token}/accept', [InvitationController::class, 'accept'])->middleware('throttle:5,1');
 

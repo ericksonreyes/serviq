@@ -36,6 +36,7 @@ This file guides documentation-oriented work in the ServIQ repository.
 - **Derive the container from the manifest, not from whatever image happens to be built.** `composer.json require.php` → `php:X.Y-cli`; `package.json engines.node` → `node:N-alpine` (fall back to `@types/node` major, then 22); Python services run in their own image whose pip-installed deps are the pinned contract.
 - For dependency installs prefer the tool's official image: `composer:2` for PHP deps (with `--ignore-platform-req=ext-sockets` as `install.sh` does), `node:N` for npm work. Never let the package manager run on the host — its `*-lock`/`composer.lock` output differs across runtime versions and that divergence ships bugs.
 - `scripts/test.sh` is the reference implementation — use it rather than ad-hoc commands; extend it rather than working around it.
+- **Never run `phpunit`/`artisan test` inside a running service container** (`docker exec serviq-*-backend vendor/bin/phpunit`). Containers export their real `.env` (`DB_CONNECTION=pgsql`), `phpunit.xml` `<env>` values do not reliably override exported variables, and `RefreshDatabase` then runs `migrate:fresh` on the live dev database — wiping it. Each service's `tests/bootstrap.php` hard-aborts on non-sqlite connections; run suites via `./scripts/test.sh` (clean `php:X.Y-cli` container) or with explicit `-e DB_CONNECTION=sqlite -e DB_DATABASE=:memory:` overrides.
 
 ## Session Handoffs
 

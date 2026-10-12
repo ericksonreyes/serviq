@@ -10,7 +10,10 @@ Whether it's a delivery, appliance repair, installation, maintenance visit, or a
 
 Modern service businesses often rely on disconnected tools for customer requests, scheduling, dispatching, workforce management, communication, and job tracking.
 
-**ServIQ brings these workflows together in one platform.**
+**ServIQ brings these workflows together in one platform** — lightweight on
+the surface, heavyweight underneath: every persona touches only the slice of
+the product built for their role, while an event-driven microservice
+architecture carries the complexity behind it.
 
 ```text
 Customer
@@ -87,19 +90,16 @@ these credentials elsewhere.** Seeding runs automatically in the service
 containers on install; see [Local Development](workspace/specs/technical/infrastructure/LOCAL_DEVELOPMENT.MD#local-seed-accounts)
 for how it works and how to re-seed.
 
-| Role | App | Username | Password |
+| Role | Login URL | Username | Password |
 |---|---|---|---|
-| Platform Administrator | http://localhost:3003 (Platform Admin) | `admin` | `serviq-local` |
-| Tenant Administrator | http://localhost:3002 (Tenant Console) | `acme.admin` | `demo-pass-123` |
-| Service Agent | http://localhost:3001 (Service Agent PWA) | `anna.agent` | `demo-pass-123` |
-| Customer | http://localhost:3000 (Customer Portal) | `jane.customer` | `demo-pass-123` |
+| Platform Administrator | http://localhost:3003/login | `admin` | `serviq-local` |
+| Tenant Administrator | http://localhost:3002/provider/acme/login | `acme.admin` | `demo-pass-123` |
+| Service Agent | http://localhost:3001/provider/acme/login | `anna.agent` | `demo-pass-123` |
+| Customer | http://localhost:3000/provider/acme/login | `jane.customer` | `demo-pass-123` |
 
-Tenant-scoped logins (everyone except the Platform Administrator) also need
-the tenant ID — **fixed across installs**:
-
-```
-01ac0000-0000-7000-8000-00000000acde
-```
+Tenant-scoped logins (everyone except the Platform Administrator) need the
+provider slug `acme` — the `/provider/acme/login` URLs above pre-fill it, or
+type `acme` into the **Provider** field on the plain `/login` page.
 
 Auth routes are throttled at 5 req/min — rapid login attempts will hit 429s.
 

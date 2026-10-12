@@ -96,9 +96,12 @@ services:
     ports: ["127.0.0.1:27017:27017"]
     volumes: [mongo-data:/data/db]
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"]
-      interval: 5s
-      timeout: 5s
+      # TCP probe — mongosh is a full JS runtime (~1s+ cold start); spawning
+      # it every interval starved mongod on constrained hosts (CPU + the
+      # container's own mem_limit). Bash /dev/tcp costs nothing.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/27017"]
+      interval: 10s
+      timeout: 3s
       retries: 12
     mem_limit: 384m
     restart: unless-stopped
@@ -457,7 +460,7 @@ services:
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
-    command: "sh -c 'until php artisan outbox:publish; do sleep 5; done'"
+    command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   customer-request-consumer:
     container_name: serviq-customer-request-consumer
     <<: *consumer-service
@@ -487,7 +490,7 @@ services:
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
-    command: "sh -c 'until php artisan outbox:publish; do sleep 5; done'"
+    command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   assignment-dispatch-consumer:
     container_name: serviq-assignment-dispatch-consumer
     <<: *consumer-service

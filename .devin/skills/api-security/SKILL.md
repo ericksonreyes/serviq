@@ -34,3 +34,5 @@ Every service's `.env.example` already carries the right vars (`JWT_PUBLIC_KEY`,
 ## When writing endpoints
 
 Default deny: new endpoints are JWT-protected unless explicitly public (login, health). Validate `tenant_id` scoping on every tenant-owned resource — a valid token from tenant A must not read tenant B's data.
+
+Public read-only directory-style endpoints do exist for cross-portal lookups (precedent: `GET /v1/providers`, `GET /v1/feature-flags/{key}` on platform-management): unauthenticated but `throttle`d, and returning only the minimal display/status fields — never internal notes or IDs beyond the lookup key. Feature-flag consumers fail **open**: a flag-store error or missing flag must not disable the feature it gates; enforcement caches the probe briefly (~30s) rather than calling per request.

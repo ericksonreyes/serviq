@@ -22,13 +22,15 @@ Sources: [Personas](workspace/specs/domain/specs/PERSONAS.MD), [Domain Boundarie
 
 Customer-facing app for a Service Provider — signup, browsing, booking, tracking, self-service.
 
-- ✅ Landing page
+- ✅ Landing page — ServIQ overview with public provider directory search (debounced autocomplete)
+- ✅ Provider homepage (`/provider/:slug`) — provider name/description with sign-in and signup entry points
 - ✅ Tenant-scoped signup and login (`/provider/:slug/signup`, `/provider/:slug/login`)
+- ✅ Refresh-token sessions — access tokens rotate silently via `POST /auth/refresh`; "Keep me signed in" persists the session across restarts; sign-out revokes both tokens
 - ✅ Home view listing the customer's service requests and jobs via the BFF read model
 - ✅ Customer onboarding by Service Provider invitation — staff create the customer account; first sign-in links it
 - ✅ Customer account and profile management, including address book
 - ✅ Service catalog browsing and discovery
-- ✅ Service request submission and booking with schedule selection
+- ✅ Service request submission and booking with availability-aware schedule selection — calendar date picker enables only bookable days; hourly start-time list disables hours with no agent coverage. Factors: provider-set business hours/days (incl. 24/7), holidays, non-working days, and projected agent schedules (Workforce events)
 - ✅ Customer-facing request status tracking (received → technician assigned → en route → started → completed)
 - ✅ Notifications and self-service updates
 - ✅ Feedback / review after completion
@@ -46,6 +48,7 @@ Customer-facing app for a Service Provider — signup, browsing, booking, tracki
 Field agent PWA — mobile-first channel for executing field work.
 
 - ✅ Signup and login
+- ✅ Refresh-token sessions — silent access-token renewal; "Keep me signed in" persists across restarts; sign-out revokes both tokens
 - ✅ Home view showing today's assignments via the Service Agent BFF
 - ✅ Onboarding by dispatcher invitation — dispatcher/admin creates the agent account
 - ✅ Accept / reject assignments
@@ -67,6 +70,7 @@ Field agent PWA — mobile-first channel for executing field work.
 Internal console for a Service Provider's staff — Tenant Administrator, Dispatcher, and Customer Support views (role-scoped).
 
 - ✅ Signup and login
+- ✅ Refresh-token sessions — silent access-token renewal; "Keep me signed in" persists across restarts; sign-out revokes both tokens
 - ✅ Tenant-scoped signup and login (`/provider/:slug/...`)
 - ✅ Home view showing the signed-in user's identity, tenant, roles, and permissions
 
@@ -78,7 +82,7 @@ Internal console for a Service Provider's staff — Tenant Administrator, Dispat
 - ✅ Create service types and configure the service catalog
 - ✅ Configure pricing
 - ✅ Configure service areas
-- ✅ Manage business settings and operational workflows
+- ✅ Manage business settings and operational workflows — per-day operating hours editor with 24-hour option, crews fallback capacity, recurring holidays, one-off non-working days, cancellation policy, payment/auto-broadcast flags
 - ✅ Choose the assignment strategy (automatic, broadcast, self, dispatcher) and broadcast offer TTL
 - ✅ View reports
 - ✅ Review revenue, invoices, refunds, and payout status
@@ -121,6 +125,7 @@ Internal console for a Service Provider's staff — Tenant Administrator, Dispat
 Internal console for ServIQ platform operators — sits above the tenant boundary.
 
 - ✅ Login
+- ✅ Refresh-token sessions — silent access-token renewal; "Keep me signed in" persists across restarts; sign-out revokes both tokens
 - ✅ Home view listing tenants (name, slug, status, tenant ID) via the Platform Management API
 - ✅ Create and manage Service Providers (tenants)
 - ✅ Approve or suspend businesses (tenant lifecycle)

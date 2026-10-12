@@ -40,7 +40,9 @@ export default function Signup({ tenantSlug }) {
       const res = invite
         ? await api.acceptInvite(inviteToken, form)
         : await api.register(form)
-      setToken(res.access_token)
+      setToken(res.access_token, false, res.refresh_token)
+      const slug = invite?.tenant_slug || tenantSlug
+      if (slug) localStorage.setItem('serviq.provider', slug)
       // Self-signup has no CRM customer record — provision it now so the
       // home view and booking work on first landing. Best-effort: the
       // first sign-in empty state catches any failure.
@@ -54,13 +56,13 @@ export default function Signup({ tenantSlug }) {
   }
 
   return (
-    <Container maxWidth="xs" sx={{ minHeight: "100vh", display: "flex", alignItems: "center", py: { xs: 3, sm: 8 } }}>
-      <Paper sx={{ p: { xs: 3, sm: 4 }, width: "100%" }}>
+    <Container maxWidth="sm" sx={{ minHeight: "100vh", display: "flex", alignItems: "center", py: { xs: 3, sm: 8 } }}>
+      <Paper sx={{ p: { xs: 4, sm: 6 }, width: "100%", maxWidth: 460, mx: "auto" }}>
         <Typography variant="h5" gutterBottom>Create your account</Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Sign up under your service provider to request and track work.
         </Typography>
-        <Stack component="form" spacing={2} onSubmit={submit} sx={{ mt: 2 }}>
+        <Stack component="form" spacing={2.5} onSubmit={submit} sx={{ mt: 3 }}>
           {error && <Alert severity="error">{error}</Alert>}
           {inviteErr && <Alert severity="warning">Invitation link is invalid or expired — you can still sign up normally.</Alert>}
           {invite && <Alert severity="info">You were invited by {invite.tenant_slug} — finish creating your account.</Alert>}
@@ -69,7 +71,7 @@ export default function Signup({ tenantSlug }) {
           <TextField label="Email" type="email" required disabled={!!invite} {...field('email')} />
           <TextField label="Password" type="password" required {...field('password')} />
           <TextField label="Confirm password" type="password" required {...field('password_confirmation')} />
-          <Button type="submit" variant="contained" disabled={busy}>
+          <Button type="submit" variant="contained" size="large" disabled={busy} sx={{ py: 1.25 }}>
             {busy ? 'Creating account…' : 'Sign up'}
           </Button>
           <Typography variant="body2">

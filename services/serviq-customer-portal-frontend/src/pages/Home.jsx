@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Alert, Button, Card, CardContent, CircularProgress,
-  Container, Stack, TextField, Typography,
+  Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
+  Container, Grid, Stack, TextField, Typography,
 } from '@mui/material'
 import { api } from '../api'
 import { useAuth } from '../auth'
@@ -12,6 +12,44 @@ const STATUS_LABELS = {
   requested: 'Requested', confirmed: 'Confirmed', finding_agent: 'Finding a technician',
   assigned: 'Technician assigned', en_route: 'Technician en route',
   in_progress: 'Service started', completed: 'Completed',
+}
+
+const money = (cents, currency = 'PHP') =>
+  cents == null ? null : `${currency} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+
+// The provider's bookable services, inline on Home — picking one goes
+// straight to the booking form, no browse detour.
+function ServiceGrid({ services }) {
+  if (services.length === 0) {
+    return <Typography color="text.secondary">No bookable services yet.</Typography>
+  }
+  return (
+    <Grid container spacing={2} sx={{ mt: 0.5 }}>
+      {services.map((s) => (
+        <Grid item xs={12} sm={6} key={s.id}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle1">{s.name}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+                {s.description || 'Service visit'}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
+                {s.price_cents != null && (
+                  <Chip size="small" label={money(s.price_cents, s.currency)} />
+                )}
+                {s.estimated_minutes != null && (
+                  <Chip size="small" variant="outlined" label={`~${s.estimated_minutes} min`} />
+                )}
+              </Box>
+              <Button variant="contained" component={Link} to={`/book/${s.id}`}>
+                Book
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  )
 }
 
 function ItemList({ title, items, empty, serviceNames }) {
@@ -82,19 +120,20 @@ function CompleteProfile({ onDone }) {
 }
 
 export default function Home() {
-  const { token, claims } = useAuth()
+  const { token } = useAuth()
   const [state, setState] = useState({ loading: true, profileMissing: false, error: null })
+  const [profile, setProfile] = useState(null)
   const [requests, setRequests] = useState([])
-  const [serviceNames, setServiceNames] = useState({})
+  const [services, setServices] = useState([])
 
   const load = async () => {
     try {
-      const [reqs, services] = await Promise.all([
+      const [reqs, catalog] = await Promise.all([
         api.requests(token),
         api.catalog(token).catch(() => ({ data: [] })),
       ])
       setRequests(reqs.data || [])
-      setServiceNames(Object.fromEntries((services.data || []).map((s) => [s.id, s.name])))
+      setServices((catalog.data || []).filter((s) => s.active ?? true))
       setState({ loading: false, profileMissing: false, error: null })
     } catch (err) {
       setState({ loading: false, profileMissing: false, error: err.message })
@@ -103,7 +142,10 @@ export default function Home() {
 
   useEffect(() => {
     api.profile(token)
-      .then(() => load())
+      .then((res) => {
+        setProfile(res.data)
+        load()
+      })
       .catch((err) => {
         if (err.status === 404) {
           setState({ loading: false, profileMissing: true, error: null })
@@ -115,35 +157,20 @@ export default function Home() {
 
   return (
     <Container sx={{ mt: 4, pb: 10 }}>
-      <Typography variant="h5">Welcome</Typography>
+      <Typography variant="h5">Welcome{profile?.name ? `, ${profile.name}` : ''}</Typography>
       {state.loading && <CircularProgress sx={{ mt: 4 }} />}
       {state.error && <Alert severity="error" sx={{ mt: 2 }}>{state.error}</Alert>}
       {state.profileMissing && <CompleteProfile onDone={load} />}
       {!state.loading && !state.error && !state.profileMissing && (
         <>
-          <Typography variant="body2" color="text.secondary">
-            Signed in as {claims?.sub}
-          </Typography>
-          {requests.length === 0 && (
-            <Card sx={{ mt: 3 }}>
-              <CardContent>
-                <Typography variant="subtitle1">Nothing booked yet</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Browse your provider's services and book your first visit.
-                </Typography>
-                <Button variant="contained" component={Link} to="/catalog">Browse services</Button>
-              </CardContent>
-            </Card>
-          )}
+          <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Book a service</Typography>
+          <ServiceGrid services={services} />
           <ItemList
             title="My service requests"
             items={requests}
-            empty="No requests yet — browse the catalog to book a service."
-            serviceNames={serviceNames}
+            empty="No requests yet — pick a service above to book your first visit."
+            serviceNames={Object.fromEntries(services.map((s) => [s.id, s.name]))}
           />
-          <Button component={Link} to="/catalog" variant="outlined" sx={{ mt: 3 }}>
-            Book a service
-          </Button>
         </>
       )}
     </Container>

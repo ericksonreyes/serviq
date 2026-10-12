@@ -12,6 +12,8 @@ class ClaimsBuilder
     public function build(
         string $userId,
         ?string $tenantId,
+        string $username,
+        ?string $displayName,
         array $roles,
         array $permissions,
         string $issuer,
@@ -23,6 +25,8 @@ class ClaimsBuilder
         return [
             'sub' => $userId,
             'tenant_id' => $tenantId,
+            'username' => $username,
+            'display_name' => $displayName,
             'roles' => array_values($roles),
             'permissions' => array_values($permissions),
             'iss' => $issuer,

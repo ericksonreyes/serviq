@@ -3,7 +3,7 @@ import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import ChatPanel from '../../components/ChatPanel'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, fmtDate } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, fmtDate, select, selectCompact } from '../../components/ui'
 
 const STATUSES = ['', 'open', 'in_progress', 'escalated', 'resolved']
 const TRANSITIONS = ['open', 'in_progress', 'escalated', 'resolved']
@@ -23,7 +23,7 @@ export default function Cases() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">Support cases</h1>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCompact}>
           {STATUSES.map((s) => <option key={s} value={s}>{s || 'all statuses'}</option>)}
         </select>
       </div>
@@ -35,7 +35,7 @@ export default function Cases() {
             <ul className="divide-y divide-slate-100">
               {list.map((c) => (
                 <li key={c.id}>
-                  <button onClick={() => setSel(c)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel?.id === c.id ? 'bg-teal-50' : ''}`}>
+                  <button onClick={() => setSel(c)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel?.id === c.id ? 'bg-violet-50' : ''}`}>
                     <span>
                       <span className="block text-sm font-medium">{c.subject}</span>
                       <span className="block text-xs text-slate-400">{fmtDate(c.created_at)}</span>
@@ -107,7 +107,7 @@ function OpenCase({ token, onDone }) {
             <div><label className={label} htmlFor="case-job">Job id (optional)</label><input id="case-job" className={input} value={form.job_id} onChange={set('job_id')} /></div>
           </div>
           <div><label className={label} htmlFor="case-details">Details</label><textarea id="case-details" className={input} rows={2} value={form.details} onChange={set('details')} /></div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button type="submit" disabled={busy || !form.subject.trim()} className={btn}>{busy ? 'Opening…' : 'Open case'}</button>
             <button type="button" onClick={() => { setOpen(false); setErr(null) }} className={btnGhost}>Close</button>
           </div>
@@ -202,7 +202,7 @@ function RefundDecision({ c, caseId, token, tenant, onRun, busy }) {
     <div className="mt-4 border-t border-slate-100 pt-3">
       <p className={label}>Refund decision</p>
       <div className="mt-1 flex flex-wrap items-end gap-2">
-        <select className={input} value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value })}>
+        <select className={select} value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value })}>
           <option value="approved">Approve refund</option>
           <option value="denied">Deny refund</option>
         </select>

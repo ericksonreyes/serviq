@@ -95,6 +95,15 @@ class UserController
             'status' => ['nullable', Rule::in([User::STATUS_ACTIVE, User::STATUS_DISABLED])],
         ]);
 
+        $disabling = ($data['status'] ?? null) === User::STATUS_DISABLED
+            && $user->status !== User::STATUS_DISABLED;
+        if ($disabling && $this->isLastPlatformAdministrator($user)) {
+            return response()->json([
+                'error' => 'last_platform_administrator',
+                'message' => 'Cannot disable the last active Platform Administrator.',
+            ], 422);
+        }
+
         $user = DB::transaction(function () use ($user, $data, $events) {
             $wasDisabled = $user->status === User::STATUS_DISABLED;
             $user->update(array_filter($data, fn ($v) => $v !== null));
@@ -124,6 +133,13 @@ class UserController
             'roles.*' => ['string'],
         ]);
 
+        if ($this->isLastPlatformAdministrator($user) && ! in_array(Role::PLATFORM_ADMINISTRATOR, $data['roles'], true)) {
+            return response()->json([
+                'error' => 'last_platform_administrator',
+                'message' => 'Cannot remove the Platform Administrator role from the last active platform administrator.',
+            ], 422);
+        }
+
         $user = DB::transaction(function () use ($user, $data, $events) {
             $user->roles()->sync(
                 Role::where('scope', $user->scope)->whereIn('name', $data['roles'])->pluck('id')
@@ -139,6 +155,22 @@ class UserController
         });
 
         return response()->json(['data' => $user->load('roles')]);
+    }
+
+    // Lockout guard — holds when the user is the only active holder of the
+    // Platform Administrator role. Disabling them (or stripping the role)
+    // would leave the platform scope with no admin and no UI recovery path.
+    private function isLastPlatformAdministrator(User $user): bool
+    {
+        if (! $user->roles()->where('name', Role::PLATFORM_ADMINISTRATOR)->exists()) {
+            return false;
+        }
+
+        return ! User::where('scope', User::SCOPE_PLATFORM)
+            ->where('status', User::STATUS_ACTIVE)
+            ->where('id', '!=', $user->id)
+            ->whereHas('roles', fn ($q) => $q->where('name', Role::PLATFORM_ADMINISTRATOR))
+            ->exists();
     }
 
     private function scopeForbidden(): JsonResponse

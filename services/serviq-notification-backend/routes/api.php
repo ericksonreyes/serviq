@@ -11,6 +11,6 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function ()
     Route::post('/tenants/{tenant}/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
     Route::get('/tenants/{tenant}/notification-templates', [TemplateController::class, 'index']);
-    Route::put('/tenants/{tenant}/notification-templates', [TemplateController::class, 'upsert']);
-    Route::put('/tenants/{tenant}/notification-channels', [TemplateController::class, 'channels']);
+    Route::put('/tenants/{tenant}/notification-templates', [TemplateController::class, 'upsert'])->middleware('permission:notify.templates.manage');
+    Route::put('/tenants/{tenant}/notification-channels', [TemplateController::class, 'channels'])->middleware('permission:notify.templates.manage');
 });

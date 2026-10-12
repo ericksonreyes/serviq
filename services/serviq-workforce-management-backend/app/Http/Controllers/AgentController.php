@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agent;
+use App\Models\ProjectedPlanFeatures;
 use App\Services\DomainEventRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,6 +38,19 @@ class AgentController
             'availability.*.start_time' => ['required', 'date_format:H:i'],
             'availability.*.end_time' => ['required', 'date_format:H:i'],
         ]);
+
+        // Plan limit — projected from Platform subscription events.
+        // Missing projection or a canceled subscription fails open; an
+        // active agent frees its seat when deactivated.
+        $features = ProjectedPlanFeatures::where('tenant_id', $data['tenant_id'])
+            ->where('status', '!=', 'canceled')
+            ->first()?->features ?? [];
+        $maxAgents = $features['max_agents'] ?? null;
+        if ($maxAgents !== null) {
+            $active = Agent::where('tenant_id', $data['tenant_id'])->where('status', 'active')->count();
+            abort_if($active >= (int) $maxAgents, 422,
+                "Plan limit reached — this plan allows up to {$maxAgents} active agents.");
+        }
 
         $agent = DB::transaction(function () use ($data, $events) {
             $agent = Agent::create($data);
@@ -110,6 +124,13 @@ class AgentController
             'service_areas' => $agent->service_areas,
             'capacity' => $agent->capacity,
             'status' => $agent->status,
+            // Weekly schedule — projected by consumers (dispatch, service
+            // operations) rather than queried across context boundaries.
+            'availability' => $agent->availability->map(fn ($a) => [
+                'day_of_week' => $a->day_of_week,
+                'start_time' => substr((string) $a->start_time, 0, 5),
+                'end_time' => substr((string) $a->end_time, 0, 5),
+            ])->values()->all(),
         ];
     }
 }

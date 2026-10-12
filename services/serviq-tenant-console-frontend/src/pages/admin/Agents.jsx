@@ -36,7 +36,8 @@ export default function Agents() {
         <div className="xl:col-span-2">
           <Card title="Roster">
             {loading ? <Loading /> : !agents || agents.length === 0 ? <Empty /> : (
-              <table className="w-full">
+              <>
+              <div className="hidden sm:block overflow-x-auto"><table className="w-full">
                 <thead><tr className="border-b border-slate-200"><Th>Agent</Th><Th>Skills</Th><Th>Areas</Th><Th>Capacity</Th><Th>Status</Th><Th /></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {agents.map((a) => (
@@ -54,7 +55,28 @@ export default function Agents() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
+              <div className="sm:hidden divide-y divide-slate-100">
+                {agents.map((a) => (
+                  <div key={a.id} className="space-y-1.5 px-1 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">{a.name}</span>
+                      <StatusBadge value={a.status || 'active'} />
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      {(a.skills || []).join(', ') || '—'}
+                      {(a.service_areas || []).length > 0 && <span className="text-slate-400"> · {(a.service_areas).join(', ')}</span>}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <span className="text-xs text-slate-500">Capacity: {a.capacity ?? '—'}/day</span>
+                      <button onClick={() => toggle(a)} className={a.status === 'active' ? btnDanger : btn}>
+                        {a.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              </>
             )}
           </Card>
         </div>

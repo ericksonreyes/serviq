@@ -1,7 +1,12 @@
 const IDENTITY_URL = import.meta.env.VITE_IDENTITY_API_URL
 const PLATFORM_URL = import.meta.env.VITE_PLATFORM_API_URL
 
-async function request(base, path, { token, method = 'GET', body } = {}) {
+// auth.jsx registers a refresh handler — a 401 on an authed call tries one
+// silent refresh + retry before surfacing the error.
+let onUnauthorized = null
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
+
+async function request(base, path, { token, method = 'GET', body, _retried } = {}) {
   const res = await fetch(`${base}${path}`, {
     method,
     headers: {
@@ -11,6 +16,10 @@ async function request(base, path, { token, method = 'GET', body } = {}) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
   const json = await res.json().catch(() => ({}))
+  if (res.status === 401 && token && !_retried && onUnauthorized) {
+    const newToken = await onUnauthorized()
+    if (newToken) return request(base, path, { token: newToken, method, body, _retried: true })
+  }
   if (!res.ok) {
     const err = new Error(json.message || json.error || `Request failed (${res.status})`)
     err.fields = json.errors || null
@@ -30,6 +39,8 @@ export const api = {
       body: { ...creds, scope: 'platform' },
     }),
   me: (token) => get(IDENTITY_URL, '/api/v1/auth/me', token),
+  logout: (token, refreshToken) =>
+    request(IDENTITY_URL, '/api/v1/auth/logout', { method: 'POST', token, body: { refresh_token: refreshToken } }),
   iamUsers: (token, scope) =>
     get(IDENTITY_URL, `/api/v1/users${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`, token),
   createIamUser: (token, data) => send(IDENTITY_URL, '/api/v1/users', token, 'POST', data),
@@ -45,8 +56,13 @@ export const api = {
   iamTenants: (token) => get(IDENTITY_URL, '/api/v1/tenants', token),
 
   // Platform Management
-  tenants: (token, status) =>
-    get(PLATFORM_URL, `/api/v1/tenants${status ? `?status=${status}` : ''}`, token),
+  tenants: (token, status, q) => {
+    const params = new URLSearchParams()
+    if (status) params.set('status', status)
+    if (q) params.set('q', q)
+    const qs = params.toString()
+    return get(PLATFORM_URL, `/api/v1/tenants${qs ? `?${qs}` : ''}`, token)
+  },
   tenant: (token, id) => get(PLATFORM_URL, `/api/v1/tenants/${id}`, token),
   createTenant: (token, data) => send(PLATFORM_URL, '/api/v1/tenants', token, 'POST', data),
   updateTenant: (token, id, data) => send(PLATFORM_URL, `/api/v1/tenants/${id}`, token, 'PATCH', data),
@@ -61,8 +77,6 @@ export const api = {
   updatePlan: (token, id, data) => send(PLATFORM_URL, `/api/v1/plans/${id}`, token, 'PATCH', data),
   featureFlags: (token) => get(PLATFORM_URL, '/api/v1/feature-flags', token),
   saveFeatureFlag: (token, data) => send(PLATFORM_URL, '/api/v1/feature-flags', token, 'PUT', data),
-  settings: (token) => get(PLATFORM_URL, '/api/v1/settings', token),
-  saveSettings: (token, settings) => send(PLATFORM_URL, '/api/v1/settings', token, 'PUT', { settings }),
   metricsSummary: (token) => get(PLATFORM_URL, '/api/v1/metrics/summary', token),
   incomeReport: (token) => get(PLATFORM_URL, '/api/v1/reports/income', token),
 }

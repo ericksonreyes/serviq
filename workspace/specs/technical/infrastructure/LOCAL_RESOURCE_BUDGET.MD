@@ -68,6 +68,11 @@ fallback lever. Ground truth: `docker stats`.
 - **Models unload between calls.** `OLLAMA_KEEP_ALIVE=2m` so weights leave RAM when idle — the vision model is a
   spike, not a baseline.
 - **Declare `mem_limit` per service in compose** — the budget is an enforceable contract, not a wish.
+- **Healthchecks must not spawn heavy runtimes.** Compose runs healthcheck `test` execs *inside* the
+  container — they share its `mem_limit` and CPU. Measured incident (2026-10-12): a `mongosh` probe every
+  5s piled up ~30 JS-runtime processes inside `infra-mongo` (load 69, 89% system CPU, mongod starved,
+  362% container CPU). Prefer native probes (`pg_isready`, `redis-cli ping`, `mc ready`, `curl`) or a
+  `bash /dev/tcp` connect check.
 - Consider **OrbStack or colima** over Docker Desktop on Apple Silicon — lower baseline VM overhead.
 
 ### Vision model sizing

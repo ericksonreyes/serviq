@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* ServIQ brand tokens — Magic-poster palette: pastel violet surfaces,
+   vivid violet actions, teal accents, ink-navy chrome. Nunito is the UI
+   face; Caveat is the script accent for brand/empty-state text. */
+@theme {
+  --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Caveat", cursive;
+  --color-brand-50: #faf5ff;
+  --color-brand-100: #f3e8ff;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-accent-500: #14b8a6;
+  --color-ink-900: #1e1b4b;
+}
+
 html { font-size: 16px; }
-body { @apply bg-slate-100 text-slate-900 antialiased; }
-input, select, textarea, button { font-size: 1rem; }
+body { @apply bg-violet-50 text-slate-900 antialiased; }
+input, select, textarea, button { font: inherit; }

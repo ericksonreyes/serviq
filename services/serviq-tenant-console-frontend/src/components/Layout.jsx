@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { api } from '../api'
 import { useAuth, useRoles } from '../auth'
 
 const ADMIN = 'Tenant Administrator'
@@ -45,7 +47,7 @@ const NAV = [
 ]
 
 export default function Layout() {
-  const { claims, setToken } = useAuth()
+  const { claims, token, refreshToken, setToken } = useAuth()
   const roles = useRoles()
   const navigate = useNavigate()
 
@@ -56,18 +58,36 @@ export default function Layout() {
   if (!visible.some((s) => s.show)) visible.forEach((s) => (s.show = true))
 
   const signOut = () => {
+    api.logout(token, refreshToken).catch(() => {})
     setToken(null)
     navigate('/login')
   }
 
+  const [navOpen, setNavOpen] = useState(false)
+
   return (
-    <div className="flex min-h-screen bg-slate-100">
-      <aside className="flex w-56 shrink-0 flex-col bg-slate-900 text-slate-300">
+    <div className="flex min-h-screen bg-violet-50">
+      {/* Mobile top bar — the sidebar is a drawer below md. */}
+      <div className="fixed inset-x-0 top-0 z-30 flex items-center gap-3 bg-indigo-950 px-4 py-3 text-white md:hidden">
+        <button aria-label="Open menu" onClick={() => setNavOpen(true)} className="rounded p-1 text-2xl leading-none hover:bg-indigo-900">
+          ☰
+        </button>
+        <NavLink to="/" className="font-display text-2xl">ServIQ</NavLink>
+        <span className="text-sm text-slate-400">Provider Console</span>
+      </div>
+      {navOpen && (
+        <div className="fixed inset-0 z-30 bg-slate-900/50 md:hidden" onClick={() => setNavOpen(false)} />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col bg-indigo-950 text-slate-300 transition-transform md:static md:translate-x-0 ${
+          navOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="px-5 py-4">
-          <NavLink to="/" className="text-lg font-semibold text-white">ServIQ</NavLink>
-          <p className="text-xs text-slate-400">Tenant Console</p>
+          <NavLink to="/" className="font-display text-3xl text-white">ServIQ</NavLink>
+          <p className="text-xs text-slate-400">Provider Console</p>
         </div>
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
+        <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4" onClick={() => setNavOpen(false)}>
           <NavLink to="/" end className={navClass}>Overview</NavLink>
           {visible.filter((s) => s.show).map((s) => (
             <div key={s.section}>
@@ -80,13 +100,13 @@ export default function Layout() {
             </div>
           ))}
         </nav>
-        <div className="border-t border-slate-700 px-4 py-3 text-xs">
-          <p className="truncate text-slate-300">{claims?.sub}</p>
+        <div className="border-t border-indigo-900 px-4 py-3 text-xs">
+          <p className="truncate text-slate-300">{claims?.display_name || claims?.username}</p>
           <p className="truncate text-slate-500">{(roles || []).join(', ') || 'no roles'}</p>
           <button onClick={signOut} className="mt-2 text-slate-400 hover:text-white">Sign out</button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-6">
+      <main className="min-w-0 flex-1 p-4 pt-16 sm:p-6 md:pt-6">
         <Outlet />
       </main>
     </div>
@@ -94,4 +114,4 @@ export default function Layout() {
 }
 
 const navClass = ({ isActive }) =>
-  `block rounded-lg px-2 py-1.5 text-sm ${isActive ? 'bg-teal-700 font-medium text-white' : 'text-slate-300 hover:bg-slate-800'}`
+  `block rounded-lg px-2 py-1.5 text-sm ${isActive ? 'bg-violet-700 font-medium text-white' : 'text-slate-300 hover:bg-indigo-900'}`
