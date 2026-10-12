@@ -64,6 +64,7 @@ class UserController
                 'scope' => $user->scope,
                 'username' => $user->username,
                 'roles' => $user->roleNames(),
+                'source' => 'admin',
             ], $user->tenantId());
 
             return $user;

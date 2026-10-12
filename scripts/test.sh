@@ -75,7 +75,8 @@ for d in "${services[@]}"; do
     IT_IMG=$(node_image "$d")
     docker run --rm -v "$PWD/$d:/app" -w /app "$IT_IMG" npm i --no-audit --no-fund -q \
       || { echo "  FAIL $d (deps)"; fail=$((fail + 1)); continue; }
-    if docker run --rm --network serviq_serviq -v "$PWD/$d:/app" -w /app "$IT_IMG" \
+    if docker run --rm --network serviq_serviq -v "$PWD/$d:/app" -w /app \
+      -v "$PWD/workspace/specs/domain/specs/domain_events:/catalog:ro" "$IT_IMG" \
       sh -c 'for t in *.mjs; do node "$t" || exit 1; done'; then
       echo "  PASS $d"
     else
@@ -107,8 +108,11 @@ for d in "${services[@]}"; do
     docker exec infra-postgres psql -U serviq -d postgres -tAc \
       "SELECT 1 FROM pg_database WHERE datname='$TEST_DB'" | grep -q 1 \
       || docker exec infra-postgres psql -U serviq -d postgres -qc "CREATE DATABASE $TEST_DB" >/dev/null
+    # Plain-JS services run their live src (image may predate it).
+    src_mount=()
+    [ -f "$d/src/index.js" ] && src_mount=(-v "$PWD/$d/src:/app/src")
     if docker run --rm --network serviq_serviq --entrypoint node \
-      -v "$PWD/$d/tests:/app/tests" -w /app \
+      -v "$PWD/$d/tests:/app/tests" "${src_mount[@]}" -w /app \
       -e JWT_SECRET=test-secret-test-secret-test-secret-32 \
       -e DB_HOST=postgres -e DB_DATABASE="${TEST_DB}" \
       -e MONGODB_URI="mongodb://mongo:27017/${TEST_DB}" \

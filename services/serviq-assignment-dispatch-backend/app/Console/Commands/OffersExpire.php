@@ -30,6 +30,7 @@ class OffersExpire extends Command
                     $events->record('Assignment.OfferExpired', [
                         'job_id' => $offer->job_id,
                         'agent_id' => $offer->agent_id,
+                        'offer_id' => $offer->id,
                         'assignment_id' => $offer->id,
                     ], $offer->tenant_id);
                 });

@@ -88,6 +88,7 @@ class ExecutionController
                 'evidence_id' => $evidence->id,
                 'kind' => $evidence->kind,
                 'step_position' => $evidence->step_position,
+                'object_ref' => $evidence->object_ref,
             ], $tenant);
 
             return $evidence;

@@ -55,7 +55,8 @@ class RemittanceService
             $this->events->record('Remittance.TurnInSubmitted', [
                 'remittance_id' => $remittance->id, 'agent_id' => $data['agent_id'],
                 'expected_cents' => $expected, 'counted_cents' => $data['counted_total_cents'],
-                'variance_cents' => $remittance->variance_cents, 'submitted_by' => $actorId,
+                'variance_cents' => $remittance->variance_cents,
+                'invoice_ids' => $invoices->pluck('id')->values()->all(), 'submitted_by' => $actorId,
             ], $tenant);
 
             return $remittance;
@@ -101,8 +102,9 @@ class RemittanceService
             ]);
             $this->attach($remittance, $invoices);
             $this->events->record('Remittance.BatchSubmitted', [
-                'remittance_id' => $remittance->id, 'reference' => $reference,
+                'remittance_id' => $remittance->id, 'evidence_id' => $evidence->id, 'reference' => $reference,
                 'deposited_cents' => $deposited, 'expected_cents' => $remittance->expected_cents,
+                'invoice_ids' => $invoices->pluck('id')->values()->all(),
                 'flags' => $flags, 'submitted_by' => $actorId,
             ], $tenant);
 
