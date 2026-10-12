@@ -260,9 +260,11 @@ app.get('/api/v1/me/notifications', auth, async (req, res) => {
   const json = await r.json().catch(() => ({}))
   if (!r.ok) return res.status(r.status).json(json)
   const rows = json.data ?? json
-  const mine = Array.isArray(rows)
-    ? rows.filter((n) => !n.user_id || !customer || n.user_id === customer.id)
-    : rows
+  // Only notifications addressed to this customer — tenant-wide rows
+  // (no user_id) are staff traffic and must not leak to customers.
+  const mine = Array.isArray(rows) && customer
+    ? rows.filter((n) => n.user_id === customer.id)
+    : []
   res.json({ data: mine })
 })
 
