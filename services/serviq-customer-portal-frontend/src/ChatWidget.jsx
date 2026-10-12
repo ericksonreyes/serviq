@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Box, CircularProgress, Fab, IconButton, Paper, Stack,
+  Box, Fab, IconButton, Paper, Stack,
   TextField, Typography,
 } from '@mui/material'
 import ChatIcon from '@mui/icons-material/Chat'
@@ -98,7 +98,7 @@ export default function ChatWidget() {
                   ))}
                 </Box>
               ))}
-              {busy && <CircularProgress size={20} />}
+              {busy && <ThinkingDots />}
               <div ref={endRef} />
             </Stack>
           </Box>
@@ -106,6 +106,7 @@ export default function ChatWidget() {
             <TextField
               size="small" fullWidth placeholder="Ask about a service or booking…"
               value={draft} onChange={(e) => setDraft(e.target.value)}
+              disabled={busy}
             />
             <IconButton type="submit" color="primary" disabled={busy || !draft.trim()} aria-label="Send">
               <SendIcon />
@@ -121,5 +122,19 @@ export default function ChatWidget() {
         <ChatIcon />
       </Fab>
     </>
+  )
+}
+
+// Shared AI loading idiom — animated ellipsis, one tick per second.
+function ThinkingDots() {
+  const [dots, setDots] = useState(1)
+  useEffect(() => {
+    const id = setInterval(() => setDots((d) => (d % 3) + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <Typography variant="caption" sx={{ color: 'text.secondary', alignSelf: 'flex-start' }}>
+      Thinking<span style={{ display: 'inline-block', width: '1rem' }}>{'.'.repeat(dots)}</span>
+    </Typography>
   )
 }

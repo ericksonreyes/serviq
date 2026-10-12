@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { useAuth, useTenant } from '../auth'
-import { input } from './ui'
+import { input, ThinkingLabel } from './ui'
 
 // Customer Support chatbot panel — profile-isolated conversation with the
 // AI agent (complaint_manage / refund_manage / refund_process tools).
@@ -56,11 +56,13 @@ export default function ChatPanel({ profile = 'support', title = 'Support assist
             ))}
           </div>
         ))}
-        {busy && <p className="text-xs text-slate-400">Thinking…</p>}
+        {busy && <p className="text-xs text-slate-400"><ThinkingLabel /></p>}
       </div>
       <form onSubmit={send} className="flex gap-2 border-t border-slate-200 p-2">
-        <input className={input} placeholder="Message…" value={message} onChange={(e) => setMessage(e.target.value)} />
-        <button type="submit" disabled={busy} className="rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50">Send</button>
+        <input className={`${input} disabled:opacity-60`} placeholder="Message…" value={message} onChange={(e) => setMessage(e.target.value)} disabled={busy} />
+        <button type="submit" disabled={busy} className="w-24 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50">
+          {busy ? <ThinkingLabel /> : 'Send'}
+        </button>
       </form>
     </div>
   )

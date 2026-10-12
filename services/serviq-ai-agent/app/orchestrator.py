@@ -61,7 +61,9 @@ def _translate_ollama(profile: str, message: str, context: dict, has_file: bool)
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=60) as res:
+    # Budget must cover a cold model load — a 3B model takes ~2 min to map
+    # on CPU under the 4g ollama cap; shorter timeouts abort the load server-side.
+    with urllib.request.urlopen(req, timeout=300) as res:
         body = json.loads(res.read())
     return json.loads(body["response"])
 
@@ -200,5 +202,6 @@ def run_chat(profile: str, message: str, context: dict, claims: dict,
         return {"reply": "Something went wrong running that action — try again shortly.",
                 "tool_calls": tool_calls}
 
-    tool_calls.append({"tool": tool_name, "params": params, "summary": result["summary"]})
+    tool_calls.append({"tool": tool_name, "params": params, "summary": result["summary"],
+                       "data": result.get("data")})
     return {"reply": result["summary"], "tool_calls": tool_calls}

@@ -69,9 +69,24 @@ class InvitationFlowTest extends TestCase
         $this->assertDatabaseHas('outbox', ['type' => 'Identity.InvitationCreated']);
     }
 
+    public function test_invitation_permission_invites_customers_only(): void
+    {
+        // iam.invitations.manage covers customer invites…
+        $this->withToken($this->token($this->tenant, ['iam.invitations.manage']))
+            ->postJson("/api/v1/tenants/{$this->tenant}/invitations", [
+                'email' => 'casey@example.com', 'role' => 'Customer',
+            ])->assertStatus(201);
+
+        // …but not field-staff onboarding — that stays iam.users.manage.
+        $this->withToken($this->token($this->tenant, ['iam.invitations.manage']))
+            ->postJson("/api/v1/tenants/{$this->tenant}/invitations", [
+                'email' => 'agent@example.com', 'role' => 'Service Agent',
+            ])->assertStatus(403);
+    }
+
     public function test_invite_requires_permission_and_own_tenant(): void
     {
-        // no iam.users.manage
+        // no invitation-capable permission
         $this->withToken($this->token($this->tenant, []))
             ->postJson("/api/v1/tenants/{$this->tenant}/invitations", [
                 'email' => 'a@b.com', 'role' => 'Customer',

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Events\Handlers\TenantCreatedHandler;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\TenantScope;
 use App\Models\User;
@@ -46,7 +47,7 @@ class TenantAdministratorScopeTest extends TestCase
             'iss' => 'serviq-iam', 'aud' => 'serviq',
             'sub' => Uuid7::new(), 'tenant_id' => $this->tenant,
             'roles' => [Role::TENANT_ADMINISTRATOR],
-            'permissions' => Role::TENANT_ADMINISTRATOR_PERMISSIONS,
+            'permissions' => Role::DEFAULT_PERMISSIONS[Role::TENANT_ADMINISTRATOR],
             'jti' => Uuid7::new(), 'iat' => time(), 'exp' => time() + 3600,
         ], $this->privateKey, 'RS256'));
     }
@@ -91,6 +92,12 @@ class TenantAdministratorScopeTest extends TestCase
 
     public function test_provisioned_tenant_administrator_gets_tenant_permissions(): void
     {
+        // Provisioning joins names to rows — the catalog the seeder
+        // populates in production must exist here too.
+        foreach (Permission::CATALOG as $name => $description) {
+            Permission::firstOrCreate(['name' => $name], ['description' => $description]);
+        }
+
         $tenant = Uuid7::new();
         (new TenantCreatedHandler)->handle(['payload' => [
             'tenant_id' => $tenant, 'name' => 'New Co', 'slug' => 'newco',
@@ -101,6 +108,6 @@ class TenantAdministratorScopeTest extends TestCase
         ]]);
 
         $user = User::where(['scope' => $tenant, 'username' => 'new.admin'])->first();
-        $this->assertEqualsCanonicalizing(Role::TENANT_ADMINISTRATOR_PERMISSIONS, $user->permissionNames());
+        $this->assertEqualsCanonicalizing(Role::DEFAULT_PERMISSIONS[Role::TENANT_ADMINISTRATOR], $user->permissionNames());
     }
 }

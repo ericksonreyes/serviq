@@ -16,6 +16,8 @@ class Permission extends Model
 
     public const USERS_MANAGE = 'iam.users.manage';
 
+    public const INVITATIONS_MANAGE = 'iam.invitations.manage';
+
     public const ROLES_READ = 'iam.roles.read';
 
     public const ROLES_MANAGE = 'iam.roles.manage';
@@ -45,6 +47,7 @@ class Permission extends Model
     public const CATALOG = [
         self::USERS_READ => 'List and view users',
         self::USERS_MANAGE => 'Create, update, disable users and assign roles',
+        self::INVITATIONS_MANAGE => 'Invite customers and agents into a tenant scope',
         self::ROLES_READ => 'List and view roles and the permission catalog',
         self::ROLES_MANAGE => 'Create roles and grant permissions',
         self::TENANTS_READ => 'List registered tenant scopes',

@@ -57,3 +57,4 @@ What this buys us and what it costs.
 - [ADR-0019](0019-nestjs-customer-support.MD) — NestJS at the domain tier (superseded by ADR-0020)
 - [ADR-0020](0020-express-customer-support-read-model.MD) — Support backend on plain Express+Node
 - [ADR-0021](0021-permission-claim-route-authorization.MD) — Route authorization by JWT permission claims; permission catalog defined in code
+- [ADR-0022](0022-least-privilege-invitations.MD) — `iam.invitations.manage` splits invites from user management; Customer Support gains a default bundle

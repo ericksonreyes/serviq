@@ -6,6 +6,7 @@ import {
 import { api } from '../api'
 import { useAuth } from '../auth'
 import Shell from '../Shell'
+import ThinkingDots from '../ThinkingDots'
 import { money, shortId } from '../format'
 
 export default function TurnIn() {
@@ -198,31 +199,31 @@ function DepositForm({ token, collections, onDone }) {
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
       <Stack spacing={1.5}>
-        <TextField select label="Proof of deposit" value={type} onChange={(e) => setType(e.target.value)}>
+        <TextField select label="Proof of deposit" value={type} onChange={(e) => setType(e.target.value)} disabled={busy}>
           <MenuItem value="BANK_SLIP">Bank deposit slip</MenuItem>
           <MenuItem value="REMITTANCE_RECEIPT">Remittance-center receipt</MenuItem>
         </TextField>
         <Stack>
           {collections.map((c) => (
             <FormControlLabel key={c.id}
-              control={<Checkbox checked={sel.includes(c.id)} onChange={(e) => toggle(c.id, e.target.checked)} />}
+              control={<Checkbox checked={sel.includes(c.id)} disabled={busy} onChange={(e) => toggle(c.id, e.target.checked)} />}
               label={`Invoice ${shortId(c.id)} — ${money(c.amount_cents)}`} />
           ))}
         </Stack>
-        <Button variant="outlined" component="label">
+        <Button variant="outlined" component="label" disabled={busy}>
           {file ? `Slip: ${file.name}` : 'Attach slip photo'}
           <input hidden type="file" accept="image/*" aria-label="Slip photo"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </Button>
-        <TextField label="Reference number (as printed)" value={reference}
+        <TextField label="Reference number (as printed)" value={reference} disabled={busy}
           onChange={(e) => setReference(e.target.value)}
           helperText="Only used if the photo can't be read." />
-        <TextField label="Amount deposited (₱)" type="number" value={amount}
+        <TextField label="Amount deposited (₱)" type="number" value={amount} disabled={busy}
           inputProps={{ min: 0, step: '0.01' }} onChange={(e) => setAmount(e.target.value)} />
         <Button variant="contained" size="large"
           disabled={busy || !file || sel.length === 0}
           onClick={() => setConfirming(true)}>
-          {busy ? 'Submitting…' : 'Submit deposit'}
+          {busy ? <ThinkingDots /> : 'Submit deposit'}
         </Button>
       </Stack>
 

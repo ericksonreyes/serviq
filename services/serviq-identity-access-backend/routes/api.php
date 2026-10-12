@@ -39,6 +39,6 @@ Route::prefix('v1')->group(function () {
         Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('permission:iam.users.manage');
         Route::post('/users/{user}/roles', [UserController::class, 'assignRoles'])->middleware('permission:iam.users.manage');
 
-        Route::post('/tenants/{tenant}/invitations', [InvitationController::class, 'store'])->middleware('permission:iam.users.manage');
+        Route::post('/tenants/{tenant}/invitations', [InvitationController::class, 'store'])->middleware('permission:iam.users.manage,iam.invitations.manage');
     });
 });

@@ -8,8 +8,13 @@ import InviteForm from '../../components/InviteForm'
 // Customer records — dispatcher/admin creates the account on invitation;
 // the customer logs in on the Customer Portal.
 export default function Customers() {
-  const { token } = useAuth()
+  const { token, claims } = useAuth()
   const tenant = useTenant()
+  // Writes are permission-gated: requests.manage creates customer records,
+  // iam.invitations.manage (or full iam.users.manage) sends invites.
+  const perms = claims?.permissions ?? []
+  const canCreate = perms.includes('requests.manage')
+  const canInvite = perms.includes('iam.invitations.manage') || perms.includes('iam.users.manage')
   const { data: customers, error, loading, reload } = useLoader(
     async () => rows(await api.customers(token, tenant)), [token, tenant],
   )
@@ -52,10 +57,12 @@ export default function Customers() {
             )}
           </Card>
         </div>
-        <div className="space-y-4">
-          <NewCustomer token={token} tenant={tenant} onDone={reload} />
-          <InviteForm token={token} tenant={tenant} role="Customer" />
-        </div>
+        {(canCreate || canInvite) && (
+          <div className="space-y-4">
+            {canCreate && <NewCustomer token={token} tenant={tenant} onDone={reload} />}
+            {canInvite && <InviteForm token={token} tenant={tenant} role="Customer" />}
+          </div>
+        )}
       </div>
     </div>
   )

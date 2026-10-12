@@ -13,19 +13,6 @@ const SUPPORT = 'Customer Support'
 // custom role isn't locked out.
 const NAV = [
   {
-    section: 'Administration',
-    roles: [ADMIN],
-    items: [
-      { to: '/admin/users', label: 'Users & roles' },
-      { to: '/admin/agents', label: 'Service agents' },
-      { to: '/admin/customers', label: 'Customers' },
-      { to: '/admin/services', label: 'Service catalog' },
-      { to: '/admin/areas', label: 'Service areas' },
-      { to: '/admin/settings', label: 'Business settings' },
-      { to: '/admin/finance', label: 'Revenue & payouts' },
-    ],
-  },
-  {
     section: 'Dispatch',
     roles: [DISPATCHER, ADMIN],
     items: [
@@ -41,7 +28,20 @@ const NAV = [
     roles: [SUPPORT, ADMIN],
     items: [
       { to: '/support/cases', label: 'Cases' },
+      { to: '/admin/customers', label: 'Customers' },
       { to: '/support/refunds', label: 'Refunds & revenue' },
+    ],
+  },
+  {
+    section: 'Administration',
+    roles: [ADMIN],
+    items: [
+      { to: '/admin/users', label: 'Users & roles' },
+      { to: '/admin/agents', label: 'Service agents' },
+      { to: '/admin/services', label: 'Service catalog' },
+      { to: '/admin/areas', label: 'Service areas' },
+      { to: '/admin/settings', label: 'Business settings' },
+      { to: '/admin/finance', label: 'Revenue & payouts' },
     ],
   },
 ]
