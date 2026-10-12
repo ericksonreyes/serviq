@@ -257,7 +257,15 @@ async function aiParse(fileB64, filename) {
 
 app.post('/api/v1/payment-evidence', auth, async (req, res) => {
   const t = req.jwt.tenant_id
-  const { file_b64, filename, claimed, ...rest } = req.body ?? {}
+  const { file_b64, filename, claimed, execution_id, invoice_id: _ignored, ...rest } = req.body ?? {}
+
+  // The invoice is resolved from the agent's own execution — never taken
+  // from the body, so an agent can't attach proof to someone else's bill.
+  if (execution_id) {
+    const found = await jobInvoice(req, t, execution_id)
+    if (found.status) return res.status(found.status).json({ message: found.message })
+    if (found.invoice?.id) rest.invoice_id = found.invoice.id
+  }
 
   const parsed = await aiParse(file_b64, filename)
 

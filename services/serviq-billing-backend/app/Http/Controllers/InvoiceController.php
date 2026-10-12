@@ -15,12 +15,15 @@ class InvoiceController
 
     public function index(string $tenant, Request $request): JsonResponse
     {
-        $request->validate(['job_id' => ['nullable', 'uuid']]);
+        $request->validate(['job_id' => ['nullable', 'uuid'], 'paid_via' => ['nullable', 'in:cash,digital']]);
 
         return response()->json(
             Invoice::where('tenant_id', $tenant)
                 ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
                 ->when($request->query('job_id'), fn ($q, $j) => $q->where('job_id', $j))
+                ->when($request->query('paid_via'), fn ($q, $via) => $q->whereExists(fn ($p) => $p
+                    ->from('payments')->whereColumn('payments.invoice_id', 'invoices.id')
+                    ->where('method', $via === 'cash' ? '=' : '!=', 'cash')))
                 ->latest()->paginate(50)
         );
     }

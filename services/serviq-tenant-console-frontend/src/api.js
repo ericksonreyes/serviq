@@ -106,6 +106,7 @@ export const api = {
 
   // Billing — invoices, payment evidence, remittances, refunds.
   invoices: (token, t, status = '') => request(BASES.billing, tp(t, `/invoices${status ? `?status=${status}` : ''}`), { token }),
+  digitallyPaidInvoices: (token, t) => request(BASES.billing, tp(t, '/invoices?status=paid&paid_via=digital'), { token }),
   invoice: (token, t, id) => request(BASES.billing, tp(t, `/invoices/${id}`), { token }),
   paymentEvidence: (token, t, q = '') => request(BASES.billing, tp(t, `/payment-evidence${q}`), { token }),
   reviewEvidence: (token, t, id, body) => request(BASES.billing, tp(t, `/payment-evidence/${id}/review`), { token, method: 'POST', body }),
@@ -118,6 +119,7 @@ export const api = {
   refundRequests: (token, t) => request(BASES.billing, tp(t, '/refund-requests'), { token }),
   executeRefund: (token, t, id) => request(BASES.billing, tp(t, `/refund-requests/${id}/execute`), { token, method: 'POST' }),
   payouts: (token, t) => request(BASES.payouts, tp(t, '/payouts'), { token }),
+  settlePayout: (token, t, id) => request(BASES.payouts, tp(t, `/payouts/${id}/settle`), { token, method: 'POST' }),
 
   // Customer Support — cases, notes, status, refund decisions.
   cases: (token, t, status = '') => request(BASES.support, tp(t, `/cases${status ? `?status=${status}` : ''}`), { token }),

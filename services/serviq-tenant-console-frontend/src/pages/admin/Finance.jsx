@@ -54,7 +54,7 @@ export default function Finance() {
           <>
             {tab === 'Invoices' && <Invoices rows={data.invoices} />}
             {tab === 'Refund requests' && <Refunds rows={data.refunds} token={token} tenant={tenant} onDone={reload} />}
-            {tab === 'Payouts' && <Payouts rows={data.payouts} />}
+            {tab === 'Payouts' && <Payouts rows={data.payouts} token={token} tenant={tenant} onDone={reload} />}
           </>
         )}
       </Card>
@@ -135,22 +135,49 @@ function Refunds({ rows: list, token, tenant, onDone }) {
   )
 }
 
-function Payouts({ rows: list }) {
+function Payouts({ rows: list, token, tenant, onDone }) {
+  const [err, setErr] = useState(null)
+  const [busy, setBusy] = useState(null)
+
+  const settle = async (id) => {
+    setBusy(id)
+    setErr(null)
+    try {
+      await api.settlePayout(token, tenant, id)
+      onDone()
+    } catch (e) {
+      setErr(e.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   if (list.length === 0) return <Empty text="No payouts." />
   return (
-    <table className="w-full">
-      <thead><tr className="border-b border-slate-200"><Th>Payout</Th><Th>Agent</Th><Th>Net</Th><Th>Shortfall</Th><Th>Status</Th></tr></thead>
-      <tbody className="divide-y divide-slate-100">
-        {list.map((p) => (
-          <tr key={p.id}>
-            <Td><span className="font-mono text-xs">{p.id.slice(0, 8)}…</span></Td>
-            <Td><span className="font-mono text-xs">{p.agent_id?.slice(0, 8)}…</span></Td>
-            <Td>{money(p.net_cents ?? p.amount_cents)}</Td>
-            <Td>{p.shortfall_cents ? money(p.shortfall_cents) : '—'}</Td>
-            <Td><StatusBadge value={p.status} /></Td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      <ErrorBox error={err} />
+      <table className="w-full">
+        <thead><tr className="border-b border-slate-200"><Th>Payout</Th><Th>Agent</Th><Th>Net</Th><Th>Shortfall</Th><Th>Status</Th><Th /></tr></thead>
+        <tbody className="divide-y divide-slate-100">
+          {list.map((p) => (
+            <tr key={p.id}>
+              <Td><span className="font-mono text-xs">{p.id.slice(0, 8)}…</span></Td>
+              <Td><span className="font-mono text-xs">{p.agent_id?.slice(0, 8)}…</span></Td>
+              <Td>{money(p.net_cents ?? p.amount_cents)}</Td>
+              <Td>{p.shortfall_cents ? money(p.shortfall_cents) : '—'}</Td>
+              <Td><StatusBadge value={p.status} /></Td>
+              <Td>
+                {p.status === 'pending' && (
+                  <button onClick={() => settle(p.id)} disabled={busy === p.id} className={btn}>
+                    {busy === p.id ? 'Settling…' : 'Settle'}
+                  </button>
+                )}
+                {p.disbursement_ref && <span className="font-mono text-xs text-slate-500">{p.disbursement_ref}</span>}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   )
 }
