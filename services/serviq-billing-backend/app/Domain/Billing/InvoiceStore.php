@@ -65,7 +65,7 @@ class InvoiceStore
             $invoice = Invoice::create($attrs + ['status' => Invoice::ISSUED, 'amount_cents' => $amountCents]);
             InvoiceEvent::create(['invoice_id' => $invoice->id, 'seq' => 1, 'type' => 'Invoice.Issued', 'payload' => ['amount_cents' => $amountCents]]);
             $this->events->record('Invoice.Issued', [
-                'invoice_id' => $invoice->id, 'job_id' => $invoice->job_id, 'amount_cents' => $amountCents,
+                'invoice_id' => $invoice->id, 'job_id' => $invoice->job_id, 'agent_id' => $invoice->agent_id, 'amount_cents' => $amountCents,
             ], $invoice->tenant_id);
 
             return $invoice;

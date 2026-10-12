@@ -52,7 +52,10 @@ class JobController
 
     public function ready(string $tenant, Job $job, JobStore $store): JsonResponse
     {
-        return $this->transition($tenant, $job, 'Job.ReadyForAssignment', [], $store);
+        return $this->transition($tenant, $job, 'Job.ReadyForAssignment', [
+            'service_id' => $job->service_id,
+            'scheduled_for' => $job->scheduled_for?->toIso8601String(),
+        ], $store);
     }
 
     public function assign(Request $request, string $tenant, Job $job, JobStore $store): JsonResponse
@@ -72,9 +75,11 @@ class JobController
         return $this->transition($tenant, $job, 'Job.Started', [], $store);
     }
 
-    public function cancel(string $tenant, Job $job, JobStore $store): JsonResponse
+    public function cancel(Request $request, string $tenant, Job $job, JobStore $store): JsonResponse
     {
-        return $this->transition($tenant, $job, 'Job.Cancelled', [], $store);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+
+        return $this->transition($tenant, $job, 'Job.Cancelled', ['reason' => $data['reason'] ?? null], $store);
     }
 
     /** Move the appointment — only while the job is unassigned and unstarted. */

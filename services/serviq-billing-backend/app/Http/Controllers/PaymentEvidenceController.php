@@ -86,6 +86,7 @@ class PaymentEvidenceController
             $this->events->record('PaymentEvidence.Received', [
                 'evidence_id' => $evidence->id, 'document_type' => $evidence->document_type,
                 'status' => $evidence->status, 'flags' => $flags, 'invoice_id' => $invoice?->id,
+                'uploader_id' => $actorId,
             ], $tenant);
 
             return $evidence;

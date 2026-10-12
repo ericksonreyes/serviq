@@ -92,6 +92,41 @@ for (const c of calls) {
   if (!hit) fail.push(`${c.file}:${c.line}  ${c.method} ${c.path}  → no matching route`);
 }
 
+// ── Emitted event types vs EVENT_CATALOG.MD ─────────────────────────────
+// Every literal event type passed to an emit call (outbox record, support
+// recordEvent, job/tenant transition, AI _emit) must be cataloged.
+const catalogMd = readFileSync(join(ROOT, 'workspace/specs/domain/specs/domain_events/EVENT_CATALOG.MD'), 'utf8');
+const cataloged = new Set();
+for (const line of catalogMd.split('\n')) {
+  const cell = line.split('|')[1] ?? '';
+  const names = [...cell.matchAll(/`([A-Z]\w*(?:\.\w+)?)`/g)].map((m) => m[1]);
+  if (!names[0]?.includes('.')) continue;
+  const ctx = names[0].split('.')[0];
+  names.forEach((n) => cataloged.add(n.includes('.') ? n : `${ctx}.${n}`));
+}
+const emitted = new Map(); // type -> file
+const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+  e.name === 'node_modules' || e.name === 'vendor' || e.name === 'tests' ? []
+    : e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]);
+const EMIT = /(?:->record|recordEvent|->transition|\$this->transition|->step|_emit)\s*\(([^;()]{0,200}?)['"]([A-Z][A-Za-z]+\.[A-Z][A-Za-z]+)['"]/gs;
+for (const dir of readdirSync(SERVICES)) {
+  for (const sub of ['app', 'src']) {
+    const root = join(SERVICES, dir, sub);
+    if (!existsSync(root)) continue;
+    for (const f of walk(root).filter((f) => /\.(php|ts|py|js)$/.test(f))) {
+      for (const m of readFileSync(f, 'utf8').matchAll(EMIT)) {
+        emitted.set(m[2], f.slice(ROOT.length));
+      }
+    }
+  }
+}
+for (const [type, file] of emitted) {
+  if (!cataloged.has(type)) fail.push(`${file}  emits ${type}  → not in EVENT_CATALOG.MD`);
+}
+const neverEmitted = [...cataloged].filter((t) => !emitted.has(t) && !t.startsWith('Job.'));
+console.log(`event catalog: ${emitted.size} emitted types vs ${cataloged.size} cataloged`
+  + (neverEmitted.length ? ` (no literal emit site: ${neverEmitted.join(', ')})` : ''));
+
 console.log(`contract check: ${calls.length} frontend calls vs ${routes.length} backend routes`);
 if (fail.length) {
   console.log('\nMISSING:'); fail.forEach((f) => console.log(`  ${f}`));

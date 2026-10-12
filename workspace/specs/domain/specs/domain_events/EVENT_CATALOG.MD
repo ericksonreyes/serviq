@@ -1,6 +1,6 @@
 # Event Catalog
 
-Every domain event currently emitted in `services/`, grouped by publishing context. Payload lists are the emitted keys (always alongside the shared envelope). "Consumers" names the domain/read-model subscribers; the notification backend consumes everything (`#` binding) and the consumer map below lists every subscription.
+Every domain event currently emitted in `services/`, grouped by publishing context. Payload lists are the emitted keys (always alongside the shared envelope). A key followed by a parenthetical containing "only", "path" or "optional" is conditional; every other backticked key must appear in every emission (value may be `null`). Enforced by `scripts/contract-check.mjs` (every emitted type is cataloged) and `tests/integration/event-catalog.mjs` (live outbox payloads carry the cataloged keys). "Consumers" names the domain/read-model subscribers; the notification backend consumes everything (`#` binding) and the consumer map below lists every subscription.
 
 ## Platform Management — `serviq-platform-management-backend`
 
@@ -19,7 +19,7 @@ Consumers: Identity & Access (`Platform.TenantCreated` → registers the tenant 
 
 | Event | Emitted when | Payload keys |
 | --- | --- | --- |
-| `Identity.UserRegistered` | Self-signup, admin create, or invite accept | `user_id`, `scope`, `username`, `roles`, `source` (`self_signup` \| `invitation`), `invited_by` (invite path) |
+| `Identity.UserRegistered` | Self-signup, admin create, or invite accept | `user_id`, `scope`, `username`, `roles`, `source` (`self_signup` \| `invitation` \| `admin`), `invited_by` (invite path) |
 | `Identity.UserDisabled` | User deactivated | `user_id`, `scope` |
 | `Identity.RoleAssigned` | Roles synced on a user | `user_id`, `scope`, `roles` |
 | `Identity.TenantScopeRegistered` | IAM registers a tenant scope | scope fields |
@@ -62,7 +62,7 @@ All `Job.*` payloads carry `job_id` plus the keys listed.
 | Event | Emitted when | Extra payload keys |
 | --- | --- | --- |
 | `Job.Requested` | Job created from a converted request | request/service fields |
-| `Job.ReadyForAssignment` | Job enters dispatch queue | `service_id`, `preferred_date`, `scheduled_for` |
+| `Job.ReadyForAssignment` | Job enters dispatch queue | `service_id`, `scheduled_for` |
 | `Job.Assigned` | Dispatcher/AI assigns an agent | `agent_id` |
 | `Job.Accepted` | Agent accepts (projection back from dispatch) | `agent_id` |
 | `Job.Started` | Agent checks in | `agent_id` |
@@ -89,7 +89,7 @@ Consumers: Assignment & Dispatch (`Workforce.*` → eligible-agent projection).
 | Event | Emitted when | Payload keys |
 | --- | --- | --- |
 | `Assignment.Offered` | Offer extended to an agent | `job_id`, `agent_id`, `offer_id`, `expires_at` |
-| `Assignment.OfferExpired` | Offer TTL lapses (sweeper command) | `job_id`, `agent_id`, `offer_id` |
+| `Assignment.OfferExpired` | Offer TTL lapses (sweeper command) | `job_id`, `agent_id`, `offer_id`, `assignment_id` (same id, legacy key) |
 | `Assignment.Accepted` | Offer accepted or dispatcher direct-assigns | `job_id`, `agent_id`, `assignment_id`, `strategy` |
 | `Assignment.Rejected` | Agent declines an offer | `job_id`, `agent_id` |
 | `Assignment.Unassigned` | No eligible agents found | `job_id`, `reason` |
@@ -141,6 +141,9 @@ Consumers: none (projections only today).
 
 | Event | Emitted when | Payload keys |
 | --- | --- | --- |
+| `Support.CaseOpened` | Case opened against a customer, job or invoice | `case_id`, `customer_id`, `job_id`, `invoice_id`, `subject`, `details` |
+| `Support.CaseNoted` | Staff note/reply added to a case | `case_id`, `note_id`, `author_id`, `body` |
+| `Support.CaseStatusChanged` | Case status moved (e.g. escalated, resolved) | `case_id`, `status`, `previous_status`, `changed_by` |
 | `Support.RefundDecided` | Refund decision recorded (ADR-0004: Support decides, Billing executes) | `decision_id`, `case_id`, `invoice_id`, `amount_cents`, `reason`, `decided_by` |
 
 Consumers: Billing (`Support.RefundDecided` → approves the matching refund request), support's own consumer (`Support.*` → Mongo read model), Payouts (bound — see gaps).

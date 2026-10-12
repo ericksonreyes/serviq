@@ -26,14 +26,13 @@ class JobEventHandler
             default => null,
         };
 
-        $job = DispatchableJob::updateOrCreate(
-            ['job_id' => $jobId],
-            [
-                'tenant_id' => $envelope['tenant_id'],
-                'service_id' => $envelope['payload']['service_id'] ?? null,
-                'status' => $status ?? 'ready_for_assignment',
-            ],
-        );
+        // Only some Job.* events carry service_id, and only lifecycle events
+        // move dispatch status — others must not blank or rewind either.
+        $job = DispatchableJob::firstOrNew(['job_id' => $jobId]);
+        $job->tenant_id = $envelope['tenant_id'];
+        $job->service_id = $envelope['payload']['service_id'] ?? $job->service_id;
+        $job->status = $status ?? $job->status ?? 'pending';
+        $job->save();
 
         if ($envelope['type'] === 'Job.ReadyForAssignment') {
             app(DispatchService::class)->dispatch($job);
