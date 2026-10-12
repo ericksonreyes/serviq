@@ -89,4 +89,12 @@ class OfferFlowTest extends TestCase
         $this->api('/accept', $other)->assertNotFound();
         $this->api('/reject', $other)->assertNotFound();
     }
+
+    public function test_unprojected_job_returns_actionable_404(): void
+    {
+        $this->withToken($this->token())
+            ->getJson("/api/v1/tenants/{$this->tenant}/dispatch/recommend?job_id=".Str::uuid7())
+            ->assertNotFound()
+            ->assertJsonPath('message', 'This job has not reached dispatch yet — it appears a few seconds after release. Try again shortly.');
+    }
 }

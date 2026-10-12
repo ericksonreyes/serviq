@@ -2,6 +2,7 @@
 
 namespace App\Events\Handlers;
 
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\TenantScope;
 use App\Models\User;
@@ -58,6 +59,11 @@ class TenantCreatedHandler
             ['scope' => $tenantId, 'name' => $data['role'] ?? Role::CUSTOMER],
             ['description' => 'Provisioned at tenant creation'],
         );
+        if ($role->name === Role::TENANT_ADMINISTRATOR) {
+            $role->permissions()->syncWithoutDetaching(
+                Permission::whereIn('name', Role::TENANT_ADMINISTRATOR_PERMISSIONS)->pluck('id')
+            );
+        }
         $user->roles()->syncWithoutDetaching([$role->id]);
     }
 }

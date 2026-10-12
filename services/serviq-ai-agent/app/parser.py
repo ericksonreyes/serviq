@@ -16,7 +16,7 @@ VISION_MODEL = os.environ.get("AI_VISION_MODEL", "moondream")
 MODE = os.environ.get("AI_MODEL_MODE", "stub")  # stub | ollama
 
 DOCUMENT_TYPES = [
-    "e_wallet_receipt", "cash_photo", "bank_deposit_slip",
+    "e_wallet_receipt", "cash_photo", "bank_deposit_slip", "remittance_receipt",
     "check", "pos_receipt", "purchase_order", "unknown",
 ]
 
@@ -24,6 +24,7 @@ SCHEMA_HINTS = {
     "e_wallet_receipt": ["reference_no", "amount", "currency", "sender", "provider"],
     "cash_photo": ["denominations", "total_amount", "currency"],
     "bank_deposit_slip": ["account_no", "amount", "deposit_date", "reference_no"],
+    "remittance_receipt": ["provider", "amount", "date", "reference_no"],
     "check": ["check_no", "amount", "bank", "date"],
     "pos_receipt": ["merchant", "amount", "date", "card_last4"],
     "purchase_order": ["po_number", "vendor", "total_amount", "date"],

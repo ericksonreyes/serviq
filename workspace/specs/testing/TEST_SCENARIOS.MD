@@ -16,10 +16,10 @@ The demo spine. Every step is independently automatable; the full chain is the P
 | 6 | Agent checks in, advances steps | `Execution.CheckedIn/Step*` emitted, job status projects | integration (field→job) |
 | 7 | Agent uploads evidence (photo, part, note, signature) | evidence row + object_ref, `Execution.EvidenceCaptured` emitted | feature (field) |
 | 8 | Agent completes execution | `Execution.Completed` → job `completed`, `Job.Completed` carries agent_id+customer_id | integration (field→job) |
-| 9 | Billing consumes `Job.Completed` → invoice issued | invoice `issued`, amount per pricing, `Invoice.Issued` emitted, agent attributed | integration (job→billing) |
+| 9 | Billing consumes `Job.Completed` → invoice issued | invoice `issued`, amount per pricing, `Invoice.Issued` emitted, agent attributed | integration (job→billing) — `tests/integration/job-billing-payouts.mjs` |
 | 10 | Digital payment: evidence submitted + reviewed | payment recorded, invoice `paid` | feature (billing) |
 | 11 | Cash: agent turn-in → dispatcher confirms | remittance `pending_confirmation` → `confirmed`, invoices `remitted` | feature (billing) |
-| 12 | `Invoice.Issued` → payout created | payout row w/ gross/net per policy, `Payout.Created` | integration (billing→payouts) |
+| 12 | `Invoice.Issued` → payout created | payout row w/ gross/net per policy, `Payout.Created` | integration (billing→payouts) — `tests/integration/job-billing-payouts.mjs` |
 | 13 | Dispatcher settles payout | `Payout.Settled` w/ disbursement ref | feature (payouts) |
 
 ## Payment evidence and fraud guardrails
@@ -45,9 +45,10 @@ The demo spine. Every step is independently automatable; the full chain is the P
 | Confirm matched turn-in | `remitted`, `Remittance.Confirmed`, invoices linked via `remittance_items` | feature |
 | Confirm `override` on flagged | remits; `overridden_by` stamped | feature |
 | Confirm `accept_shortfall` | remits + `Remittance.ShortfallAccepted` emitted | feature |
-| Shortfall event → payouts | deduction row on agent ledger, idempotent on replay | integration (billing→payouts) |
+| Shortfall event → payouts | deduction row on agent ledger, idempotent on replay | integration (billing→payouts) — `tests/integration/idempotency-dlq.mjs` |
 | Deposit-slip batch, clean | `pending_confirmation`, confirm → covered invoices `remitted` | feature |
 | Batch deposit < expected | `manual_review`, not confirmable | feature |
+| Deposit batch from a `REMITTANCE_RECEIPT` | same as `BANK_SLIP` — `pending_confirmation` → `remitted`; `E_WALLET` evidence rejected 422; receipt without a reference rejected | feature |
 | Digital bulk remit | non-cash paid invoices → `remitted` immediately | feature |
 | Cash invoice in digital set | 422 rejected | feature |
 | Nothing reaches `remitted` without dispatcher confirm | no code path auto-settles | audit/feature |
@@ -60,7 +61,7 @@ The demo spine. Every step is independently automatable; the full chain is the P
 | Reschedule on assigned/in-progress/completed/cancelled job | 409 rejected; allowed otherwise | feature (job-mgmt) |
 | Agent rejects offer | re-offers next eligible agent | integration (dispatch) |
 | Offer TTL expires | `Assignment.OfferExpired`, next candidate offered | integration (sweeper) |
-| Refund: request → support decides → billing approves → gated execute | request `approved` on `Support.RefundDecided`; execute only via gated route; `Invoice.Refunded` + `Billing.RefundExecuted` | integration (support→billing) |
+| Refund: request → support decides → billing approves → gated execute | request `approved` on `Support.RefundDecided`; execute only via gated route; `Invoice.Refunded` + `Billing.RefundExecuted` | integration (support→billing) — decision → billing approval in `tests/integration/job-billing-payouts.mjs` |
 | Invite → accept | invite `pending` → user created in invited role, `accepted`, token unusable after | feature (identity) |
 | Invite wrong tenant / expired / replayed | 403/404/410; no user created | feature |
 | Cross-tenant access | resource → 404, not 403 (no existence leak) | feature (all services) |
@@ -72,19 +73,20 @@ The demo spine. Every step is independently automatable; the full chain is the P
 | Scenario | Expected | Level |
 | --- | --- | --- |
 | Outbox row + domain write | commit atomically (kill mid-request → neither lands) | feature (transaction) |
-| Consumer sees duplicate event_id | `processed_events` dedupes — handler runs once | integration |
-| Handler throws | NACK → DLQ, message not lost | integration |
-| `Identity.InvitationCreated` | notification row on `email` channel (demo tenant enabled) | integration |
-| `Execution.EvidenceCaptured` (photo) | ai-agent consumer parses → `AI.PaymentProofParsed` | integration |
+| Consumer sees duplicate event_id | `processed_events` dedupes — handler runs once | integration — `idempotency-dlq.mjs` (payouts, notification), `job-billing-payouts.mjs` (billing) |
+| Handler throws | NACK → DLQ, message not lost | integration — `idempotency-dlq.mjs` (billing), `ai-evidence.mjs` (ai-agent) |
+| `Identity.InvitationCreated` | notification row on `email` channel (demo tenant enabled) | integration — `idempotency-dlq.mjs` |
+| `Execution.EvidenceCaptured` (photo) | ai-agent consumer parses → `AI.PaymentProofParsed` | integration — `tests/integration/ai-evidence.mjs`: real MinIO object → parsed `bank_deposit_slip` with reference/amount; unfetchable object → `ai-agent.events.dlq` |
 | Every cataloged event type | payload keys match [EVENT_CATALOG](../domain/specs/domain_events/EVENT_CATALOG.MD) | contract |
 
-## Portal flows (browser E2E, later)
+## Portal flows (browser E2E)
 
-One E2E per persona, exercising the real chain — these validate the wiring, not every path (feature tests own the paths).
+One E2E per persona, exercising the real chain — these validate the wiring, not every path (feature tests own the paths). Scripts live in `tests/e2e/`; run with `./scripts/test.sh tests/e2e`.
 
-- **Customer:** login → catalog → book → track status → submit feedback
-- **Service Agent:** login → accept job → check-in → steps → evidence → complete → turn-in
-- **Dispatcher:** review request → convert → assign → confirm remittance → review flagged evidence
-- **Tenant Admin:** create agent → invite user → edit service/pricing
-- **Support:** open case → note → approve refund → verify billing state
-- **Platform Admin:** login → tenant list → suspend/reactivate → metrics
+- **Customer:** login → catalog → book → track status → submit feedback — `golden-chain.mjs`, `customer-agent-lifecycle.mjs`
+- **Service Agent:** login → accept job → check-in → steps → evidence → complete — `customer-agent-lifecycle.mjs`; offer accept / decline / expiry — `dispatch-strategies.mjs`. Collected cash → hand-over turn-in, and collected cash → over-the-counter deposit with an uploaded remittance-center receipt (AI Agent reads amount + reference) — `cash-remittance.mjs`.
+- **Dispatcher:** review request → convert → confirm → release → assign (auto and manual) → cancel mid-flight → review flagged evidence — `golden-chain.mjs`, `customer-agent-lifecycle.mjs`, `dispatch-strategies.mjs`.; confirm turn-in and deposit-batch remittances — `cash-remittance.mjs`.
+- **Tenant Admin:** create agent → invite agent → create user → create service → edit pricing — `tenant-admin.mjs`
+- **Support:** open case → note → approve refund → verify billing state — `support.mjs`
+- **Platform Admin:** login → metrics → tenant list → create → activate/suspend/reactivate (throwaway tenant, never `acme`) — `platform-admin.mjs`
+- **Login negatives:** wrong password, unknown tenant slug — `login-negatives.mjs`

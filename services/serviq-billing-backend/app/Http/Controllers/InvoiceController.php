@@ -15,9 +15,12 @@ class InvoiceController
 
     public function index(string $tenant, Request $request): JsonResponse
     {
+        $request->validate(['job_id' => ['nullable', 'uuid']]);
+
         return response()->json(
             Invoice::where('tenant_id', $tenant)
                 ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+                ->when($request->query('job_id'), fn ($q, $j) => $q->where('job_id', $j))
                 ->latest()->paginate(50)
         );
     }

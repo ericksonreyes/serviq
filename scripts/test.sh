@@ -66,6 +66,24 @@ for d in "${services[@]}"; do
     continue
   fi
 
+  # Broker integration (amqplib): envelopes published onto the live
+  # RabbitMQ, handled by the real consumer containers, asserted on the
+  # owning services' databases. Requires the running stack — opt-in.
+  # Invoke: ./scripts/test.sh tests/integration
+  if [ -f "$d/package.json" ] && grep -q '"amqplib"' "$d/package.json"; then
+    echo "==> $d (broker integration)"
+    IT_IMG=$(node_image "$d")
+    docker run --rm -v "$PWD/$d:/app" -w /app "$IT_IMG" npm i --no-audit --no-fund -q \
+      || { echo "  FAIL $d (deps)"; fail=$((fail + 1)); continue; }
+    if docker run --rm --network serviq_serviq -v "$PWD/$d:/app" -w /app "$IT_IMG" \
+      sh -c 'for t in *.mjs; do node "$t" || exit 1; done'; then
+      echo "  PASS $d"
+    else
+      echo "  FAIL $d"; fail=$((fail + 1))
+    fi
+    continue
+  fi
+
   # Python (FastAPI): tests/test_*.py via stdlib unittest in the service's
   # own image — it ships exactly the runtime requirements.txt pinned.
   if [ -d "$d/tests" ] && ls "$d/tests"/test_*.py >/dev/null 2>&1; then

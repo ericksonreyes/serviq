@@ -71,7 +71,7 @@ export default function Home() {
 
   const agent = home?.agent?.data ?? home?.agent
   const offers = home?.offers ?? []
-  const active = jobs.filter((e) => e.status !== 'completed')
+  const active = jobs.filter((e) => !['completed', 'cancelled'].includes(e.status))
 
   return (
     <Shell>

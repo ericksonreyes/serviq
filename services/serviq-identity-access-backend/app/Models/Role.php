@@ -20,6 +20,13 @@ class Role extends Model
 
     public const CUSTOMER = 'Customer';
 
+    /** IAM permissions a Tenant Administrator holds — always tenant-scoped. */
+    public const TENANT_ADMINISTRATOR_PERMISSIONS = [
+        Permission::USERS_READ,
+        Permission::USERS_MANAGE,
+        Permission::ROLES_READ,
+    ];
+
     protected $fillable = ['scope', 'name', 'description'];
 
     public function permissions(): BelongsToMany

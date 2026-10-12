@@ -5,7 +5,7 @@ import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, btnGhost, fmtDate, input, label } from '../../components/ui'
 
-const OPEN = ['pending', 'ready_for_assignment', 'assigned', 'accepted', 'en_route', 'started', 'in_progress']
+const OPEN = ['requested', 'confirmed', 'pending', 'ready_for_assignment', 'assigned', 'accepted', 'en_route', 'started', 'in_progress']
 
 // Jobs monitor — active jobs with assign/reassign (advisory recommendations
 // from dispatch), reschedule, and cancel.
@@ -66,7 +66,7 @@ export default function Jobs() {
 }
 
 function JobDetail({ jobId, token, tenant, executions, onDone }) {
-  const { data: job, error, loading } = useLoader(async () => {
+  const { data: job, error, loading, reload: reloadJob } = useLoader(async () => {
     const res = await api.job(token, tenant, jobId)
     return res.data ?? res
   }, [token, tenant, jobId])
@@ -86,6 +86,7 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
       await fn()
       setOk(msg)
       onDone()
+      reloadJob()
     } catch (e) {
       setErr(e.message)
     } finally {
@@ -145,6 +146,29 @@ function JobDetail({ jobId, token, tenant, executions, onDone }) {
       )}
 
       <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">
+        {(j.status === 'requested' || j.status === 'confirmed') && (
+          <div>
+            <p className={label}>Lifecycle</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {j.status === 'requested'
+                ? 'Confirm the appointment with the customer, then release the job for assignment.'
+                : 'Confirmed — release the job so dispatch can assign an agent.'}
+            </p>
+            <div className="mt-1 flex gap-2">
+              {j.status === 'requested' && (
+                <button onClick={() => run(() => api.confirmJob(token, tenant, jobId), 'Job confirmed.')} disabled={busy} className={btn}>
+                  Confirm job
+                </button>
+              )}
+              {j.status === 'confirmed' && (
+                <button onClick={() => run(() => api.readyJob(token, tenant, jobId), 'Released for assignment.')} disabled={busy} className={btn}>
+                  Mark ready for assignment
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div>
           <p className={label}>Assign service agent</p>
           <div className="mt-1 flex gap-2">

@@ -24,6 +24,7 @@ BILLING_URL = os.environ.get("BILLING_URL", "http://billing-backend")
 DOC_TYPE_MAP = {
     "e_wallet_receipt": "E_WALLET",
     "bank_deposit_slip": "BANK_SLIP",
+    "remittance_receipt": "REMITTANCE_RECEIPT",
     "check": "BANK_CHECK",
     "pos_receipt": "POS_RECEIPT",
     "purchase_order": "PURCHASE_ORDER",

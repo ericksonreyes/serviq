@@ -22,7 +22,7 @@ const TONES = {
 // Status → tone. Unknown statuses get slate.
 const STATUS_TONE = {
   submitted: 'blue', reviewed: 'blue', converted: 'teal', cancelled: 'slate',
-  ready_for_assignment: 'amber', offered: 'amber', accepted: 'teal',
+  requested: 'blue', confirmed: 'blue', ready_for_assignment: 'amber', offered: 'amber', accepted: 'teal',
   assigned: 'teal', en_route: 'blue', started: 'violet', in_progress: 'violet',
   completed: 'green', rejected: 'red', expired: 'slate', revoked: 'slate',
   issued: 'amber', paid: 'green', remitted: 'green', refunded: 'violet',

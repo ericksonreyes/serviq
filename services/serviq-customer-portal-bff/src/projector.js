@@ -68,11 +68,35 @@ async function apply(db, env) {
   }
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// Keeps consuming across broker restarts: boot-time ECONNREFUSED and a
+// dropped connection both back off and reconnect instead of exiting.
 export async function startProjector() {
   const mongo = new MongoClient(MONGO)
   await mongo.connect()
   const db = mongo.db()
+  const connect = async () => {
+    for (let delay = 1000; ; delay = Math.min(delay * 2, 30000)) {
+      try {
+        return await consume(db, () => setTimeout(connect, 1000))
+      } catch (e) {
+        console.error(`[bff] broker unavailable (${e.code ?? e.message}) — retrying in ${delay}ms`)
+        await sleep(delay)
+      }
+    }
+  }
+  await connect()
+  return { mongo }
+}
+
+async function consume(db, onLost) {
   const conn = await amqplib.connect(RABBIT)
+  conn.on('error', (e) => console.error('[bff] broker error', e.message))
+  conn.on('close', () => {
+    console.error('[bff] broker connection closed — reconnecting')
+    onLost()
+  })
   const ch = await conn.createChannel()
   await ch.assertExchange(EXCHANGE, 'topic', { durable: true })
   await ch.assertQueue(QUEUE, { durable: true })
@@ -87,5 +111,5 @@ export async function startProjector() {
       ch.nack(msg, false, false)
     }
   })
-  return { mongo, conn }
+  return conn
 }

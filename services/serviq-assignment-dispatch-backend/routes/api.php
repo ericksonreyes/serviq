@@ -10,6 +10,7 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function ()
     Route::get('/tenants/{tenant}/dispatch/queue', [AssignmentController::class, 'queue']);
     Route::get('/tenants/{tenant}/dispatch/recommend', [AssignmentController::class, 'recommend']);
     Route::get('/tenants/{tenant}/offers', [AssignmentController::class, 'offers']);
+    Route::get('/tenants/{tenant}/dispatch/rules', [AssignmentController::class, 'rules']);
     Route::put('/tenants/{tenant}/dispatch/rules', [AssignmentController::class, 'configure']);
 
     Route::post('/tenants/{tenant}/dispatch/assign', [AssignmentController::class, 'assign']);

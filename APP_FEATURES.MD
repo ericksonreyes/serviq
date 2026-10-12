@@ -56,7 +56,9 @@ Field agent PWA — mobile-first channel for executing field work.
 - ✅ Photo / evidence upload
 - ✅ Parts and materials recording
 - ✅ Proof of payment upload for digital payments — the AI Agent parses the receipt and extracts the amount and reference number ([Proof of Payment Parsing](workspace/specs/technical/ai/PROOF_OF_PAYMENT_PARSING.MD))
+- ✅ Record cash collected on a completed job (Billing records the cash payment against the job's invoice)
 - ✅ Cash turn-in at end of shift — the agent's list of cash-paid services reconciled with the dispatcher ([Cash Remittance Counting](workspace/specs/technical/ai/CASH_REMITTANCE.MD))
+- ✅ Remit cash by over-the-counter deposit — upload the bank deposit slip or remittance-center receipt; the AI Agent reads amount + reference, Billing validates the deposit batch and a dispatcher confirms
 - ✅ Customer confirmation capture (typed-name signature evidence)
 - ✅ Job completion
 
@@ -71,11 +73,13 @@ Internal console for a Service Provider's staff — Tenant Administrator, Dispat
 ### Tenant Administrator
 
 - ✅ Manage tenant users and assign dispatcher permissions
+- ✅ Invite Service Agents and customers by email
 - ✅ Add / remove Service Agents
 - ✅ Create service types and configure the service catalog
 - ✅ Configure pricing
 - ✅ Configure service areas
 - ✅ Manage business settings and operational workflows
+- ✅ Choose the assignment strategy (automatic, broadcast, self, dispatcher) and broadcast offer TTL
 - ✅ View reports
 - ✅ Review revenue, invoices, refunds, and payout status
 
@@ -84,9 +88,11 @@ Internal console for a Service Provider's staff — Tenant Administrator, Dispat
 - ✅ Review incoming service requests
 - ✅ Check customer location and available agents
 - ✅ Schedule appointments
+- ✅ Confirm jobs and release them for assignment
 - ✅ Assign Service Agents to jobs (manual assignment)
 - ✅ Monitor active jobs
 - ✅ Reschedule and reassign jobs
+- ✅ Cancel jobs mid-flight (drops off the agent's active list)
 - ✅ Manage the dispatcher queue
 - ✅ Cash turn-in reconciliation (end-of-shift closure) — list the agent's cash-paid services, photograph the laid-out bills and coins; the AI Agent counts denominations and Billing reconciles expected vs counted — confirmed matches mark tickets remitted, variances are recount/overridden or accepted as a shortfall ([Cash Remittance Counting](workspace/specs/technical/ai/CASH_REMITTANCE.MD))
 - ✅ Mark validated digital payments as remitted — e-wallet receipts parsed by the AI Agent
@@ -103,6 +109,7 @@ Internal console for a Service Provider's staff — Tenant Administrator, Dispat
 
 ### Customer Support
 
+- ✅ Open support cases against a customer, job, or invoice
 - ✅ Review and respond to complaints and support cases
 - ✅ Follow up on service issues and escalate
 - ✅ Review refund requests and approve or reject them (Billing executes the payment)

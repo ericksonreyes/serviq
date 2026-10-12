@@ -12,6 +12,15 @@ async function resolveAgentId(req, tenant) {
 }
 
 const app = express()
+
+// Express 4 doesn't catch async rejections — route them to the error handler
+// so one dropped upstream socket can't take the whole BFF down.
+for (const m of ['get', 'post', 'put', 'patch', 'delete']) {
+  const orig = app[m].bind(app)
+  app[m] = (path, ...handlers) => (typeof path === 'string' && handlers.length
+    ? orig(path, ...handlers.map((h) => (req, res, next) => Promise.resolve(h(req, res, next)).catch(next)))
+    : orig(path, ...handlers))
+}
 app.use(express.json())
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', _req.headers.origin || '*')
@@ -33,12 +42,12 @@ const SERVICES = {
   job: process.env.JOB_URL || 'http://service-job-backend',
   crm: process.env.CRM_URL || 'http://customer-request-backend',
   billing: process.env.BILLING_URL || 'http://billing-backend',
-  ai: process.env.AI_URL || 'http://ai-agent',
+  ai: process.env.AI_URL || 'http://ai-agent:8000',
 }
 
 // AI /parse document types → Billing evidence types.
 const DOC_MAP = {
-  e_wallet_receipt: 'E_WALLET', bank_deposit_slip: 'BANK_SLIP', check: 'BANK_CHECK',
+  e_wallet_receipt: 'E_WALLET', bank_deposit_slip: 'BANK_SLIP', remittance_receipt: 'REMITTANCE_RECEIPT', check: 'BANK_CHECK',
   pos_receipt: 'POS_RECEIPT', purchase_order: 'PURCHASE_ORDER', cash_photo: 'CASH_PHOTO',
 }
 
@@ -56,10 +65,17 @@ async function auth(req, res, next) {
   }
 }
 
+// Optional read: a non-2xx or an unreachable upstream both yield null, so
+// enrichment degrades instead of failing the whole response.
 async function get(url, req) {
-  const r = await fetch(url, { headers: AUTH(req) })
-  if (!r.ok) return null
-  return r.json()
+  try {
+    const r = await fetch(url, { headers: AUTH(req) })
+    if (!r.ok) return null
+    return await r.json()
+  } catch (err) {
+    console.error('[bff] upstream', url.split('?')[0], err.cause?.code ?? err.message)
+    return null
+  }
 }
 
 // Pass a proxy response through to the caller verbatim.
@@ -108,6 +124,20 @@ async function enrich(req, tenant, execution) {
   }
 }
 
+// Bounded fan-out: a long job list must not burst the 128MB backends.
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      out[i] = await fn(items[i])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
+
 async function myExecutions(req, tenant, agentId) {
   const res = await get(`${SERVICES.field}/api/v1/tenants/${tenant}/executions?agent_id=${agentId}`, req)
   return res?.data ?? []
@@ -125,9 +155,9 @@ app.get('/api/v1/agents/:agentId/home', auth, async (req, res) => {
     get(`${SERVICES.field}/api/v1/tenants/${t}/executions?agent_id=${agentId}`, req),
     get(`${SERVICES.workforce}/api/v1/tenants/${t}/agents/${agentId}`, req),
   ])
-  const offers = await Promise.all((offersRes?.data ?? []).map(async (o) => ({
+  const offers = await mapLimit(offersRes?.data ?? [], 4, async (o) => ({
     ...o, ...(await jobDetails(req, t, o.job_id)),
-  })))
+  }))
   res.json({ data: { agent, offers, executions } })
 })
 
@@ -135,7 +165,7 @@ app.get('/api/v1/agents/:agentId/home', auth, async (req, res) => {
 app.get('/api/v1/me/jobs', auth, async (req, res) => {
   const t = req.jwt.tenant_id
   const executions = await myExecutions(req, t, await resolveAgentId(req, t))
-  const jobs = await Promise.all(executions.map((e) => enrich(req, t, e)))
+  const jobs = await mapLimit(executions, 4, (e) => enrich(req, t, e))
   res.json({ data: jobs })
 })
 
@@ -215,19 +245,21 @@ app.post('/api/v1/executions/:id/evidence', auth, async (req, res) => {
 // with both the parsed fields and the uploader's claimed values. Billing
 // flags claimed-vs-parsed mismatches for manual review. Parse failure
 // degrades to the claimed values alone (evidence still lands on record).
+async function aiParse(fileB64, filename) {
+  if (!fileB64) return null
+  try {
+    const fd = new FormData()
+    fd.append('file', new Blob([Buffer.from(fileB64, 'base64')]), filename || 'receipt.jpg')
+    const pr = await fetch(`${SERVICES.ai}/api/v1/parse`, { method: 'POST', body: fd })
+    return pr.ok ? await pr.json() : null
+  } catch { return null } // AI unreachable — degrade to claimed-only evidence
+}
+
 app.post('/api/v1/payment-evidence', auth, async (req, res) => {
   const t = req.jwt.tenant_id
   const { file_b64, filename, claimed, ...rest } = req.body ?? {}
 
-  let parsed = null
-  if (file_b64) {
-    try {
-      const fd = new FormData()
-      fd.append('file', new Blob([Buffer.from(file_b64, 'base64')]), filename || 'receipt.jpg')
-      const pr = await fetch(`${SERVICES.ai}/api/v1/parse`, { method: 'POST', body: fd })
-      if (pr.ok) parsed = await pr.json()
-    } catch { /* AI unreachable — degrade to claimed-only evidence */ }
-  }
+  const parsed = await aiParse(file_b64, filename)
 
   const f = parsed?.fields ?? {}
   const payload = {
@@ -254,6 +286,36 @@ app.post('/api/v1/payment-evidence', auth, async (req, res) => {
   await proxy(res, r)
 })
 
+// Cash collection on a completed job — Billing owns the payment; the BFF
+// only resolves the job's invoice and checks the caller is its agent.
+async function jobInvoice(req, t, executionId) {
+  const ex = await get(`${SERVICES.field}/api/v1/tenants/${t}/executions/${executionId}`, req)
+  const execution = ex?.data ?? ex
+  if (!execution?.id) return { status: 404, message: 'Job not found' }
+  if (execution.agent_id !== await resolveAgentId(req, t)) return { status: 403, message: 'This job is assigned to another agent' }
+  const inv = await get(`${SERVICES.billing}/api/v1/tenants/${t}/invoices?job_id=${execution.job_id}`, req)
+  return { execution, invoice: inv?.data?.[0] ?? null }
+}
+
+app.get('/api/v1/executions/:id/invoice', auth, async (req, res) => {
+  const r = await jobInvoice(req, req.jwt.tenant_id, req.params.id)
+  if (r.status) return res.status(r.status).json({ message: r.message })
+  res.json({ data: r.invoice })
+})
+
+app.post('/api/v1/executions/:id/cash-collected', auth, async (req, res) => {
+  const t = req.jwt.tenant_id
+  const r = await jobInvoice(req, t, req.params.id)
+  if (r.status) return res.status(r.status).json({ message: r.message })
+  if (r.execution.status !== 'completed') return res.status(409).json({ message: 'Complete the job before recording payment' })
+  if (!r.invoice) return res.status(409).json({ message: 'Invoice not issued yet — try again in a moment' })
+  const pay = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/invoices/${r.invoice.id}/pay`, {
+    method: 'POST', headers: { ...AUTH(req), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method: 'cash' }),
+  })
+  await proxy(res, pay)
+})
+
 // Cash turn-in — the expected list and the counted submission, agent from JWT.
 app.get('/api/v1/remittances/expected', auth, async (req, res) => {
   const t = req.jwt.tenant_id
@@ -270,6 +332,56 @@ app.post('/api/v1/remittances/turn-ins', auth, async (req, res) => {
     body: JSON.stringify({ ...(req.body ?? {}), agent_id: await resolveAgentId(req, t) }),
   })
   await proxy(res, r)
+})
+
+// Over-the-counter cash deposit (bank or remittance center): the AI Agent
+// parses amount + reference off the slip; Billing validates it as a
+// deposit batch over the agent's own pending cash collections.
+const DEPOSIT_TYPES = ['BANK_SLIP', 'REMITTANCE_RECEIPT']
+app.post('/api/v1/remittances/deposits', auth, async (req, res) => {
+  const t = req.jwt.tenant_id
+  const { file_b64, filename, document_type, invoice_ids, claimed } = req.body ?? {}
+  if (!DEPOSIT_TYPES.includes(document_type)) return res.status(422).json({ message: 'Choose a bank deposit slip or a remittance-center receipt' })
+  if (!file_b64) return res.status(422).json({ message: 'Attach a photo of the slip' })
+  if (!Array.isArray(invoice_ids) || invoice_ids.length === 0) return res.status(422).json({ message: 'Select the cash collections this deposit covers' })
+
+  const agentId = await resolveAgentId(req, t)
+  const expected = await get(`${SERVICES.billing}/api/v1/tenants/${t}/remittances/expected?agent_id=${agentId}`, req)
+  const mine = new Set((expected?.data?.collections ?? []).map((i) => i.id))
+  if (invoice_ids.some((id) => !mine.has(id))) return res.status(403).json({ message: 'Only your own pending cash collections can be covered' })
+
+  const parsed = await aiParse(file_b64, filename)
+  const f = parsed?.fields ?? {}
+  const headers = { ...AUTH(req), 'Content-Type': 'application/json' }
+  const ev = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/payment-evidence`, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      document_type,
+      file_ref: `agent-deposit:${filename || 'slip.jpg'}`,
+      extracted: {
+        reference: f.reference_no ?? claimed?.reference ?? null,
+        amount_cents: toCents(f.amount ?? f.deposited_amount) ?? claimed?.amount_cents ?? 0,
+        channel: f.provider ?? f.bank ?? null,
+        paid_at: f.deposit_date ?? f.date ?? null,
+      },
+      claimed: claimed ?? null,
+      confidence: parsed?.confidence ?? null,
+      raw_text: parsed ? JSON.stringify(f) : null,
+    }),
+  })
+  const evidence = await ev.json().catch(() => ({}))
+  if (!ev.ok) return res.status(ev.status).json(evidence)
+
+  const batch = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/remittances/batches`, {
+    method: 'POST', headers, body: JSON.stringify({ evidence_id: evidence.data.id, invoice_ids }),
+  })
+  const body = await batch.json().catch(() => ({}))
+  res.status(batch.status).json(batch.ok ? { data: { evidence: evidence.data, remittance: body.data } } : body)
+})
+
+app.use((err, req, res, _next) => {
+  console.error('[bff]', req.method, req.path, err.message)
+  res.status(502).json({ message: 'A backing service is unavailable — try again shortly' })
 })
 
 const port = process.env.PORT || 3000

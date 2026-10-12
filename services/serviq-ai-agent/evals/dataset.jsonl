@@ -18,3 +18,4 @@
 {"synthetic_payload": "purchase_order po_number: PO-102 total_amount: 8400", "document_type": "purchase_order", "fields": {"po_number": "PO-102"}}
 {"synthetic_payload": "e_wallet_receipt reference_no: R-31 amount: 200 provider: Maya sender: Ana", "document_type": "e_wallet_receipt", "fields": {"reference_no": "R-31"}}
 {"synthetic_payload": "random noise nothing here", "document_type": "unknown", "fields": {}}
+{"synthetic_payload": "remittance_receipt provider: Palawan amount: 1500 reference_no: RC-2201 date: 2026-10-11", "document_type": "remittance_receipt", "fields": {"provider": "palawan", "amount": "1500", "reference_no": "rc-2201", "date": "2026-10-11"}}

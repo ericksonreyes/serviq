@@ -130,43 +130,50 @@ try {
   await dp.getByText(/hand-off/i).first().waitFor({ timeout: 15000 })
   ok('request converted to job')
 
-  // PRODUCT GAP (found by this test): converted jobs sit at `requested`
-  // — no UI element transitions requested → confirmed →
-  // ready_for_assignment, which dispatch/assign requires. Seed the two
-  // transitions via API until the console exposes them.
-  let iamLogin
-  for (let attempt = 0; attempt < 4; attempt++) {
-    iamLogin = await fetch(`http://${GATEWAY}:8010/api/v1/auth/login`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'acme.admin', password: PASS, tenant: TENANT }),
-    }).then((r) => r.json())
-    if (iamLogin.access_token) break
-    if (!/too many/i.test(JSON.stringify(iamLogin))) break
-    console.log('  seed login throttled — waiting out the limiter')
-    await new Promise((r) => setTimeout(r, 65000))
+  // Converted jobs land at `requested` — the dispatcher confirms and
+  // releases them from the Jobs monitor (Lifecycle actions).
+  await dp.getByRole('link', { name: 'Jobs', exact: true }).click()
+  // Bind to THIS booking's job via the detail's request id, not position;
+  // the monitor loads once per mount, so re-enter until the job has projected
+  // (stale `requested` leftovers from earlier runs would otherwise match).
+  let jobId = null
+  for (let attempt = 0; attempt < 15 && !jobId; attempt++) {
+    if (attempt) {
+      await dp.getByRole('link', { name: 'Service requests' }).click()
+      await dp.waitForTimeout(2000)
+      await dp.getByRole('link', { name: 'Jobs', exact: true }).click()
+    }
+    await dp.locator('button', { hasText: /requested/ }).first().waitFor({ timeout: 40000 })
+    for (const btn of await dp.locator('button', { hasText: /requested/ }).all()) {
+      await btn.click()
+      const reqCell = dp.locator('dd', { hasText: requestId })
+      if (await reqCell.waitFor({ timeout: 3000 }).then(() => true).catch(() => false)) {
+        jobId = (await btn.locator('span.font-mono').textContent()).trim()
+        break
+      }
+    }
   }
-  if (!iamLogin.access_token) throw new Error(`IAM login failed: ${JSON.stringify(iamLogin)}`)
-  const tId = '01ac0000-0000-7000-8000-00000000acde'
-  const jobs = await fetch(`http://${GATEWAY}:8014/api/v1/tenants/${tId}/jobs`, {
-    headers: { authorization: `Bearer ${iamLogin.access_token}` },
-  }).then((r) => r.json())
-  // Match THIS booking's job — not any stale 'requested' row left by
-  // earlier runs; find by the request link.
-  const job = (jobs.data ?? []).find((j) => j.request_id === requestId)
-  if (!job) throw new Error(`no job for request ${requestId} — jobs list: ${JSON.stringify(jobs).slice(0, 400)}`)
-  for (const action of ['confirm', 'ready']) {
-    await fetch(`http://${GATEWAY}:8014/api/v1/tenants/${tId}/jobs/${job.id}/${action}`, {
-      method: 'POST', headers: { authorization: `Bearer ${iamLogin.access_token}` },
-    })
-  }
-  ok(`job ${job.id.slice(0, 8)} transitioned to ready (seeded via API)`)
+  if (!jobId) throw new Error(`no requested job for request ${requestId} in the Jobs monitor`)
+  await dp.getByRole('button', { name: 'Confirm job' }).click()
+  await dp.getByText('Job confirmed.').waitFor({ timeout: 15000 })
+  await dp.getByRole('button', { name: 'Mark ready for assignment' }).click()
+  await dp.getByText('Released for assignment.').waitFor({ timeout: 15000 })
+  ok(`job ${jobId.slice(0, 8)} confirmed + released via console UI`)
+  const job = { id: jobId }
 
   // Event hop 2: ReadyForAssignment projects and the tenant's default
   // 'automatic' strategy assigns Anna without any UI step — assigned jobs
   // leave the queue, so assert the assignment on the Jobs monitor.
-  await dp.getByRole('link', { name: 'Jobs' }).click()
-  await dp.locator('button', { hasText: job.id.slice(0, 8) }).first()
-    .waitFor({ timeout: 40000 })
+  // The Jobs monitor loads once per mount — re-enter it until the
+  // assignment event has landed.
+  const assignedRow = dp.locator('button', { hasText: job.id }).filter({ hasText: /assigned|accepted/ })
+  for (let i = 0; i < 20 && !(await assignedRow.count()); i++) {
+    await dp.waitForTimeout(2000)
+    await dp.getByRole('link', { name: 'Service requests' }).click()
+    await dp.getByRole('link', { name: 'Jobs', exact: true }).click()
+    await dp.locator('button', { hasText: job.id }).first().waitFor({ timeout: 10000 }).catch(() => {})
+  }
+  await assignedRow.first().waitFor({ timeout: 5000 })
   ok('job projected, auto-assigned to Anna')
 
   // ── Leg 3: agent sees the job and checks in ───────────────────────────
@@ -189,6 +196,10 @@ try {
 } catch (e) {
   console.error('\nGOLDEN CHAIN: FAIL')
   console.error(e.message)
+  let n = 0
+  for (const ctx of browser.contexts()) for (const pg of ctx.pages()) {
+    await pg.screenshot({ path: `fail-golden-chain-${n++}.png`, fullPage: true }).catch(() => {})
+  }
   process.exit(1)
 } finally {
   await browser.close()

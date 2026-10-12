@@ -50,7 +50,7 @@ class PaymentEvidenceController
             'invoice_id' => ['nullable', 'uuid'],
             'extracted' => ['required', 'array'],
             'extracted.reference' => [
-                Rule::requiredIf(fn () => in_array($request->input('document_type'), ['E_WALLET', 'BANK_SLIP', 'BANK_CHECK', 'POS_RECEIPT'], true)),
+                Rule::requiredIf(fn () => in_array($request->input('document_type'), ['E_WALLET', 'BANK_SLIP', 'REMITTANCE_RECEIPT', 'BANK_CHECK', 'POS_RECEIPT'], true)),
                 'nullable', 'string', 'max:255',
             ],
             'extracted.amount_cents' => ['required', 'integer', 'min:0'],
