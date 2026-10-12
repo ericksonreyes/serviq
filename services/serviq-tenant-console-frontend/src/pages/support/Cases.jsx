@@ -3,7 +3,7 @@ import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import ChatPanel from '../../components/ChatPanel'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, fmtDate, select, selectCompact } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, PageHead, Pager, StatusBadge, btn, btnGhost, input, label, fmtDate, select, selectCompact } from '../../components/ui'
 
 const STATUSES = ['', 'open', 'in_progress', 'escalated', 'resolved']
 const TRANSITIONS = ['open', 'in_progress', 'escalated', 'resolved']
@@ -14,24 +14,30 @@ export default function Cases() {
   const { token } = useAuth()
   const tenant = useTenant()
   const [status, setStatus] = useState('')
+  const [page, setPage] = useState(1)
   const [sel, setSel] = useState(null)
-  const { data: list, error, loading, reload } = useLoader(
-    async () => rows(await api.cases(token, tenant, status)), [token, tenant, status],
+  const [creating, setCreating] = useState(false)
+  const { data, error, loading, reload } = useLoader(
+    async () => api.cases(token, tenant, status, page), [token, tenant, status, page],
   )
+  const list = rows(data)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Support cases</h1>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCompact}>
+        <PageHead title="Support cases" desc="Customer complaints and escalations — notes, status, resolution." />
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className={selectCompact}>
           {STATUSES.map((s) => <option key={s} value={s}>{s || 'all statuses'}</option>)}
         </select>
       </div>
       <ErrorBox error={error} />
-      <OpenCase token={token} onDone={reload} />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card title="Cases">
-          {loading ? <Loading /> : !list || list.length === 0 ? <Empty text="No cases." /> : (
+      {creating ? (
+        <OpenCase token={token} onDone={() => { setCreating(false); reload() }} onCancel={() => setCreating(false)} />
+      ) : (
+      <div className={`grid grid-cols-1 gap-4 ${sel ? 'xl:grid-cols-2' : ''}`}>
+        <Card title="Cases" actions={<button className={btn} onClick={() => setCreating(true)}>New case</button>}>
+          <Pager meta={data} onPage={setPage} top />
+          {loading ? <Loading /> : list.length === 0 ? <Empty text="No cases." /> : (
             <ul className="divide-y divide-slate-100">
               {list.map((c) => (
                 <li key={c.id}>
@@ -46,11 +52,11 @@ export default function Cases() {
               ))}
             </ul>
           )}
+          <Pager meta={data} onPage={setPage} />
         </Card>
-        {sel ? <CaseDetail key={sel.id} id={sel.id} token={token} tenant={tenant} onDone={reload} /> : (
-          <Card title="Case detail"><Empty text="Select a case." /></Card>
-        )}
+        {sel && <CaseDetail key={sel.id} id={sel.id} token={token} tenant={tenant} onDone={reload} />}
       </div>
+      )}
       <ChatPanel profile="support" title="Support assistant" />
     </div>
   )
@@ -60,9 +66,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Case intake — support staff log a complaint on the customer's behalf
 // (phone, email, walk-in); linking the invoice enables a refund decision.
-function OpenCase({ token, onDone }) {
+function OpenCase({ token, onDone, onCancel }) {
   const blank = { subject: '', invoice_id: '', job_id: '', details: '' }
-  const [open, setOpen] = useState(false)
   const [form, setForm] = useState(blank)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -96,9 +101,6 @@ function OpenCase({ token, onDone }) {
   return (
     <Card title="Open a case">
       <Notice>{ok}</Notice>
-      {!open ? (
-        <button onClick={() => setOpen(true)} className={btnGhost}>New case</button>
-      ) : (
         <form onSubmit={submit} className="space-y-3">
           <ErrorBox error={err} />
           <div><label className={label} htmlFor="case-subject">Subject</label><input id="case-subject" className={input} required maxLength={255} value={form.subject} onChange={set('subject')} /></div>
@@ -109,10 +111,9 @@ function OpenCase({ token, onDone }) {
           <div><label className={label} htmlFor="case-details">Details</label><textarea id="case-details" className={input} rows={2} value={form.details} onChange={set('details')} /></div>
           <div className="flex gap-3">
             <button type="submit" disabled={busy || !form.subject.trim()} className={btn}>{busy ? 'Opening…' : 'Open case'}</button>
-            <button type="button" onClick={() => { setOpen(false); setErr(null) }} className={btnGhost}>Close</button>
+            <button type="button" onClick={onCancel} className={btnGhost}>Cancel</button>
           </div>
         </form>
-      )}
     </Card>
   )
 }
@@ -164,7 +165,7 @@ function CaseDetail({ id, token, tenant, onDone }) {
 
       <div className="mt-3">
         <p className={label}>Status</p>
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div className="mt-1 flex flex-wrap gap-3">
           {TRANSITIONS.map((s) => (
             <button key={s} onClick={() => run(() => api.setCaseStatus(token, tenant, id, s), `Case marked ${s.replace('_', ' ')}.`)} disabled={busy || c.status === s} className={c.status === s ? btn : btnGhost}>
               {s.replace('_', ' ')}

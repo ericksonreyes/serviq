@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, money, select } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, PageHead, StatusBadge, btn, btnGhost, input, label, link, money, select } from '../../components/ui'
 
 const csv = (s) => s.split(',').map((x) => x.trim()).filter(Boolean)
 
@@ -15,14 +15,18 @@ export default function Services() {
     async () => rows(await api.services(token, tenant)), [token, tenant],
   )
   const [sel, setSel] = useState(null)
+  // List-first: the create form swaps in over the list via its CTA (LAYOUT.MD).
+  const [adding, setAdding] = useState(false)
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Service catalog</h1>
+      <PageHead title="Service catalog" desc="What you sell — services, pricing, and workflow steps." />
       <ErrorBox error={error} />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2 space-y-4">
-          <Card title="Services">
+      {adding ? (
+        <NewService token={token} tenant={tenant} onDone={() => { setAdding(false); reload() }} onCancel={() => setAdding(false)} />
+      ) : (
+      <div className="space-y-4">
+          <Card title="Services" actions={<button className={btn} onClick={() => setAdding(true)}>New service</button>}>
             {loading ? <Loading /> : !services || services.length === 0 ? <Empty /> : (
               <ul className="divide-y divide-slate-100">
                 {services.map((s) => (
@@ -35,6 +39,7 @@ export default function Services() {
                       <span className="flex items-center gap-3">
                         <span className="text-sm">{money(s.price_cents, s.currency)}</span>
                         <StatusBadge value={s.active === false ? 'inactive' : 'active'} />
+                        <span className={link}>{sel?.id === s.id ? 'Close' : 'Edit'}</span>
                       </span>
                     </button>
                     {sel?.id === s.id && <ServiceDetail key={s.id} service={s} token={token} tenant={tenant} onDone={reload} />}
@@ -43,9 +48,8 @@ export default function Services() {
               </ul>
             )}
           </Card>
-        </div>
-        <NewService token={token} tenant={tenant} onDone={reload} />
       </div>
+      )}
     </div>
   )
 }
@@ -155,7 +159,7 @@ function StepsEditor({ service, token, tenant, onDone }) {
           </li>
         ))}
       </ul>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex items-center gap-3">
         <button type="button" onClick={() => setSteps([...steps, { name: '' }])} className={btnGhost}>+ Step</button>
         <button type="button" onClick={save} disabled={busy || steps.every((s) => !s.name.trim())} className={btn}>{busy ? 'Saving…' : 'Save steps'}</button>
         {msg && <span className="text-sm text-slate-500">{msg}</span>}
@@ -222,7 +226,7 @@ function PricingEditor({ service, token, tenant }) {
   )
 }
 
-function NewService({ token, tenant, onDone }) {
+function NewService({ token, tenant, onDone, onCancel }) {
   const [form, setForm] = useState({ name: '', description: '', price: '', estimated_minutes: '', required_skills: '', service_areas: '', steps: 'Booked, Serviced' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -270,7 +274,10 @@ function NewService({ token, tenant, onDone }) {
         <div><label className={label}>Required skills</label><input className={input} placeholder="comma-separated" value={form.required_skills} onChange={set('required_skills')} /></div>
         <div><label className={label}>Service areas</label><input className={input} placeholder="comma-separated" value={form.service_areas} onChange={set('service_areas')} /></div>
         <div><label className={label}>Workflow steps</label><input className={input} placeholder="comma-separated" value={form.steps} onChange={set('steps')} /></div>
-        <button type="submit" disabled={busy} className={btn}>{busy ? 'Creating…' : 'Create service'}</button>
+        <div className="flex gap-3">
+          <button type="submit" disabled={busy} className={btn}>{busy ? 'Creating…' : 'Create service'}</button>
+          <button type="button" onClick={onCancel} className={btnGhost}>Cancel</button>
+        </div>
       </form>
     </Card>
   )

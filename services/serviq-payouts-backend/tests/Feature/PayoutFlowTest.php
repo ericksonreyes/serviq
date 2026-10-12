@@ -35,7 +35,8 @@ class PayoutFlowTest extends TestCase
         return JWT::encode([
             'iss' => 'serviq-iam', 'aud' => 'serviq',
             'sub' => (string) Str::uuid7(), 'tenant_id' => $tenant ?? $this->tenant,
-            'roles' => ['Dispatcher'], 'jti' => (string) Str::uuid(),
+            'roles' => ['Dispatcher'], 'permissions' => ['billing.remit'],
+            'jti' => (string) Str::uuid(),
             'iat' => time(), 'exp' => time() + 3600,
         ], config('platform.jwt.secret'), 'HS256');
     }

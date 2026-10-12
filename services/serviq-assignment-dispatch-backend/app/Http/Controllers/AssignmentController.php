@@ -7,6 +7,7 @@ use App\Models\Assignment;
 use App\Models\AssignmentRule;
 use App\Models\DispatchableJob;
 use App\Services\DispatchService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,7 +71,21 @@ class AssignmentController
         ]);
         $job = $this->dispatchable($tenant, $data['job_id']);
 
-        return response()->json(['data' => $dispatch->createAccepted($job, $data['agent_id'], 'dispatcher')], 201);
+        if ($job->status === 'assigned') {
+            return response()->json([
+                'error' => 'job_already_assigned',
+                'message' => 'This job is already assigned to an agent.',
+            ], 409);
+        }
+
+        try {
+            return response()->json(['data' => $dispatch->createAccepted($job, $data['agent_id'], 'dispatcher')], 201);
+        } catch (UniqueConstraintViolationException) {
+            return response()->json([
+                'error' => 'job_already_assigned',
+                'message' => 'This job was assigned just now — refresh to see the current agent.',
+            ], 409);
+        }
     }
 
     /** Broadcast a job's offers (manual trigger or strategy=broadcast). */
@@ -81,9 +96,50 @@ class AssignmentController
             'ttl_seconds' => ['nullable', 'integer', 'min:5', 'max:86400'],
         ]);
         $job = $this->dispatchable($tenant, $data['job_id']);
+
+        if ($job->status === 'assigned') {
+            return response()->json([
+                'error' => 'job_already_assigned',
+                'message' => 'This job is already assigned to an agent.',
+            ], 409);
+        }
+
         $ttl = $data['ttl_seconds'] ?? AssignmentRule::find($tenant)?->offer_ttl_seconds ?? 60;
 
         return response()->json(['data' => $dispatch->broadcast($job, $ttl)], 201);
+    }
+
+    /** Dispatcher reassign — swap the accepted agent while the job is still dispatch-committed. */
+    public function reassign(Request $request, string $tenant, DispatchService $dispatch): JsonResponse
+    {
+        $data = $request->validate([
+            'job_id' => ['required', 'uuid'],
+            'agent_id' => ['required', 'uuid', 'exists:agents,agent_id'],
+        ]);
+        $job = $this->dispatchable($tenant, $data['job_id']);
+
+        if ($job->status === 'assigned') {
+            try {
+                return response()->json(['data' => $dispatch->reassign($job, $data['agent_id'])]);
+            } catch (UniqueConstraintViolationException) {
+                return response()->json([
+                    'error' => 'job_already_assigned',
+                    'message' => 'Assignment changed just now — refresh to see the current agent.',
+                ], 409);
+            }
+        }
+
+        if (in_array($job->status, ['pending', 'ready_for_assignment'], true)) {
+            return response()->json([
+                'error' => 'job_not_assigned',
+                'message' => 'This job is not assigned yet — use assign.',
+            ], 409);
+        }
+
+        return response()->json([
+            'error' => 'reassign_window_closed',
+            'message' => 'The agent has already accepted or the job is closed — reassignment is no longer possible.',
+        ], 409);
     }
 
     /** Agent accepts an offer — exactly one can win. */
@@ -116,6 +172,17 @@ class AssignmentController
             'job_id' => ['required', 'uuid'],
             'agent_id' => ['required', 'uuid', 'exists:agents,agent_id'],
         ]);
+
+        // Only meaningful under the `self` strategy — under broadcast a
+        // claim would steal a job with live offers; under dispatcher it
+        // bypasses the human gate entirely.
+        $strategy = AssignmentRule::find($tenant)?->strategy ?? 'automatic';
+        if ($strategy !== 'self') {
+            return response()->json([
+                'error' => 'self_assign_disabled',
+                'message' => 'Self-assign is not enabled — jobs are allocated by the configured dispatch strategy.',
+            ], 409);
+        }
         $job = DispatchableJob::where('job_id', $data['job_id'])->where('tenant_id', $tenant)
             ->where('status', 'ready_for_assignment')->firstOrFail();
 

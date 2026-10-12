@@ -47,7 +47,7 @@ export default function TurnIn() {
   }
 
   return (
-    <Shell title="Cash turn-in">
+    <Shell title="Cash turn-in" desc="Reconcile cash collections — count what's on hand, then deposit the slip photo for Billing to verify.">
       <Typography variant="body2" color="text.secondary" gutterBottom>
         End-of-shift cash collected from cash-paid jobs. Your dispatcher confirms the count.
       </Typography>

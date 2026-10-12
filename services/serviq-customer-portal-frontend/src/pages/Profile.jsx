@@ -154,6 +154,9 @@ export default function Profile() {
   return (
     <Container maxWidth="md" sx={{ mt: 4, pb: 10 }}>
       <Typography variant="h5" gutterBottom>Profile</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Your contact details and saved addresses.
+      </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
 

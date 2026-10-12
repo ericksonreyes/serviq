@@ -9,7 +9,7 @@ import { api } from '../api'
 import { useAuth } from '../auth'
 import Shell from '../Shell'
 import ThinkingDots from '../ThinkingDots'
-import { addressText, money, navigateUrl, STATUS_COLORS, STATUS_LABELS } from '../format'
+import { addressText, fmtDateTime, money, navigateUrl, STATUS_COLORS, STATUS_LABELS } from '../format'
 
 const DOC_TYPES = [
   ['E_WALLET', 'E-wallet receipt (GCash, Maya, …)'],
@@ -37,7 +37,7 @@ function Section({ title, children }) {
 }
 
 function EvidenceSummary({ row }) {
-  const when = row.created_at ? new Date(row.created_at).toLocaleString() : ''
+  const when = fmtDateTime(row.created_at)
   let text = row.kind
   if (row.kind === 'note') text = `Note — ${row.data?.text ?? ''}`
   if (row.kind === 'part') {
@@ -188,7 +188,7 @@ export default function JobDetail() {
   const inProgress = job.status === 'in_progress'
 
   return (
-    <Shell title="Job detail">
+    <Shell title="Job detail" desc="Steps, evidence, and payment for this assignment.">
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Chip color={STATUS_COLORS[job.status] || 'default'}
           label={STATUS_LABELS[job.status] || job.status} />
@@ -201,7 +201,7 @@ export default function JobDetail() {
         {addressText(job.address) || 'Address on request'}
       </Typography>
       {job.scheduled_for && (
-        <Typography variant="body2" color="text.secondary">Scheduled: {job.scheduled_for}</Typography>
+        <Typography variant="body2" color="text.secondary">Scheduled: {fmtDateTime(job.scheduled_for)}</Typography>
       )}
       {job.notes && (
         <Alert severity="info" sx={{ mt: 1 }}>{job.notes}</Alert>

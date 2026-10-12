@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, ErrorBox, STATUS_TONE, card } from '../ui'
+import { Badge, ErrorBox, PageHead, STATUS_TONE, card } from '../ui'
 
 function Stat({ title, value, children }) {
   return (
@@ -34,7 +34,7 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Platform metrics</h1>
+      <PageHead title="Platform metrics" desc="Platform-wide health — tenants, revenue, and system signals." />
       <ErrorBox error={error} />
       {!metrics && !error && <p className="text-sm text-slate-500">Loading…</p>}
       {metrics && (

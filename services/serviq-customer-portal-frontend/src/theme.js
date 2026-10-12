@@ -10,15 +10,19 @@ export const theme = createTheme({
     background: { default: '#faf5ff', paper: '#ffffff' },
     text: { primary: '#1e1b4b' },
   },
+  // 16px type floor — the small variants render at base so no UI text
+  // drops below 16px (mobile readability + iOS input-zoom threshold).
   typography: {
     fontSize: 16,
     fontFamily: '"Nunito", "Segoe UI", system-ui, sans-serif',
     h3: { fontWeight: 800, letterSpacing: '-0.02em' },
     h5: { fontWeight: 700 },
     h6: { fontWeight: 700 },
-    body2: { fontSize: '0.95rem', fontWeight: 500 },
-    caption: { fontSize: '0.8rem' },
-    button: { textTransform: 'none', fontWeight: 600, fontSize: '0.95rem' },
+    subtitle2: { fontSize: '1rem' },
+    body2: { fontSize: '1rem', fontWeight: 500 },
+    caption: { fontSize: '1rem' },
+    overline: { fontSize: '1rem' },
+    button: { textTransform: 'none', fontWeight: 600, fontSize: '1rem' },
   },
   shape: { borderRadius: 12 },
   components: {
@@ -33,6 +37,7 @@ export const theme = createTheme({
       styleOverrides: { root: { boxShadow: '0 1px 3px rgba(15,23,42,.08)' } },
     },
     MuiTextField: { defaultProps: { variant: 'outlined' } },
+    MuiChip: { styleOverrides: { label: { fontSize: '1rem' } } },
     MuiAppBar: {
       styleOverrides: { root: { background: '#1e1b4b' } },
     },

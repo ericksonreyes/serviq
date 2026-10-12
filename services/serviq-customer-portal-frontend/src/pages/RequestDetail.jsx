@@ -6,6 +6,7 @@ import {
 } from '@mui/material'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { fmtDay, fmtDateTime } from '../format'
 
 // Customer-facing tracking: received → assigned → en route → started →
 // completed, driven by the read-model job status the BFF joins in.
@@ -87,7 +88,7 @@ export default function RequestDetail() {
     <Container maxWidth="sm" sx={{ mt: 4, pb: 10 }}>
       <Typography variant="h5">{services[data.service_id] || 'Service request'}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Request {data.id?.slice(0, 8)} · submitted {new Date(data.created_at || data.occurred_at).toLocaleString()}
+        Request {data.id?.slice(0, 8)} · submitted {fmtDateTime(data.created_at || data.occurred_at)}
       </Typography>
 
       {cancelled ? (
@@ -106,11 +107,11 @@ export default function RequestDetail() {
         <CardContent>
           <Typography variant="subtitle1" gutterBottom>Details</Typography>
           {data.preferred_date && (
-            <Typography variant="body2">Preferred date: {data.preferred_date}</Typography>
+            <Typography variant="body2">Preferred date: {fmtDay(data.preferred_date)}</Typography>
           )}
           {data.scheduled_for && (
             <Typography variant="body2">
-              Scheduled: {new Date(data.scheduled_for).toLocaleString()}
+              Scheduled: {fmtDateTime(data.scheduled_for)}
             </Typography>
           )}
           {addr && (

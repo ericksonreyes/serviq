@@ -58,3 +58,4 @@ What this buys us and what it costs.
 - [ADR-0020](0020-express-customer-support-read-model.MD) — Support backend on plain Express+Node
 - [ADR-0021](0021-permission-claim-route-authorization.MD) — Route authorization by JWT permission claims; permission catalog defined in code
 - [ADR-0022](0022-least-privilege-invitations.MD) — `iam.invitations.manage` splits invites from user management; Customer Support gains a default bundle
+- [ADR-0023](0023-hierarchical-admin-coverage-gate.MD) — Coverage as admin-hierarchy codes + ancestor walk; CRM gates booking via Service Management's check

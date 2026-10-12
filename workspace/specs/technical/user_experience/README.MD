@@ -23,6 +23,10 @@ These UX guidelines should influence:
 - mobile and desktop flows;
 - forms, dashboards, tables, and workflow screens.
 
+## Conventions
+
+- [Layout](./LAYOUT.MD) — form placement, density, pagination, font floor.
+
 ## Related Documentation
 
 - [Glossary & Vocabulary](../../GLOSSARY.MD)

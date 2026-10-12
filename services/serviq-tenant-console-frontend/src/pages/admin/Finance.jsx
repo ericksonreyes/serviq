@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, StatusBadge, btn, money, fmtDate } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, Pager, StatusBadge, link, money, fmtDate } from '../../components/ui'
 
 const TABS = ['Invoices', 'Refund requests', 'Payouts']
 
@@ -12,14 +12,15 @@ export default function Finance() {
   const { token } = useAuth()
   const tenant = useTenant()
   const [tab, setTab] = useState('Invoices')
+  const [page, setPage] = useState(1)
   const { data, error, loading, reload } = useLoader(async () => {
     const [invoices, refunds, payouts] = await Promise.all([
-      api.invoices(token, tenant),
-      api.refundRequests(token, tenant).catch(() => []),
-      api.payouts(token, tenant).catch(() => []),
+      api.invoices(token, tenant, '', page),
+      api.refundRequests(token, tenant, page).catch(() => []),
+      api.payouts(token, tenant, page).catch(() => []),
     ])
-    return { invoices: rows(invoices), refunds: rows(refunds), payouts: rows(payouts) }
-  }, [token, tenant])
+    return { invoices: rows(invoices), refunds: rows(refunds), payouts: rows(payouts), metas: { Invoices: invoices, 'Refund requests': refunds, Payouts: payouts } }
+  }, [token, tenant, page])
 
   const totals = data ? {
     issued: data.invoices.filter((i) => i.status === 'issued').reduce((s, i) => s + i.amount_cents, 0),
@@ -29,7 +30,7 @@ export default function Finance() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Revenue & payouts</h1>
+      <PageHead title="Revenue & payouts" desc="Invoices, settlements, and money owed to agents." />
       <ErrorBox error={error} />
       {data && (
         <div className="grid grid-cols-3 gap-4">
@@ -43,7 +44,7 @@ export default function Finance() {
         actions={(
           <div className="flex gap-1">
             {TABS.map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm ${tab === t ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <button key={t} onClick={() => { setTab(t); setPage(1) }} className={`rounded-lg px-3 py-1.5 text-sm ${tab === t ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                 {t}
               </button>
             ))}
@@ -52,9 +53,11 @@ export default function Finance() {
       >
         {loading ? <Loading /> : !data ? <Empty /> : (
           <>
+            <Pager meta={data.metas[tab]} onPage={setPage} top />
             {tab === 'Invoices' && <Invoices rows={data.invoices} />}
             {tab === 'Refund requests' && <Refunds rows={data.refunds} token={token} tenant={tenant} onDone={reload} />}
             {tab === 'Payouts' && <Payouts rows={data.payouts} token={token} tenant={tenant} onDone={reload} />}
+            <Pager meta={data.metas[tab]} onPage={setPage} />
           </>
         )}
       </Card>
@@ -138,7 +141,7 @@ function Refunds({ rows: list, token, tenant, onDone }) {
               <Td>{fmtDate(r.created_at)}</Td>
               <Td>
                 {r.status === 'approved' && (
-                  <button onClick={() => execute(r.id)} disabled={busy === r.id} className={btn}>
+                  <button onClick={() => execute(r.id)} disabled={busy === r.id} className={link}>
                     {busy === r.id ? 'Executing…' : 'Execute refund'}
                   </button>
                 )}
@@ -158,7 +161,7 @@ function Refunds({ rows: list, token, tenant, onDone }) {
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-slate-500">{fmtDate(r.created_at)}</span>
               {r.status === 'approved' && (
-                <button onClick={() => execute(r.id)} disabled={busy === r.id} className={btn}>
+                <button onClick={() => execute(r.id)} disabled={busy === r.id} className={link}>
                   {busy === r.id ? 'Executing…' : 'Execute refund'}
                 </button>
               )}
@@ -203,7 +206,7 @@ function Payouts({ rows: list, token, tenant, onDone }) {
               <Td><StatusBadge value={p.status} /></Td>
               <Td>
                 {p.status === 'pending' && (
-                  <button onClick={() => settle(p.id)} disabled={busy === p.id} className={btn}>
+                  <button onClick={() => settle(p.id)} disabled={busy === p.id} className={link}>
                     {busy === p.id ? 'Settling…' : 'Settle'}
                   </button>
                 )}
@@ -228,7 +231,7 @@ function Payouts({ rows: list, token, tenant, onDone }) {
             <div className="flex items-center justify-between gap-2">
               {p.disbursement_ref && <span className="font-mono text-xs text-slate-500">{p.disbursement_ref}</span>}
               {p.status === 'pending' && (
-                <button onClick={() => settle(p.id)} disabled={busy === p.id} className={btn}>
+                <button onClick={() => settle(p.id)} disabled={busy === p.id} className={link}>
                   {busy === p.id ? 'Settling…' : 'Settle'}
                 </button>
               )}

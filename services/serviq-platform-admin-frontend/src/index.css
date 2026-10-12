@@ -13,6 +13,13 @@
   --color-brand-800: #5b21b6;
   --color-accent-500: #14b8a6;
   --color-ink-900: #1e1b4b;
+
+  /* 16px type floor — the small steps remap to base so no UI text drops
+     below 16px (mobile readability + the iOS input-zoom threshold). */
+  --text-xs: 1rem;
+  --text-xs--line-height: 1.5rem;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5rem;
 }
 
 html { font-size: 16px; }

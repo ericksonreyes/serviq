@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, fmtDate, selectCompact } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, PageHead, Pager, StatusBadge, btn, btnDanger, fmtDate, selectCompact, statusLabel } from '../../components/ui'
 
 const STATUSES = ['', 'submitted', 'reviewed', 'converted', 'cancelled']
 
@@ -14,10 +14,20 @@ export default function Requests() {
   const tenant = useTenant()
   const [params] = useSearchParams()
   const [status, setStatus] = useState('')
+  const [page, setPage] = useState(1)
   const [sel, setSel] = useState(null)
-  const { data: list, error, loading, reload } = useLoader(
-    async () => rows(await api.requests(token, tenant, status)), [token, tenant, status],
+  const { data, error, loading, reload } = useLoader(
+    async () => Promise.all([
+      api.requests(token, tenant, status, page),
+      api.services(token, tenant).catch(() => null),
+    ]).then(([reqs, services]) => ({ reqs, services })),
+    [token, tenant, status, page],
   )
+  const list = rows(data?.reqs)
+  // /services returns {data: {services: [...], areas: [...]}} — map ids to names.
+  const svcBody = data?.services?.data ?? data?.services ?? {}
+  const svcRows = Array.isArray(svcBody) ? svcBody : (svcBody.services ?? [])
+  const svcNames = Object.fromEntries(svcRows.map((s) => [s.id, s.name]))
   const want = params.get('request')
   useEffect(() => {
     if (want && list) setSel(list.find((r) => r.id === want) ?? null)
@@ -26,15 +36,16 @@ export default function Requests() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Service requests</h1>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCompact}>
-          {STATUSES.map((s) => <option key={s} value={s}>{s || 'all statuses'}</option>)}
+        <PageHead title="Service requests" desc="Inbound customer asks — review details, convert to a job, or cancel." />
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className={selectCompact}>
+          {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s) || 'all statuses'}</option>)}
         </select>
       </div>
       <ErrorBox error={error} />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-4 ${sel ? 'xl:grid-cols-2' : ''}`}>
         <Card title="Requests">
-          {loading ? <Loading /> : !list || list.length === 0 ? <Empty /> : (
+          <Pager meta={data?.reqs} onPage={setPage} top />
+          {loading ? <Loading /> : list.length === 0 ? <Empty /> : (
             <ul className="divide-y divide-slate-100">
               {list.map((r) => (
                 <li key={r.id}>
@@ -49,20 +60,27 @@ export default function Requests() {
               ))}
             </ul>
           )}
+          <Pager meta={data?.reqs} onPage={setPage} />
         </Card>
-        {sel ? <RequestDetail key={sel.id} request={sel} token={token} tenant={tenant} onDone={() => { setSel(null); reload() }} /> : (
-          <Card title="Detail"><Empty text="Select a request." /></Card>
-        )}
+        {sel && <RequestDetail key={sel.id} request={sel} token={token} tenant={tenant} svcNames={svcNames} onDone={() => { setSel(null); reload() }} />}
       </div>
     </div>
   )
 }
 
-function RequestDetail({ request: r, token, tenant, onDone }) {
+function RequestDetail({ request: r, token, tenant, svcNames, onDone }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const [ok, setOk] = useState(null)
   const [agents, setAgents] = useState(null)
+
+  // Converted requests continue as jobs — resolve the linked job so the
+  // dispatcher can jump straight to it.
+  const { data: jobEnv } = useLoader(
+    () => (r.status === 'converted' ? api.jobs(token, tenant, `?request_id=${r.id}`) : Promise.resolve(null)),
+    [token, tenant, r.id, r.status],
+  )
+  const linkedJob = rows(jobEnv ?? {})[0]
 
   const act = async (fn, msg) => {
     setBusy(true)
@@ -96,7 +114,7 @@ function RequestDetail({ request: r, token, tenant, onDone }) {
         <Row k="Customer" v={r.customer?.name} />
         <Row k="Contact" v={[r.customer?.contact?.phone, r.customer?.contact?.email].filter(Boolean).join(' · ') || '—'} />
         <Row k="Location" v={[addr.line1, addr.barangay, addr.city].filter(Boolean).join(', ') || '—'} />
-        <Row k="Service" v={r.service_id || '—'} mono />
+        <Row k="Service" v={svcNames?.[r.service_id] || r.service_id || '—'} />
         <Row k="Preferred schedule" v={r.details?.preferred_date || r.details?.scheduled_for || '—'} />
         <Row k="Notes" v={r.details?.notes || r.details?.description || '—'} />
         {r.feedback && <Row k="Customer feedback" v={`${'★'.repeat(r.feedback.rating || 0)} ${r.feedback.comment || ''}`} />}
@@ -114,10 +132,15 @@ function RequestDetail({ request: r, token, tenant, onDone }) {
             )}
           </div>
         )}
-        <div className="flex flex-wrap gap-2">
-          <button onClick={findAgents} disabled={busy} className={btn}>Check available agents</button>
+        <div className="flex flex-wrap gap-3">
           {(r.status === 'submitted' || r.status === 'reviewed') && (
-            <button onClick={() => act(() => api.convertRequest(token, tenant, r.id), 'Converted — hand-off to job management emitted.')} disabled={busy} className={btn}>
+            <button onClick={findAgents} disabled={busy} className={btn}>Check available agents</button>
+          )}
+          {linkedJob && (
+            <Link to={`/dispatch/jobs?job=${linkedJob.id}`} className={btn}>View job →</Link>
+          )}
+          {(r.status === 'submitted' || r.status === 'reviewed') && (
+            <button onClick={() => act(() => api.convertRequest(token, tenant, r.id), 'Job created — hand-off to job management emitted.')} disabled={busy} className={btn}>
               Convert to job
             </button>
           )}

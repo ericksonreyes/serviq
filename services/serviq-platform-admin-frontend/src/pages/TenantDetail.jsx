@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, ErrorBox, STATUS_TONE, btn, btnDanger, btnSecondary, card, input, label, select } from '../ui'
+import { Badge, ErrorBox, PageHead, STATUS_TONE, btn, btnDanger, btnSecondary, card, input, label, select } from '../ui'
 
 const TRANSITIONS = {
   pending: ['activate', 'deactivate'],
@@ -81,7 +81,7 @@ export default function TenantDetail() {
         <Link to="/providers" className="text-sm text-violet-700 hover:underline">
           ← Service providers
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">{tenant?.name}</h1>
+        <PageHead title={tenant?.name} desc="Provider account — subscription, users, and configuration." />
       </div>
       <ErrorBox error={error} />
       {notice && (

@@ -32,6 +32,7 @@ async function request(base, path, { token, method = 'GET', body, _retried } = {
     const err = new Error(json.message || json.error || `Request failed (${res.status})`)
     err.status = res.status
     err.fields = json.errors || null
+    err.coveredNames = json.covered_names || null
     throw err
   }
   return json
@@ -53,6 +54,17 @@ export const api = {
   provider: (slug) => request(PLATFORM_URL, `/api/v1/providers/${encodeURIComponent(slug)}`),
   // Public flag probe — {data:{key, enabled}}; 404 means the flag does not exist.
   featureFlag: (key) => request(PLATFORM_URL, `/api/v1/feature-flags/${encodeURIComponent(key)}`),
+
+  // Location hierarchy + coverage — address cascade and early
+  // outside-area feedback during booking.
+  locationSearch: (token, q, level) =>
+    request(API_URL, `/api/v1/locations/search?q=${encodeURIComponent(q)}&level=${level || ''}`, { token }),
+  locationChildren: (token, code) =>
+    request(API_URL, `/api/v1/locations/${code}/children`, { token }),
+  coverageCheck: (token, code) =>
+    request(API_URL, `/api/v1/coverage/check?code=${code || ''}`, { token }),
+  coverageInterest: (token, adminCode) =>
+    request(API_URL, '/api/v1/coverage/interest', { token, method: 'POST', body: { admin_code: adminCode } }),
 
   catalog: (token) => request(API_URL, '/api/v1/catalog', { token }),
   service: (token, id) => request(API_URL, `/api/v1/catalog/${id}`, { token }),
@@ -80,8 +92,8 @@ export const api = {
 
   jobs: (token) => request(API_URL, '/api/v1/me/jobs', { token }),
 
-  notifications: (token, params = '') =>
-    request(API_URL, `/api/v1/me/notifications${params}`, { token }),
+  notifications: (token, page = 1, unread = false) =>
+    request(API_URL, `/api/v1/me/notifications?page=${page}${unread ? '&unread=1' : ''}`, { token }),
   markRead: (token, id) =>
     request(API_URL, `/api/v1/me/notifications/${id}/read`, { token, method: 'POST' }),
 

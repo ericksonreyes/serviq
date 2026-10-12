@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, Empty, ErrorBox, STATUS_TONE, card, money, td, th } from '../ui'
+import { Badge, Empty, ErrorBox, PageHead, STATUS_TONE, card, money, td, th } from '../ui'
 
 export default function Income() {
   const { token } = useAuth()
@@ -18,7 +18,7 @@ export default function Income() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Income & settlement</h1>
+        <PageHead title="Income & settlement" desc="Platform take, provider payouts, and settlement status." />
         <p className="mt-1 text-sm text-slate-500">
           Operational income data — platform fee income derived from each provider's plan and
           subscription status. This is not payment-ledger data; customer billing lives in the

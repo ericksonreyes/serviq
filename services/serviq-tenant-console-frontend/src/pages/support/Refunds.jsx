@@ -1,22 +1,24 @@
+import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import ChatPanel from '../../components/ChatPanel'
-import { Card, Empty, ErrorBox, Loading, StatusBadge, fmtDate, money } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, Pager, StatusBadge, fmtDate, money } from '../../components/ui'
 
 // Refund desk — billing refund requests alongside recorded support
 // decisions, plus invoice/revenue context for the reviewer.
 export default function Refunds() {
   const { token } = useAuth()
   const tenant = useTenant()
+  const [page, setPage] = useState(1)
   const { data, error, loading } = useLoader(async () => {
     const [refunds, decisions, invoices] = await Promise.all([
-      api.refundRequests(token, tenant).catch(() => []),
+      api.refundRequests(token, tenant, page).catch(() => []),
       api.refundDecisions(token, tenant).catch(() => []),
       api.invoices(token, tenant).catch(() => []),
     ])
-    return { refunds: rows(refunds), decisions: rows(decisions), invoices: rows(invoices) }
-  }, [token, tenant])
+    return { refunds: rows(refunds), refundsMeta: refunds, decisions: rows(decisions), invoices: rows(invoices) }
+  }, [token, tenant, page])
 
   const revenue = data ? {
     expected: data.invoices.filter((i) => i.status === 'issued').reduce((s, i) => s + i.amount_cents, 0),
@@ -26,7 +28,7 @@ export default function Refunds() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Refunds & revenue</h1>
+      <PageHead title="Refunds & revenue" desc="Refund queue — review requests, approve or deny, execute payouts." />
       <ErrorBox error={error} />
       {data && (
         <div className="grid grid-cols-3 gap-4">
@@ -37,6 +39,7 @@ export default function Refunds() {
       )}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card title="Refund requests">
+          <Pager meta={data?.refundsMeta} onPage={setPage} top />
           {loading ? <Loading /> : !data || data.refunds.length === 0 ? <Empty text="No refund requests." /> : (
             <>
             <div className="hidden sm:block overflow-x-auto"><table className="w-full">
@@ -68,6 +71,7 @@ export default function Refunds() {
             </div>
             </>
           )}
+          <Pager meta={data?.refundsMeta} onPage={setPage} />
           <p className="mt-2 text-xs text-slate-400">Approve or reject on the linked case — open Cases and record a refund decision.</p>
         </Card>
         <Card title="Recorded decisions">

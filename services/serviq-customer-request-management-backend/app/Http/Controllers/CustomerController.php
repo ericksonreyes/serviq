@@ -11,7 +11,7 @@ class CustomerController
 {
     public function index(string $tenant): JsonResponse
     {
-        return response()->json(['data' => Customer::where('tenant_id', $tenant)->orderBy('name')->paginate(50)]);
+        return response()->json(Customer::where('tenant_id', $tenant)->orderBy('name')->paginate(50));
     }
 
     public function store(Request $request, DomainEventRecorder $events): JsonResponse

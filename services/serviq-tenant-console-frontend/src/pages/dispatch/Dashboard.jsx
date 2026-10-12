@@ -4,7 +4,7 @@ import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
 import CommandBox from '../../components/CommandBox'
-import { Card, Empty, ErrorBox, Loading, StatusBadge, btn, btnGhost } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, StatusBadge, link } from '../../components/ui'
 
 // Dispatcher home — the NL command box plus the live dispatch queue.
 export default function Dashboard() {
@@ -31,7 +31,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Dispatch</h1>
+      <PageHead title="Dispatch" desc="Run the day — ask the assistant, watch the queue, broadcast offers." />
       <CommandBox />
       <ErrorBox error={error} />
       <ErrorBox error={err} />
@@ -45,11 +45,13 @@ export default function Dashboard() {
                 <tr key={j.job_id || j.id}>
                   <td className="px-3 py-2"><span className="font-mono text-xs text-slate-700">{j.job_id || j.id}</span></td>
                   <td className="px-3 py-2"><StatusBadge value={j.status} /></td>
-                  <td className="px-3 py-2 text-right">
-                    <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={`${btnGhost} mr-2 inline-block`}>Assign</Link>
-                    <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={btn}>
-                      {busy === (j.job_id || j.id) ? 'Broadcasting…' : 'Broadcast offers'}
-                    </button>
+                  <td className="px-3 py-2">
+                    <div className="flex justify-end gap-3">
+                      <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={link}>Assign</Link>
+                      <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={link}>
+                        {busy === (j.job_id || j.id) ? 'Broadcasting…' : 'Broadcast offers'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -62,9 +64,9 @@ export default function Dashboard() {
                   <span className="truncate font-mono text-xs text-slate-700">{j.job_id || j.id}</span>
                   <StatusBadge value={j.status} />
                 </div>
-                <div className="flex gap-2">
-                  <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={`${btnGhost} inline-block`}>Assign</Link>
-                  <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={btn}>
+                <div className="flex gap-3">
+                  <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={link}>Assign</Link>
+                  <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={link}>
                     {busy === (j.job_id || j.id) ? 'Broadcasting…' : 'Broadcast offers'}
                   </button>
                 </div>

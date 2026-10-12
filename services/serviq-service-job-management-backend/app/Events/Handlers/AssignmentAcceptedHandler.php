@@ -2,6 +2,7 @@
 
 namespace App\Events\Handlers;
 
+use App\Domain\Jobs\JobLifecycle;
 use App\Models\Job;
 use App\Services\JobStore;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,19 @@ class AssignmentAcceptedHandler
         }
 
         $job = Job::find($jobId);
-        if ($job === null || $job->status === 'assigned') {
+        if ($job === null) {
+            return;
+        }
+
+        // Assigned to the same agent → duplicate event, drop it. Past the
+        // dispatch-committed window (agent accepted/started/closed) → a late
+        // Accepted must not rewind the lifecycle. Assigned to a *different*
+        // agent → dispatcher reassign: re-record Job.Assigned with the new
+        // agent so the projection follows Assignment's decision.
+        if ($job->status === JobLifecycle::ASSIGNED && $job->assigned_agent_id === $agentId) {
+            return;
+        }
+        if (in_array($job->status, [JobLifecycle::ACCEPTED, JobLifecycle::IN_PROGRESS, JobLifecycle::COMPLETED, JobLifecycle::CANCELLED], true)) {
             return;
         }
 

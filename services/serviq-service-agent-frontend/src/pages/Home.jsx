@@ -7,7 +7,7 @@ import {
 import { api } from '../api'
 import { useAuth } from '../auth'
 import Shell from '../Shell'
-import { addressText, STATUS_COLORS, STATUS_LABELS } from '../format'
+import { addressText, fmtDateTime, STATUS_COLORS, STATUS_LABELS } from '../format'
 
 function OfferCard({ offer, onDecide, busy }) {
   return (
@@ -18,11 +18,11 @@ function OfferCard({ offer, onDecide, busy }) {
           {addressText(offer.address) || 'Address provided after accepting'}
         </Typography>
         {offer.scheduled_for && (
-          <Typography variant="body2" color="text.secondary">Scheduled: {offer.scheduled_for}</Typography>
+          <Typography variant="body2" color="text.secondary">Scheduled: {fmtDateTime(offer.scheduled_for)}</Typography>
         )}
         {offer.expires_at && (
           <Typography variant="caption" color="text.secondary">
-            Offer expires {new Date(offer.expires_at).toLocaleString()}
+            Offer expires {fmtDateTime(offer.expires_at)}
           </Typography>
         )}
       </CardContent>
@@ -34,10 +34,30 @@ function OfferCard({ offer, onDecide, busy }) {
   )
 }
 
+function PoolCard({ job, onClaim, busy }) {
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="subtitle1">{job.customer?.name || `Job ${job.job_id?.slice(0, 8)}…`}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {addressText(job.address) || 'Address on request'}
+        </Typography>
+        {job.scheduled_for && (
+          <Typography variant="body2" color="text.secondary">Scheduled: {fmtDateTime(job.scheduled_for)}</Typography>
+        )}
+      </CardContent>
+      <CardActions>
+        <Button variant="contained" disabled={busy} onClick={() => onClaim(job.job_id)}>Claim job</Button>
+      </CardActions>
+    </Card>
+  )
+}
+
 export default function Home() {
   const { token, claims } = useAuth()
   const [home, setHome] = useState(null)
   const [jobs, setJobs] = useState([])
+  const [pool, setPool] = useState({ data: [], strategy: null })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -47,6 +67,7 @@ export default function Home() {
     Promise.all([
       api.agentHome(token, claims.sub).then((res) => setHome(res.data ?? res)),
       api.myJobs(token).then((res) => setJobs(res.data ?? [])),
+      api.openJobs(token).then((res) => setPool({ data: res.data ?? [], strategy: res.strategy })),
     ])
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -64,6 +85,21 @@ export default function Home() {
     } catch (err) {
       setError(err.message)
       setLoading(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const claim = async (jobId) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.claimJob(token, jobId)
+      load()
+    } catch (err) {
+      // 404 = another agent claimed it first — reload shows the fresh pool.
+      setError(err.status === 404 ? 'That job was just claimed by another agent.' : err.message)
+      load()
     } finally {
       setBusy(false)
     }
@@ -93,6 +129,19 @@ export default function Home() {
             {offers.map((o) => <OfferCard key={o.id} offer={o} onDecide={decide} busy={busy} />)}
           </Stack>
 
+          {pool.strategy === 'self' && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" sx={{ mb: 1 }}>Open jobs</Typography>
+              {pool.data.length === 0 && (
+                <Typography color="text.secondary">Nothing in the pool right now — new jobs appear here as they open up.</Typography>
+              )}
+              <Stack spacing={1.5}>
+                {pool.data.map((j) => <PoolCard key={j.job_id} job={j} onClaim={claim} busy={busy} />)}
+              </Stack>
+            </>
+          )}
+
           <Divider sx={{ my: 3 }} />
           <Typography variant="h6" sx={{ mb: 1 }}>Active jobs</Typography>
           {active.length === 0 && (
@@ -109,7 +158,7 @@ export default function Home() {
                     <Chip size="small" color={STATUS_COLORS[e.status] || 'default'}
                       label={STATUS_LABELS[e.status] || e.status} />
                     {e.scheduled_for && (
-                      <Typography variant="caption" color="text.secondary">{e.scheduled_for}</Typography>
+                      <Typography variant="caption" color="text.secondary">{fmtDateTime(e.scheduled_for)}</Typography>
                     )}
                   </Stack>
                   <Typography variant="subtitle1">

@@ -1,7 +1,7 @@
 import { api, rows } from '../api'
 import { useAuth, useTenant } from '../auth'
 import { useLoader } from '../hooks'
-import { Card, Empty, ErrorBox, Loading, StatusBadge, money } from '../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, StatusBadge, money } from '../components/ui'
 
 // Operations summary — the tenant's reports view, built from the existing
 // list endpoints (requests, jobs, invoices, remittances).
@@ -28,7 +28,7 @@ export default function Home() {
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
+        <PageHead title="Overview" desc="Live picture of today — queue depth, open cases, money in flight." />
         <p className="text-sm text-slate-500">{(claims?.roles || []).join(' · ')}</p>
       </div>
       <ErrorBox error={error} />
