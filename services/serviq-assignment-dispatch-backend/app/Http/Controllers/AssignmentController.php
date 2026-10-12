@@ -56,7 +56,7 @@ class AssignmentController
             'job_id' => ['required', 'uuid'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
         ]);
-        $job = DispatchableJob::where('job_id', $data['job_id'])->where('tenant_id', $tenant)->firstOrFail();
+        $job = $this->dispatchable($tenant, $data['job_id']);
 
         return response()->json(['data' => $dispatch->recommend($job, $data['limit'] ?? 5)]);
     }
@@ -68,7 +68,7 @@ class AssignmentController
             'job_id' => ['required', 'uuid'],
             'agent_id' => ['required', 'uuid', 'exists:agents,agent_id'],
         ]);
-        $job = DispatchableJob::where('job_id', $data['job_id'])->where('tenant_id', $tenant)->firstOrFail();
+        $job = $this->dispatchable($tenant, $data['job_id']);
 
         return response()->json(['data' => $dispatch->createAccepted($job, $data['agent_id'], 'dispatcher')], 201);
     }
@@ -80,7 +80,7 @@ class AssignmentController
             'job_id' => ['required', 'uuid'],
             'ttl_seconds' => ['nullable', 'integer', 'min:5', 'max:86400'],
         ]);
-        $job = DispatchableJob::where('job_id', $data['job_id'])->where('tenant_id', $tenant)->firstOrFail();
+        $job = $this->dispatchable($tenant, $data['job_id']);
         $ttl = $data['ttl_seconds'] ?? AssignmentRule::find($tenant)?->offer_ttl_seconds ?? 60;
 
         return response()->json(['data' => $dispatch->broadcast($job, $ttl)], 201);
@@ -136,6 +136,25 @@ class AssignmentController
         }
 
         return response()->json(['data' => $assignment], 201);
+    }
+
+    /** Current tenant dispatch rules — the automatic default until configured. */
+    /**
+     * Released jobs reach Dispatch by event, a few seconds after release.
+     * Stays 404 (no existence leak) but tells the dispatcher what to do.
+     */
+    private function dispatchable(string $tenant, string $jobId): DispatchableJob
+    {
+        return DispatchableJob::where('job_id', $jobId)->where('tenant_id', $tenant)->first()
+            ?? abort(404, 'This job has not reached dispatch yet — it appears a few seconds after release. Try again shortly.');
+    }
+
+    public function rules(string $tenant): JsonResponse
+    {
+        $rule = AssignmentRule::find($tenant)
+            ?? new AssignmentRule(['tenant_id' => $tenant, 'strategy' => 'automatic', 'offer_ttl_seconds' => 60]);
+
+        return response()->json(['data' => $rule]);
     }
 
     /** Tenant dispatch rules. */

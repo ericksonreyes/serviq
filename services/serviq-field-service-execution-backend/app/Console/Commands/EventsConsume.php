@@ -21,6 +21,7 @@ class EventsConsume extends Command
         'Job.Requested' => JobEventHandler::class,
         'Job.WorkflowStepStarted' => JobEventHandler::class,
         'Job.WorkflowStepCompleted' => JobEventHandler::class,
+        'Job.Cancelled' => JobEventHandler::class,
     ];
 
     public function handle(RabbitMq $mq): int

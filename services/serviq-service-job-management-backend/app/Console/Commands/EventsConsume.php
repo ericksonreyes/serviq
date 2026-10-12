@@ -33,6 +33,7 @@ class EventsConsume extends Command
         'Execution.CheckedIn' => ExecutionEventHandler::class,
         'Execution.StepStarted' => ExecutionEventHandler::class,
         'Execution.StepCompleted' => ExecutionEventHandler::class,
+        'Execution.Completed' => ExecutionEventHandler::class,
     ];
 
     public function handle(RabbitMq $mq): int

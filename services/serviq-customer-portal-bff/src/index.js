@@ -1,8 +1,17 @@
 import express from 'express'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
-import { startProjector } from './projector.js'
+import { MongoClient } from 'mongodb'
 
 const app = express()
+
+// Express 4 doesn't catch async rejections — route them to the error handler
+// so one dropped upstream socket can't take the whole BFF down.
+for (const m of ['get', 'post', 'put', 'patch', 'delete']) {
+  const orig = app[m].bind(app)
+  app[m] = (path, ...handlers) => (typeof path === 'string' && handlers.length
+    ? orig(path, ...handlers.map((h) => (req, res, next) => Promise.resolve(h(req, res, next)).catch(next)))
+    : orig(path, ...handlers))
+}
 app.use(express.json())
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', _req.headers.origin || '*')
@@ -52,7 +61,9 @@ async function upstream(req, res, base, path, { method = 'GET', body } = {}) {
 
 const notFound = (res) => res.status(404).json({ message: 'Not found' })
 
-const { mongo } = await startProjector()
+// Read side only — projection runs in the dedicated -consumer container.
+const mongo = new MongoClient(process.env.MONGODB_URI || 'mongodb://mongo:27017/serviq_portal')
+await mongo.connect()
 const db = mongo.db()
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'customer-portal-bff' }))
@@ -273,6 +284,11 @@ app.post('/api/v1/chat', auth, (req, res) =>
       context: req.body?.context,
     },
   }))
+
+app.use((err, req, res, _next) => {
+  console.error('[bff]', req.method, req.path, err.cause?.code ?? err.message)
+  res.status(502).json({ message: 'A backing service is unavailable — try again shortly' })
+})
 
 const port = process.env.PORT || 3000
 app.listen(port, () => console.log(`[bff] customer-portal-bff :${port}`))

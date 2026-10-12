@@ -19,7 +19,30 @@ export const dataSource = new DataSource({
   synchronize: false,
 });
 
+// Compose postgres only provisions the shared "serviq" database — create
+// this service's database on first boot, mirroring the PHP entrypoints.
+async function ensureDatabase(): Promise<void> {
+  const name = process.env.DB_DATABASE || 'serviq_support';
+  const admin = new Client({
+    host: process.env.DB_HOST || 'postgres',
+    port: Number(process.env.DB_PORT || 5432),
+    database: 'postgres',
+    user: process.env.DB_USERNAME || 'serviq',
+    password: process.env.DB_PASSWORD || 'serviq',
+  });
+  await admin.connect();
+  try {
+    const { rowCount } = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [name]);
+    if (!rowCount) await admin.query(`CREATE DATABASE "${name.replace(/"/g, '""')}"`);
+  } catch (e) {
+    if ((e as { code?: string }).code !== '42P04') throw e;
+  } finally {
+    await admin.end();
+  }
+}
+
 export async function ensureSchema(): Promise<void> {
+  await ensureDatabase();
   const client = new Client({
     host: process.env.DB_HOST || 'postgres',
     port: Number(process.env.DB_PORT || 5432),

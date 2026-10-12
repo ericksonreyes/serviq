@@ -80,6 +80,9 @@ export function createApp() {
 
   const api = Router();
   api.use(jwtAuth);
+  // A malformed case id would otherwise reach Postgres as a uuid cast and
+  // reject outside Express 4's error path, taking the process down.
+  api.param('case', (req, res, next, id) => (uuid(id) ? next() : bad(res, 'case must be a uuid')));
 
   // ── Read model (plain Express+Node per ADR-0020): case queries. ──
   api.get('/tenants/:tenant/cases', tenantScope, async (req, res) => {
@@ -89,7 +92,7 @@ export function createApp() {
     if (req.query.status) filter.status = req.query.status;
     const docs = await readDb().collection<CaseDoc>('cases')
       .find(filter).sort({ created_at: -1 }).limit(50).toArray();
-    res.json({ data: docs });
+    res.json({ data: docs.map((d) => ({ ...d, id: d._id })) });
   });
 
   // Case detail — read-model doc, notes merged from the command side so a

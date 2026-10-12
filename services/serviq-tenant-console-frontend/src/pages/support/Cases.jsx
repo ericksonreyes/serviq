@@ -28,6 +28,7 @@ export default function Cases() {
         </select>
       </div>
       <ErrorBox error={error} />
+      <OpenCase token={token} onDone={reload} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card title="Cases">
           {loading ? <Loading /> : !list || list.length === 0 ? <Empty text="No cases." /> : (
@@ -52,6 +53,67 @@ export default function Cases() {
       </div>
       <ChatPanel profile="support" title="Support assistant" />
     </div>
+  )
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Case intake — support staff log a complaint on the customer's behalf
+// (phone, email, walk-in); linking the invoice enables a refund decision.
+function OpenCase({ token, onDone }) {
+  const blank = { subject: '', invoice_id: '', job_id: '', details: '' }
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState(blank)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const [ok, setOk] = useState(null)
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setErr(null)
+    setOk(null)
+    const bad = ['invoice_id', 'job_id'].find((k) => form[k].trim() && !UUID.test(form[k].trim()))
+    if (bad) { setErr(`${bad === 'invoice_id' ? 'Invoice' : 'Job'} id must be a full UUID.`); return }
+    setBusy(true)
+    try {
+      await api.openCase(token, {
+        subject: form.subject.trim(),
+        invoice_id: form.invoice_id.trim() || undefined,
+        job_id: form.job_id.trim() || undefined,
+        details: form.details.trim() || undefined,
+      })
+      setOk(`Case "${form.subject.trim()}" opened.`)
+      setForm(blank)
+      onDone()
+    } catch (e2) {
+      setErr(e2.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title="Open a case">
+      <Notice>{ok}</Notice>
+      {!open ? (
+        <button onClick={() => setOpen(true)} className={btnGhost}>New case</button>
+      ) : (
+        <form onSubmit={submit} className="space-y-3">
+          <ErrorBox error={err} />
+          <div><label className={label} htmlFor="case-subject">Subject</label><input id="case-subject" className={input} required maxLength={255} value={form.subject} onChange={set('subject')} /></div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div><label className={label} htmlFor="case-invoice">Invoice id (optional)</label><input id="case-invoice" className={input} placeholder="Needed for a refund decision" value={form.invoice_id} onChange={set('invoice_id')} /></div>
+            <div><label className={label} htmlFor="case-job">Job id (optional)</label><input id="case-job" className={input} value={form.job_id} onChange={set('job_id')} /></div>
+          </div>
+          <div><label className={label} htmlFor="case-details">Details</label><textarea id="case-details" className={input} rows={2} value={form.details} onChange={set('details')} /></div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={busy || !form.subject.trim()} className={btn}>{busy ? 'Opening…' : 'Open case'}</button>
+            <button type="button" onClick={() => { setOpen(false); setErr(null) }} className={btnGhost}>Close</button>
+          </div>
+        </form>
+      )}
+    </Card>
   )
 }
 

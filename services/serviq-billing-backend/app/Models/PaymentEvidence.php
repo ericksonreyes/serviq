@@ -16,14 +16,18 @@ class PaymentEvidence extends Model
     protected $table = 'payment_evidence';
 
     public const TYPES = [
-        'E_WALLET', 'BANK_SLIP', 'BANK_CHECK', 'POS_RECEIPT',
+        'E_WALLET', 'BANK_SLIP', 'REMITTANCE_RECEIPT', 'BANK_CHECK', 'POS_RECEIPT',
         'PURCHASE_ORDER', 'CASH_PHOTO', 'OTHER',
     ];
+
+    /** Proof that collected cash was deposited — what a deposit batch accepts. */
+    public const DEPOSIT_TYPES = ['BANK_SLIP', 'REMITTANCE_RECEIPT'];
 
     /** document_type → Payment.method. */
     public const METHOD_MAP = [
         'E_WALLET' => 'wallet',
         'BANK_SLIP' => 'bank',
+        'REMITTANCE_RECEIPT' => 'bank',
         'BANK_CHECK' => 'bank',
         'POS_RECEIPT' => 'card',
         'PURCHASE_ORDER' => 'cash',

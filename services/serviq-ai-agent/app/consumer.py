@@ -78,13 +78,35 @@ def _handle(envelope: dict) -> None:
           f"({parsed['confidence']})", flush=True)
 
 
+def _declare_queues(conn, ch):
+    """Queue + DLQ per EVENT_DELIVERY.MD: a failed handler NACKs into
+    `ai-agent.events.dlq` via `serviq.events.dlx` instead of dropping."""
+    dlq = QUEUE + ".dlq"
+    dlx = EXCHANGE + ".dlx"
+    ch.exchange_declare(dlx, exchange_type="direct", durable=True)
+    ch.queue_declare(dlq, durable=True)
+    ch.queue_bind(dlq, dlx, routing_key=dlq)
+    args = {"x-dead-letter-exchange": dlx, "x-dead-letter-routing-key": dlq}
+    try:
+        ch.queue_declare(QUEUE, durable=True, arguments=args)
+    except pika.exceptions.ChannelClosedByBroker as e:
+        if e.reply_code != 406:
+            raise
+        # Queue predates dead-lettering (declared without args). Recreate it
+        # only when empty — if_empty makes the broker refuse otherwise.
+        ch = conn.channel()
+        ch.queue_delete(QUEUE, if_empty=True)
+        ch.queue_declare(QUEUE, durable=True, arguments=args)
+        print(f"[ai-agent] redeclared {QUEUE} with dead-lettering", flush=True)
+    return ch
+
+
 def main() -> int:
     creds = pika.PlainCredentials(RABBIT_USER, RABBIT_PASS)
     conn = pika.BlockingConnection(pika.ConnectionParameters(RABBIT_HOST, credentials=creds))
     ch = conn.channel()
     ch.exchange_declare(EXCHANGE, exchange_type="topic", durable=True)
-    ch.queue_declare(QUEUE, durable=True)
-    ch.queue_declare(QUEUE + ".dlq", durable=True)
+    ch = _declare_queues(conn, ch)
     for key in BINDINGS:
         ch.queue_bind(QUEUE, EXCHANGE, routing_key=key)
 

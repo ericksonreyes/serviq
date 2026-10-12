@@ -40,6 +40,7 @@ Tool call → Billing API stores the evidence and applies business rules
 | --- | --- | --- |
 | `E_WALLET` | Reference number, amount, channel | Duplicate reference check |
 | `BANK_SLIP` | Bank name, account stamp, date/time, deposited amount, reference number | Duplicate reference check across payments and remittance batches; may close a cash remittance batch on dispatcher confirmation — bank-ledger verification is out of scope |
+| `REMITTANCE_RECEIPT` | Remittance center, date/time, amount, reference number | Same as `BANK_SLIP` — an agent's over-the-counter cash deposit; duplicate reference check, under-remitted flag, closes the covered cash collections on dispatcher confirmation |
 | `BANK_CHECK` | MICR line, payee, numeric amount, written amount, signature present | Numeric-vs-written amount mismatch flagged; unsigned checks rejected; stays `Pending Clearing` |
 | `POS_RECEIPT` | Card scheme, masked card number, auth code, merchant ID | Auth-code reuse check — yesterday's receipt can't pay today's job |
 | `PURCHASE_ORDER` | PO number, billing terms, authorized signatures, itemized SKUs | Creates accounts-receivable entry; updates corporate credit balance |

@@ -62,11 +62,12 @@ class RemittanceService
         });
     }
 
-    /** Deposit-slip batch: one BANK_SLIP evidence remits the covered collections. */
+    /** Deposit batch: one deposit slip / remittance receipt remits the covered collections. */
     public function submitBatch(string $tenant, array $data, string $actorId): Remittance
     {
         $evidence = PaymentEvidence::where('tenant_id', $tenant)->findOrFail($data['evidence_id']);
-        abort_if($evidence->document_type !== 'BANK_SLIP', 422, 'Evidence is not a bank deposit slip');
+        abort_unless(in_array($evidence->document_type, PaymentEvidence::DEPOSIT_TYPES, true), 422,
+            'Evidence is not a bank deposit slip or remittance-center receipt');
         abort_if($evidence->status === PaymentEvidence::REJECTED, 422, 'Evidence was rejected');
 
         $reference = $evidence->extracted['reference'] ?? null;

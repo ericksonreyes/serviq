@@ -67,6 +67,8 @@ export default function JobDetail() {
   const [confirmName, setConfirmName] = useState('')
   const [payment, setPayment] = useState({ document_type: 'E_WALLET', reference: '', amount: '', channel: '' })
   const [confirmDone, setConfirmDone] = useState(false)
+  const [invoice, setInvoice] = useState(undefined)
+  const [confirmCash, setConfirmCash] = useState(false)
   const photoInput = useRef(null)
   const receiptInput = useRef(null)
 
@@ -83,6 +85,22 @@ export default function JobDetail() {
   }, [token, id])
 
   useEffect(() => { load() }, [load])
+
+  const completed = job?.status === 'completed'
+  // Billing issues the invoice asynchronously on Job.Completed — poll briefly.
+  useEffect(() => {
+    if (!completed) return undefined
+    let tries = 0
+    let timer
+    const fetchInvoice = () => api.jobInvoice(token, id)
+      .then((r) => {
+        setInvoice(r.data ?? null)
+        if (!r.data && ++tries < 15) timer = setTimeout(fetchInvoice, 2000)
+      })
+      .catch(() => setInvoice(null))
+    fetchInvoice()
+    return () => clearTimeout(timer)
+  }, [completed, token, id, notice])
 
   const act = async (fn) => {
     setBusy(true); setError(null); setNotice(null)
@@ -127,6 +145,11 @@ export default function JobDetail() {
     })
     setConfirmName('')
     setNotice('Customer confirmation captured.')
+  })
+
+  const collectCash = () => act(async () => {
+    await api.collectCash(token, id)
+    setNotice('Cash collection recorded — include it in your end-of-shift turn-in.')
   })
 
   const submitPayment = (file) => act(async () => {
@@ -205,6 +228,29 @@ export default function JobDetail() {
           </Button>
         )}
       </Stack>
+
+      {completed && (
+        <Section title="Payment">
+          {invoice === undefined && <CircularProgress size={20} />}
+          {invoice === null && (
+            <Typography variant="body2" color="text.secondary">
+              Invoice being issued — this updates automatically.
+            </Typography>
+          )}
+          {invoice?.status === 'issued' && (
+            <Stack spacing={1}>
+              <Typography variant="body2">Amount due: {money(invoice.amount_cents)}</Typography>
+              <Button variant="contained" size="large" fullWidth disabled={busy}
+                onClick={() => setConfirmCash(true)}>
+                Collected cash
+              </Button>
+            </Stack>
+          )}
+          {invoice && invoice.status !== 'issued' && (
+            <Typography variant="body2">Invoice {STATUS_LABELS[invoice.status] || invoice.status}.</Typography>
+          )}
+        </Section>
+      )}
 
       {steps.length > 0 && (
         <Section title="Work steps">
@@ -328,6 +374,23 @@ export default function JobDetail() {
             setConfirmDone(false)
             act(() => api.completeExecution(token, id))
           }}>Complete</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmCash} onClose={() => setConfirmCash(false)}>
+        <DialogTitle>Record cash payment?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Confirm the customer paid {invoice ? money(invoice.amount_cents) : ''} in cash. It joins
+            your expected cash for the end-of-shift turn-in.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmCash(false)}>Back</Button>
+          <Button variant="contained" onClick={() => {
+            setConfirmCash(false)
+            collectCash()
+          }}>Record cash</Button>
         </DialogActions>
       </Dialog>
 

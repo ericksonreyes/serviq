@@ -68,7 +68,13 @@ export const api = {
   submitPaymentEvidence: (token, payload) =>
     request(API_URL, '/api/v1/payment-evidence', { token, method: 'POST', body: payload }),
 
+  jobInvoice: (token, id) => request(API_URL, `/api/v1/executions/${id}/invoice`, { token }),
+  collectCash: (token, id) =>
+    request(API_URL, `/api/v1/executions/${id}/cash-collected`, { token, method: 'POST' }),
+
   expectedRemittance: (token) => request(API_URL, '/api/v1/remittances/expected', { token }),
+  depositRemittance: (token, payload) =>
+    request(API_URL, '/api/v1/remittances/deposits', { token, method: 'POST', body: payload }),
   turnIn: (token, payload) =>
     request(API_URL, '/api/v1/remittances/turn-ins', { token, method: 'POST', body: payload }),
 }

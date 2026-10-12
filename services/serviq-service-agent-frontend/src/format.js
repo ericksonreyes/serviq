@@ -28,9 +28,12 @@ export const STATUS_LABELS = {
   assigned: 'Assigned',
   in_progress: 'In progress',
   completed: 'Completed',
+  cancelled: 'Cancelled',
   open: 'Open',
   'in-progress': 'In progress',
   closed: 'Done',
+  issued: 'Issued',
+  paid: 'Paid',
 }
 
 export const STATUS_COLORS = {
@@ -38,6 +41,7 @@ export const STATUS_COLORS = {
   in_progress: 'warning',
   'in-progress': 'warning',
   completed: 'success',
+  cancelled: 'default',
   closed: 'success',
   open: 'default',
 }

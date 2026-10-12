@@ -182,4 +182,43 @@ class RemittanceFlowTest extends TestCase
             ->assertCreated()->assertJsonPath('data.status', 'remitted');
         $this->api('POST', '/remittances/digital', ['invoice_ids' => [$cash->id]])->assertStatus(422);
     }
+
+    public function test_invoices_filter_by_job_and_reject_malformed_job_ids(): void
+    {
+        $mine = $this->invoice($this->agent, 1500);
+        $this->invoice($this->agent, 900);
+
+        $this->api('GET', "/invoices?job_id={$mine->job_id}")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $mine->id);
+        $this->api('GET', '/invoices?job_id=not-a-uuid')->assertStatus(422);
+    }
+
+    public function test_remittance_center_receipt_closes_a_deposit_batch_but_an_ewallet_receipt_cannot(): void
+    {
+        $a = $this->invoice($this->agent, 150000);
+        $this->paidCash($a);
+
+        $wallet = $this->api('POST', '/payment-evidence', [
+            'document_type' => 'E_WALLET', 'file_ref' => 'agent-deposit:w.jpg',
+            'extracted' => ['reference' => 'W-9', 'amount_cents' => 150000],
+        ])->assertCreated();
+        $this->api('POST', '/remittances/batches', [
+            'evidence_id' => $wallet->json('data.id'), 'invoice_ids' => [$a->id],
+        ])->assertStatus(422);
+
+        $receipt = $this->api('POST', '/payment-evidence', [
+            'document_type' => 'REMITTANCE_RECEIPT', 'file_ref' => 'agent-deposit:r.jpg',
+            'extracted' => ['reference' => 'RC-1', 'amount_cents' => 150000],
+        ])->assertCreated();
+        $batch = $this->api('POST', '/remittances/batches', [
+            'evidence_id' => $receipt->json('data.id'), 'invoice_ids' => [$a->id],
+        ])->assertCreated()->assertJsonPath('data.status', 'pending_confirmation');
+        $this->api('POST', "/remittances/{$batch->json('data.id')}/confirm", ['decision' => 'confirm'])
+            ->assertOk()->assertJsonPath('data.status', 'remitted');
+
+        $this->api('POST', '/payment-evidence', [
+            'document_type' => 'REMITTANCE_RECEIPT', 'file_ref' => 'agent-deposit:x.jpg',
+            'extracted' => ['amount_cents' => 100],
+        ])->assertStatus(422);
+    }
 }

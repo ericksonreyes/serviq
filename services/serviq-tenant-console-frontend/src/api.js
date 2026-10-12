@@ -89,12 +89,16 @@ export const api = {
   // Jobs & dispatch.
   jobs: (token, t) => request(BASES.job, tp(t, '/jobs'), { token }),
   job: (token, t, id) => request(BASES.job, tp(t, `/jobs/${id}`), { token }),
+  confirmJob: (token, t, id) => request(BASES.job, tp(t, `/jobs/${id}/confirm`), { token, method: 'POST' }),
+  readyJob: (token, t, id) => request(BASES.job, tp(t, `/jobs/${id}/ready`), { token, method: 'POST' }),
   assignJob: (token, t, id, agent_id) => request(BASES.job, tp(t, `/jobs/${id}/assign`), { token, method: 'POST', body: { agent_id } }),
   cancelJob: (token, t, id) => request(BASES.job, tp(t, `/jobs/${id}/cancel`), { token, method: 'POST' }),
   rescheduleJob: (token, t, id, scheduled_for) => request(BASES.job, tp(t, `/jobs/${id}/reschedule`), { token, method: 'POST', body: { scheduled_for } }),
   dispatchQueue: (token, t) => request(BASES.dispatch, tp(t, '/dispatch/queue'), { token }),
   dispatchAssign: (token, t, body) => request(BASES.dispatch, tp(t, '/dispatch/assign'), { token, method: 'POST', body }),
   dispatchBroadcast: (token, t, body) => request(BASES.dispatch, tp(t, '/dispatch/broadcast'), { token, method: 'POST', body }),
+  dispatchRules: (token, t) => request(BASES.dispatch, tp(t, '/dispatch/rules'), { token }),
+  setDispatchRules: (token, t, body) => request(BASES.dispatch, tp(t, '/dispatch/rules'), { token, method: 'PUT', body }),
   dispatchRecommend: (token, t, job_id) => request(BASES.dispatch, tp(t, `/dispatch/recommend?job_id=${job_id}`), { token }),
   assignments: (token, t, q = '') => request(BASES.dispatch, tp(t, `/assignments${q}`), { token }),
   executions: (token, t) => request(BASES.field, tp(t, '/executions'), { token }),
@@ -118,6 +122,8 @@ export const api = {
   // Customer Support — cases, notes, status, refund decisions.
   cases: (token, t, status = '') => request(BASES.support, tp(t, `/cases${status ? `?status=${status}` : ''}`), { token }),
   caseDetail: (token, t, id) => request(BASES.support, tp(t, `/cases/${id}`), { token }),
+  // Case intake is scoped by the JWT's tenant claim, not the path.
+  openCase: (token, body) => request(BASES.support, '/api/v1/cases', { token, method: 'POST', body }),
   addCaseNote: (token, t, id, body) => request(BASES.support, tp(t, `/cases/${id}/notes`), { token, method: 'POST', body: { body } }),
   setCaseStatus: (token, t, id, status) => request(BASES.support, tp(t, `/cases/${id}/status`), { token, method: 'POST', body: { status } }),
   refundDecision: (token, t, id, body) => request(BASES.support, tp(t, `/cases/${id}/refund-decision`), { token, method: 'POST', body }),

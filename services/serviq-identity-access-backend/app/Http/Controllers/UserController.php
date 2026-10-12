@@ -14,8 +14,9 @@ class UserController
 {
     public function index(Request $request): JsonResponse
     {
-        $scope = $request->query('scope');
-        if ($scope !== null && ! $request->user()->canAccessScope($scope)) {
+        $caller = $request->user();
+        $scope = $request->query('scope') ?? ($caller->isPlatform() ? null : $caller->tenantId());
+        if ($scope !== null && ! $caller->canAccessScope($scope)) {
             return $this->scopeForbidden();
         }
 

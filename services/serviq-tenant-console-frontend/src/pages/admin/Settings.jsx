@@ -80,6 +80,78 @@ export default function Settings() {
           </>
         )}
       </Card>
+      <DispatchRules token={token} tenant={tenant} />
     </div>
+  )
+}
+
+const STRATEGIES = [
+  ['automatic', 'Automatic — dispatch picks the best eligible agent'],
+  ['broadcast', 'Broadcast — offer to eligible agents, first to accept wins'],
+  ['self', 'Self-assign — agents pull from the open job list'],
+  ['dispatcher', 'Dispatcher — a dispatcher assigns every job'],
+]
+
+// Assignment strategy — dispatch rules owned by Assignment & Dispatch
+// (GET/PUT /dispatch/rules); applied when a job becomes ready for assignment.
+function DispatchRules({ token, tenant }) {
+  const [form, setForm] = useState({ strategy: 'automatic', offer_ttl_seconds: 60 })
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState(null)
+  const [ok, setOk] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api.dispatchRules(token, tenant)
+      .then((res) => {
+        const r = res.data ?? res
+        if (r?.strategy) setForm({ strategy: r.strategy, offer_ttl_seconds: r.offer_ttl_seconds ?? 60 })
+      })
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false))
+  }, [token, tenant])
+
+  const save = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setErr(null)
+    setOk(null)
+    try {
+      await api.setDispatchRules(token, tenant, {
+        strategy: form.strategy,
+        offer_ttl_seconds: Number(form.offer_ttl_seconds) || 60,
+      })
+      setOk('Assignment strategy saved.')
+    } catch (e2) {
+      setErr(e2.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title="Assignment strategy">
+      <ErrorBox error={err} />
+      {loading ? <p className="text-sm text-slate-400">Loading…</p> : (
+        <>
+          <Notice>{ok}</Notice>
+          <form onSubmit={save} className="space-y-4">
+            <div>
+              <label className={label} htmlFor="dispatch-strategy">Strategy</label>
+              <select id="dispatch-strategy" className={input} value={form.strategy} onChange={(e) => setForm({ ...form, strategy: e.target.value })}>
+                {STRATEGIES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+            </div>
+            {form.strategy === 'broadcast' && (
+              <div>
+                <label className={label} htmlFor="dispatch-ttl">Offer expires after (seconds)</label>
+                <input id="dispatch-ttl" className={input} type="number" min={5} max={86400} value={form.offer_ttl_seconds} onChange={(e) => setForm({ ...form, offer_ttl_seconds: e.target.value })} />
+              </div>
+            )}
+            <button type="submit" disabled={busy} className={btn}>{busy ? 'Saving…' : 'Save strategy'}</button>
+          </form>
+        </>
+      )}
+    </Card>
   )
 }
