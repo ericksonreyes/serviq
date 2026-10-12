@@ -8,17 +8,19 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RequirePermission
 {
-    public function handle(Request $request, Closure $next, string $permission): Response
+    public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
         $identity = $request->user();
 
-        if ($identity === null || ! $identity->hasPermission($permission)) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'Missing required permission: '.$permission,
-            ], 403);
+        foreach ($permissions as $permission) {
+            if ($identity !== null && $identity->hasPermission($permission)) {
+                return $next($request);
+            }
         }
 
-        return $next($request);
+        return response()->json([
+            'error' => 'forbidden',
+            'message' => 'Missing required permission: '.implode(' or ', $permissions),
+        ], 403);
     }
 }

@@ -51,7 +51,9 @@ def _ollama_parse(image_bytes: bytes) -> dict:
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=120) as res:
+    # Budget must cover a cold model load (~1-2 min on CPU); shorter
+    # timeouts abort the load server-side.
+    with urllib.request.urlopen(req, timeout=300) as res:
         body = json.loads(res.read())
     return json.loads(body["response"])
 

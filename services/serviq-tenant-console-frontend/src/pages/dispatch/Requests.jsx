@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
@@ -11,11 +12,16 @@ const STATUSES = ['', 'submitted', 'reviewed', 'converted', 'cancelled']
 export default function Requests() {
   const { token } = useAuth()
   const tenant = useTenant()
+  const [params] = useSearchParams()
   const [status, setStatus] = useState('')
   const [sel, setSel] = useState(null)
   const { data: list, error, loading, reload } = useLoader(
     async () => rows(await api.requests(token, tenant, status)), [token, tenant, status],
   )
+  const want = params.get('request')
+  useEffect(() => {
+    if (want && list) setSel(list.find((r) => r.id === want) ?? null)
+  }, [want, list])
 
   return (
     <div className="space-y-4">

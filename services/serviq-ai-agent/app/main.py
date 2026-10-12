@@ -9,12 +9,23 @@ import os
 import re
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from .auth import AuthError, verify_token
 from .orchestrator import ChatError, run_chat
 from .parser import parse_document
 
 app = FastAPI(title="serviq-ai-agent")
+
+# Match the Laravel services' dev CORS posture (config/cors.php defaults):
+# any origin, bearer-token auth — no cookies, so credentials stay off.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 
 PROFILES = ("customer", "dispatcher", "support")
 

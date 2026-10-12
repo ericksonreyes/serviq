@@ -8,6 +8,7 @@ import {
 import { api } from '../api'
 import { useAuth } from '../auth'
 import Shell from '../Shell'
+import ThinkingDots from '../ThinkingDots'
 import { addressText, money, navigateUrl, STATUS_COLORS, STATUS_LABELS } from '../format'
 
 const DOC_TYPES = [
@@ -314,17 +315,17 @@ export default function JobDetail() {
           Customer paid digitally? Photograph the receipt so Billing can match it.
         </Typography>
         <Stack spacing={1.5}>
-          <TextField select label="Payment type" value={payment.document_type}
+          <TextField select label="Payment type" value={payment.document_type} disabled={busy}
             onChange={(e) => setPayment({ ...payment, document_type: e.target.value })}>
             {DOC_TYPES.map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
           </TextField>
-          <TextField label="Reference number" value={payment.reference}
+          <TextField label="Reference number" value={payment.reference} disabled={busy}
             onChange={(e) => setPayment({ ...payment, reference: e.target.value })} />
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Amount (₱)" type="number" value={payment.amount}
+            <TextField label="Amount (₱)" type="number" value={payment.amount} disabled={busy}
               inputProps={{ min: 0, step: '0.01' }}
               onChange={(e) => setPayment({ ...payment, amount: e.target.value })} sx={{ flexGrow: 1 }} />
-            <TextField label="Channel" placeholder="GCash" value={payment.channel}
+            <TextField label="Channel" placeholder="GCash" value={payment.channel} disabled={busy}
               onChange={(e) => setPayment({ ...payment, channel: e.target.value })} sx={{ width: 130 }} />
           </Stack>
           <input ref={receiptInput} type="file" accept="image/*" capture="environment" hidden
@@ -332,7 +333,7 @@ export default function JobDetail() {
           <Button variant="outlined"
             disabled={busy || !payment.reference.trim() || !parseFloat(payment.amount)}
             onClick={() => receiptInput.current?.click()}>
-            Photograph receipt & submit
+            {busy ? <ThinkingDots /> : 'Photograph receipt & submit'}
           </Button>
         </Stack>
       </Section>

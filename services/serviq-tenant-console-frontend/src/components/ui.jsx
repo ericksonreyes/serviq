@@ -1,4 +1,6 @@
 // Shared dense-console primitives — one interaction idiom across pages.
+import { useEffect, useState } from 'react'
+
 export const input =
   'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-violet-600 focus:outline-none focus:ring-1 focus:ring-violet-600'
 // Custom chevron — native select arrows ignore padding on some engines
@@ -79,6 +81,17 @@ export function Notice({ children }) {
 
 export function Loading({ text = 'Loading…' }) {
   return <p className="py-6 text-center text-sm text-slate-400">{text}</p>
+}
+
+// AI-augmented surfaces use this while a request is in flight: the host
+// input is disabled and this label animates the ellipsis every second.
+export function ThinkingLabel({ text = 'Thinking', className = '' }) {
+  const [dots, setDots] = useState(1)
+  useEffect(() => {
+    const id = setInterval(() => setDots((d) => (d % 3) + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span className={className}>{text}<span className="inline-block w-4 text-left">{'.'.repeat(dots)}</span></span>
 }
 
 export function Empty({ text = 'Nothing here yet.' }) {

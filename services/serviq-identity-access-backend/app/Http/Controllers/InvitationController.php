@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invitation;
+use App\Models\Permission;
 use App\Models\RefreshToken;
 use App\Models\Role;
 use App\Models\TenantScope;
@@ -36,7 +37,7 @@ class InvitationController
         return $this->portalBase($invite->role)."/provider/{$slug}/signup?invite={$token}";
     }
 
-    /** Staff creates an invite for their tenant — needs iam.users.manage. */
+    /** Staff creates an invite — iam.invitations.manage invites customers; iam.users.manage invites any role. */
     public function store(string $tenant, Request $request, DomainEventRecorder $events): JsonResponse
     {
         // Non-platform callers invite only into their own tenant.
@@ -48,6 +49,14 @@ class InvitationController
             'email' => ['required', 'email'],
             'role' => ['required', 'string', Rule::in(Invitation::INVITABLE_ROLES)],
         ]);
+
+        // Invitation-only callers (no full iam.users.manage) may invite
+        // customers only — field-staff onboarding stays a user-management act.
+        abort_if(
+            $data['role'] !== Role::CUSTOMER && ! $request->user()?->hasPermission(Permission::USERS_MANAGE),
+            403,
+            'Inviting '.$data['role'].' requires iam.users.manage',
+        );
         $actorId = $request->attributes->get('jwt')['sub'] ?? null;
 
         [$invite, $token] = Invitation::issue($tenant, $data['email'], $data['role'], $actorId);

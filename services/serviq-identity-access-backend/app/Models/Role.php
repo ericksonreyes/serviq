@@ -16,6 +16,8 @@ class Role extends Model
 
     public const DISPATCHER = 'Dispatcher';
 
+    public const CUSTOMER_SUPPORT = 'Customer Support';
+
     public const SERVICE_AGENT = 'Service Agent';
 
     public const CUSTOMER = 'Customer';
@@ -40,6 +42,10 @@ class Role extends Model
         self::DISPATCHER => [
             Permission::DISPATCH_ASSIGNMENTS_MANAGE,
             Permission::REQUESTS_MANAGE,
+        ],
+        self::CUSTOMER_SUPPORT => [
+            Permission::REQUESTS_MANAGE,
+            Permission::INVITATIONS_MANAGE,
         ],
         self::SERVICE_AGENT => [
             Permission::JOBS_EXECUTE,
