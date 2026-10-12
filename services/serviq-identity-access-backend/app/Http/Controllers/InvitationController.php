@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invitation;
+use App\Models\RefreshToken;
 use App\Models\Role;
 use App\Models\TenantScope;
 use App\Models\User;
@@ -120,6 +121,7 @@ class InvitationController
             'token_type' => 'Bearer',
             'access_token' => $issued['token'],
             'expires_in' => $issued['expires_in'],
+            'refresh_token' => RefreshToken::issueFor($user),
             'data' => $user->load('roles'),
         ], 201);
     }

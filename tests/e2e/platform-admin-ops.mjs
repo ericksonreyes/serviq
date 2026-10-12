@@ -1,7 +1,8 @@
 // Platform Admin ops E2E — the platform surfaces the tenant-lifecycle
-// script doesn't touch: plan catalog, feature flags, platform users &
-// roles, platform settings, and the income/settlement report. All writes
-// create throwaway `e2e-` records; nothing global is deleted.
+// script doesn't touch: plan catalog, subscription assignment on tenant
+// detail, feature flags, platform users & roles (create, disable/enable,
+// permission grant), platform settings, and the income/settlement report.
+// All writes create throwaway `e2e-` records; nothing global is deleted.
 import { BASE, run, ok, mark, newPage, login, field } from './lib/harness.mjs'
 
 const SLUG = mark('e2e').toLowerCase()
@@ -29,6 +30,20 @@ await run('PLATFORM ADMIN OPS', async (browser) => {
   await p.getByRole('button', { name: 'Save plan' }).click()
   await p.locator('tr', { hasText: `E2E Plan ${SLUG} Pro` }).waitFor({ timeout: 15000 })
   ok('plan edited')
+
+  // ── Subscription — assign the new plan to a throwaway tenant ─────────
+  await nav('Tenants')
+  await p.getByRole('button', { name: 'New tenant' }).click()
+  await field(p, 'Business name').fill(`E2E Sub Tenant ${SLUG}`)
+  await field(p, 'Slug').fill(`sub-${SLUG}`)
+  await p.getByRole('button', { name: 'Create tenant' }).click()
+  // Creating opens the new tenant's detail page directly.
+  await p.getByRole('heading', { name: `E2E Sub Tenant ${SLUG}` }).waitFor({ timeout: 15000 })
+  await p.locator('select').first().selectOption({ label: `E2E Plan ${SLUG} Pro` })
+  await p.getByRole('button', { name: 'Save subscription' }).click()
+  await p.getByText('Subscription saved.').waitFor({ timeout: 15000 })
+  await p.getByText(`On E2E Plan ${SLUG} Pro (active)`).waitFor({ timeout: 15000 })
+  ok('subscription assigned on tenant detail')
 
   // ── Feature flags — add, enable, disable ─────────────────────────────
   await nav('Feature Flags')
@@ -59,12 +74,32 @@ await run('PLATFORM ADMIN OPS', async (browser) => {
   await p.locator('td', { hasText: user }).first().waitFor({ timeout: 15000 })
   ok('platform user created')
 
+  // Disable → enable on the created user's row. The status badge reads
+  // "disabled"/"active" while the action button reads "Enable"/"Disable",
+  // so row-level hasText filters stay unambiguous.
+  const userRow = p.locator('tr', { has: p.locator('td', { hasText: user }) })
+  await userRow.getByRole('button', { name: 'Disable' }).click()
+  await userRow.filter({ hasText: 'disabled' }).waitFor({ timeout: 15000 })
+  ok('platform user disabled')
+  await userRow.getByRole('button', { name: 'Enable' }).click()
+  await userRow.filter({ hasText: 'active' }).waitFor({ timeout: 15000 })
+  ok('platform user re-enabled')
+
   await p.getByRole('button', { name: 'New role' }).click()
   await field(p, 'Role name').fill(`E2E Role ${SLUG}`)
   await p.locator('label', { has: p.locator('input[type="checkbox"]') }).first().locator('input').check()
   await p.getByRole('button', { name: 'Create role' }).click()
   await p.getByText(`E2E Role ${SLUG}`).waitFor({ timeout: 15000 })
   ok('platform role created')
+
+  // Grant an additional permission through the role's Permissions panel —
+  // the grant form closes on success.
+  const roleBlock = p.locator('div.rounded-lg.border', { hasText: `E2E Role ${SLUG}` })
+  await roleBlock.getByRole('button', { name: /Permissions/ }).click()
+  await roleBlock.locator('input[type="checkbox"]').first().check()
+  await roleBlock.getByRole('button', { name: 'Grant selected' }).click()
+  await roleBlock.getByRole('button', { name: 'Grant selected' }).waitFor({ state: 'hidden', timeout: 15000 })
+  ok('permission granted to e2e role')
 
   // ── Settings & policies — merge a marker key, keep existing keys ─────
   await nav('Settings & Policies')

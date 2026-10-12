@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnGhost, input, label, money } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, Notice, StatusBadge, btn, btnDanger, btnGhost, input, label, money, select } from '../../components/ui'
 
 // Remittance desk — cash turn-ins, digital-payment remittance, deposit
 // batches, and manual review of flagged records. Money flows require
@@ -88,7 +88,7 @@ function TurnIn({ token, tenant, agents, onDone }) {
       <ErrorBox error={err} />
       <Notice>{ok}</Notice>
       <label className={label}>Agent</label>
-      <select className={input} value={agentId} onChange={(e) => loadExpected(e.target.value)}>
+      <select className={select} value={agentId} onChange={(e) => loadExpected(e.target.value)}>
         <option value="">Select agent…</option>
         {agents.map((a) => <option key={a.id} value={a.agent_id || a.id}>{a.name}</option>)}
       </select>
@@ -109,7 +109,7 @@ function TurnIn({ token, tenant, agents, onDone }) {
             <label className={label}>Counted total (PHP)</label>
             <input className={input} type="number" min={0} step="0.01" value={counted} onChange={(e) => setCounted(e.target.value)} />
             {counted && expectedTotal != null && Number(counted) * 100 !== expectedTotal && (
-              <p className="mt-1 text-xs text-amber-600">
+              <p className="mt-1 text-sm text-amber-600">
                 Variance of {money(Math.abs(Math.round(Number(counted) * 100) - expectedTotal))} — will need dispatcher confirmation.
               </p>
             )}
@@ -200,7 +200,7 @@ function BatchRemit({ token, tenant, invoices, evidence, onDone }) {
       <ErrorBox error={err} />
       <Notice>{ok}</Notice>
       <label className={label}>Bank deposit slip (parsed evidence)</label>
-      <select className={input} value={evidenceId} onChange={(e) => setEvidenceId(e.target.value)}>
+      <select className={select} value={evidenceId} onChange={(e) => setEvidenceId(e.target.value)}>
         <option value="">Select evidence…</option>
         {slips.map((e) => (
           <option key={e.id} value={e.id}>
@@ -248,7 +248,8 @@ function RemittanceList({ token, tenant, list, onDone }) {
     <Card title={`Remittance records${list.length ? ` (${list.length})` : ''}`} className="xl:col-span-2">
       <ErrorBox error={err} />
       {list.length === 0 ? <Empty text="No remittances yet." /> : (
-        <table className="w-full">
+        <>
+        <div className="hidden sm:block overflow-x-auto"><table className="w-full">
           <thead><tr className="border-b border-slate-200"><Th>Kind</Th><Th>Expected</Th><Th>Counted</Th><Th>Variance</Th><Th>Flags</Th><Th>Status</Th><Th>Review</Th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {list.map((r) => {
@@ -259,17 +260,17 @@ function RemittanceList({ token, tenant, list, onDone }) {
                   <Td>{money(r.expected_cents)}</Td>
                   <Td>{money(r.counted_cents ?? r.total_cents)}</Td>
                   <Td className={r.variance_cents ? 'text-amber-700' : ''}>{r.variance_cents ? money(r.variance_cents) : '—'}</Td>
-                  <Td>{(r.flags || []).length ? <span className="text-xs text-red-600">{r.flags.join(', ')}</span> : '—'}</Td>
+                  <Td>{(r.flags || []).length ? <span className="text-sm text-red-600">{r.flags.join(', ')}</span> : '—'}</Td>
                   <Td><StatusBadge value={r.status} /></Td>
                   <Td>
                     {reviewable && (
                       <div className="space-y-1">
-                        <input className="w-40 rounded border border-slate-300 px-1.5 py-1 text-xs" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
+                        <input className="w-44 rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
                         <div className="flex flex-wrap gap-1">
                           <button onClick={() => confirm(r.id, 'confirm')} disabled={!!busy} className={btn}>Confirm</button>
                           <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={btnGhost}>Override</button>
                           <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={btnGhost}>Accept shortfall</button>
-                          <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className="rounded-lg border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Reject</button>
+                          <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={btnDanger}>Reject</button>
                         </div>
                       </div>
                     )}
@@ -278,7 +279,38 @@ function RemittanceList({ token, tenant, list, onDone }) {
               )
             })}
           </tbody>
-        </table>
+        </table></div>
+        <div className="sm:hidden divide-y divide-slate-100">
+          {list.map((r) => {
+            const reviewable = r.status === 'pending_confirmation' || r.status === 'manual_review'
+            return (
+              <div key={r.id} className={`space-y-1.5 px-2 py-3 ${r.status === 'manual_review' ? 'bg-red-50' : ''}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">{(r.kind || '').replace(/_/g, ' ')}</span>
+                  <StatusBadge value={r.status} />
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+                  <span>expected {money(r.expected_cents)}</span>
+                  <span>counted {money(r.counted_cents ?? r.total_cents)}</span>
+                  {r.variance_cents ? <span className="text-amber-700">var {money(r.variance_cents)}</span> : null}
+                </div>
+                {(r.flags || []).length > 0 && <div className="text-sm text-red-600">{r.flags.join(', ')}</div>}
+                {reviewable && (
+                  <div className="space-y-2 pt-1">
+                    <input className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => confirm(r.id, 'confirm')} disabled={!!busy} className={btn}>Confirm</button>
+                      <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={btnGhost}>Override</button>
+                      <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={btnGhost}>Accept shortfall</button>
+                      <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={btnDanger}>Reject</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        </>
       )}
     </Card>
   )

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RefreshToken;
 use App\Models\Role;
 use App\Models\TenantScope;
 use App\Models\User;
@@ -79,12 +80,13 @@ class AuthController
             return $user;
         });
 
-        $issued = $issuer->issue($user);
+        $issued = $this->issueTokens($user, $issuer);
 
         return response()->json([
             'token_type' => 'Bearer',
             'access_token' => $issued['token'],
             'expires_in' => $issued['expires_in'],
+            'refresh_token' => $issued['refresh_token'],
             'data' => $user->load('roles'),
         ], 201);
     }
@@ -121,24 +123,68 @@ class AuthController
             ], 401);
         }
 
-        $issued = $issuer->issue($user);
+        $issued = $this->issueTokens($user, $issuer);
 
         return response()->json([
             'token_type' => 'Bearer',
             'access_token' => $issued['token'],
             'expires_in' => $issued['expires_in'],
+            'refresh_token' => $issued['refresh_token'],
         ]);
     }
 
     /**
-     * Logout revokes the presented token by jti on the shared blacklist.
+     * Token rotation — an anonymous endpoint like login. Present a live
+     * refresh token, get a fresh access token + a rotated refresh token.
+     * The presented token is revoked in the same transaction, so a reused
+     * (stolen) refresh token fails closed on second use.
+     */
+    public function refresh(Request $request, JwtIssuer $issuer): JsonResponse
+    {
+        $data = $request->validate(['refresh_token' => ['required', 'string']]);
+
+        $stored = RefreshToken::findValid($data['refresh_token']);
+        if ($stored === null || ! $stored->user?->isActive()) {
+            return response()->json([
+                'error' => 'invalid_refresh_token',
+                'message' => 'Refresh token is invalid or expired',
+            ], 401);
+        }
+
+        $issued = DB::transaction(function () use ($stored, $issuer) {
+            $stored->update(['revoked_at' => now()]);
+
+            return $this->issueTokens($stored->user, $issuer);
+        });
+
+        return response()->json([
+            'token_type' => 'Bearer',
+            'access_token' => $issued['token'],
+            'expires_in' => $issued['expires_in'],
+            'refresh_token' => $issued['refresh_token'],
+        ]);
+    }
+
+    /**
+     * Logout revokes the presented token by jti on the shared blacklist —
+     * and the caller's refresh token when provided, ending the session.
      */
     public function logout(Request $request, TokenBlacklist $blacklist): JsonResponse
     {
         $claims = $request->attributes->get('jwt');
         $blacklist->revoke($claims['jti'], $claims['exp']);
 
+        if ($raw = $request->input('refresh_token')) {
+            RefreshToken::where('token_hash', hash('sha256', $raw))->update(['revoked_at' => now()]);
+        }
+
         return response()->json(['revoked' => true]);
+    }
+
+    /** Access JWT + a rotated refresh credential, as one unit. */
+    private function issueTokens(User $user, JwtIssuer $issuer): array
+    {
+        return $issuer->issue($user) + ['refresh_token' => RefreshToken::issueFor($user)];
     }
 
     public function me(Request $request): JsonResponse

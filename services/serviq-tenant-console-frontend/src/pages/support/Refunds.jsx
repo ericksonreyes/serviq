@@ -38,7 +38,8 @@ export default function Refunds() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card title="Refund requests">
           {loading ? <Loading /> : !data || data.refunds.length === 0 ? <Empty text="No refund requests." /> : (
-            <table className="w-full">
+            <>
+            <div className="hidden sm:block overflow-x-auto"><table className="w-full">
               <thead><tr className="border-b border-slate-200"><Th>Invoice</Th><Th>Reason</Th><Th>Status</Th><Th>Requested</Th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {data.refunds.map((r) => (
@@ -50,13 +51,29 @@ export default function Refunds() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
+            <div className="sm:hidden divide-y divide-slate-100">
+              {data.refunds.map((r) => (
+                <div key={r.id} className="space-y-1 px-1 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs">{r.invoice_id?.slice(0, 12)}…</span>
+                    <StatusBadge value={r.status} />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{r.reason || '—'}</span>
+                    <span className="text-xs text-slate-500">{fmtDate(r.created_at)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
           <p className="mt-2 text-xs text-slate-400">Approve or reject on the linked case — open Cases and record a refund decision.</p>
         </Card>
         <Card title="Recorded decisions">
           {loading ? <Loading /> : !data || data.decisions.length === 0 ? <Empty text="No decisions recorded." /> : (
-            <table className="w-full">
+            <>
+            <div className="hidden sm:block overflow-x-auto"><table className="w-full">
               <thead><tr className="border-b border-slate-200"><Th>Case</Th><Th>Invoice</Th><Th>Amount</Th><Th>Decision</Th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {data.decisions.map((d) => (
@@ -68,12 +85,27 @@ export default function Refunds() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
+            <div className="sm:hidden divide-y divide-slate-100">
+              {data.decisions.map((d) => (
+                <div key={d.id} className="space-y-1 px-1 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{money(d.amount_cents)}</span>
+                    <StatusBadge value={d.decision} />
+                  </div>
+                  <div className="font-mono text-xs text-slate-500">
+                    case {d.case_id?.slice(0, 12)}… · inv {d.invoice_id?.slice(0, 12)}…
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </Card>
         <Card title="Invoices" className="xl:col-span-2">
           {loading ? <Loading /> : !data || data.invoices.length === 0 ? <Empty text="No invoices." /> : (
-            <table className="w-full">
+            <>
+            <div className="hidden sm:block overflow-x-auto"><table className="w-full">
               <thead><tr className="border-b border-slate-200"><Th>Invoice</Th><Th>Amount</Th><Th>Status</Th><Th>Issued</Th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {data.invoices.map((i) => (
@@ -85,7 +117,22 @@ export default function Refunds() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
+            <div className="sm:hidden divide-y divide-slate-100">
+              {data.invoices.map((i) => (
+                <div key={i.id} className="space-y-1 px-1 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-xs">{i.id}</span>
+                    <StatusBadge value={i.status} />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{money(i.amount_cents, i.currency)}</span>
+                    <span className="text-xs text-slate-500">{fmtDate(i.created_at)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </Card>
       </div>

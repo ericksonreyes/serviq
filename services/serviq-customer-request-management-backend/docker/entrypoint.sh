@@ -40,7 +40,10 @@ if [ "${AUTO_SETUP:-true}" = "true" ] && [ "${SKIP_DB_SETUP:-}" != "true" ]; the
     fi
     sleep 2
   done
-  php artisan db:seed --force >/dev/null 2>&1 || true
+  if ! out=$(php artisan db:seed --force 2>&1); then
+    echo "[entrypoint] WARNING: db:seed failed" >&2
+    echo "$out" | tail -20 >&2
+  fi
 fi
 
 exec "$@"

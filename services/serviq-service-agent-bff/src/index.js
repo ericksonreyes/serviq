@@ -43,6 +43,24 @@ const SERVICES = {
   crm: process.env.CRM_URL || 'http://customer-request-backend',
   billing: process.env.BILLING_URL || 'http://billing-backend',
   ai: process.env.AI_URL || 'http://ai-agent:8000',
+  platform: process.env.PLATFORM_MGMT_URL || 'http://platform-management-backend',
+}
+
+// Feature-flag probe — same contract as customer-portal-bff: public
+// /v1/feature-flags/{key} on Platform Management, cached ~30s, fail-open
+// (flag-store errors or missing flags mean enabled).
+const flagCache = new Map()
+async function flagEnabled(key, ttlMs = 30_000) {
+  const hit = flagCache.get(key)
+  if (hit && hit.expires > Date.now()) return hit.value
+  try {
+    const r = await fetch(`${SERVICES.platform}/api/v1/feature-flags/${key}`)
+    const value = r.status === 404 ? true : !!(await r.json()).data?.enabled
+    flagCache.set(key, { value, expires: Date.now() + ttlMs })
+    return value
+  } catch {
+    return hit ? hit.value : true
+  }
 }
 
 // AI /parse document types → Billing evidence types.
@@ -246,7 +264,9 @@ app.post('/api/v1/executions/:id/evidence', auth, async (req, res) => {
 // flags claimed-vs-parsed mismatches for manual review. Parse failure
 // degrades to the claimed values alone (evidence still lands on record).
 async function aiParse(fileB64, filename) {
-  if (!fileB64) return null
+  // `ai-agent` flag off → degrade to claimed-only evidence, same as a
+  // parse failure — the flag is a capability gate, not an error path.
+  if (!fileB64 || !(await flagEnabled('ai-agent'))) return null
   try {
     const fd = new FormData()
     fd.append('file', new Blob([Buffer.from(fileB64, 'base64')]), filename || 'receipt.jpg')

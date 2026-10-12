@@ -20,7 +20,7 @@ export default function Income() {
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Income & settlement</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Operational income data — platform fee income derived from each tenant's plan and
+          Operational income data — platform fee income derived from each provider's plan and
           subscription status. This is not payment-ledger data; customer billing lives in the
           Billing service.
         </p>
@@ -44,11 +44,11 @@ export default function Income() {
             ))}
             {(report.totals || []).length === 0 && <Empty>No subscriptions on record.</Empty>}
           </div>
-          <table className="w-full overflow-hidden rounded-lg bg-white text-sm shadow">
+          <div className="hidden sm:block overflow-x-auto"><table className="w-full overflow-hidden rounded-lg bg-white text-sm shadow">
             <thead className="bg-slate-50">
               <tr>
-                <th className={th}>Tenant</th>
-                <th className={th}>Tenant status</th>
+                <th className={th}>Provider</th>
+                <th className={th}>Provider status</th>
                 <th className={th}>Plan</th>
                 <th className={th}>Fee</th>
                 <th className={th}>Subscription</th>
@@ -80,7 +80,30 @@ export default function Income() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
+          <div className="sm:hidden divide-y divide-slate-100 rounded-lg bg-white text-sm shadow">
+            {(report.tenants || []).map((r) => (
+              <div key={r.tenant_id} className="space-y-1.5 px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{r.name}</div>
+                    <div className="text-xs text-slate-500">{r.slug}</div>
+                  </div>
+                  <Badge tone={STATUS_TONE[r.tenant_status]}>{r.tenant_status}</Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-600">
+                  <span>{r.plan_name ?? '—'}</span>
+                  <span>{r.price_cents != null ? money(r.price_cents, r.currency) : ''}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {r.subscription_status && (
+                    <Badge tone={STATUS_TONE[r.subscription_status]}>{r.subscription_status}</Badge>
+                  )}
+                  <Badge tone={STATUS_TONE[r.settlement_status]}>{r.settlement_status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
     </div>

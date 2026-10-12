@@ -11,23 +11,23 @@ Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 
 
 Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function () {
     Route::get('/tenants/{tenant}/services', [CatalogServiceController::class, 'index']);
-    Route::post('/services', [CatalogServiceController::class, 'store']);
+    Route::post('/services', [CatalogServiceController::class, 'store'])->middleware('permission:catalog.services.manage');
     Route::get('/tenants/{tenant}/services/{service}', [CatalogServiceController::class, 'show']);
-    Route::patch('/tenants/{tenant}/services/{service}', [CatalogServiceController::class, 'update']);
-    Route::put('/tenants/{tenant}/services/{service}/steps', [CatalogServiceController::class, 'reorderSteps']);
+    Route::patch('/tenants/{tenant}/services/{service}', [CatalogServiceController::class, 'update'])->middleware('permission:catalog.services.manage');
+    Route::put('/tenants/{tenant}/services/{service}/steps', [CatalogServiceController::class, 'reorderSteps'])->middleware('permission:catalog.services.manage');
 
     Route::get('/tenants/{tenant}/services/{service}/availability', [ServiceOperationsController::class, 'availability']);
     Route::get('/tenants/{tenant}/services/{service}/pricing', [ServiceOperationsController::class, 'showPricing']);
-    Route::put('/tenants/{tenant}/services/{service}/pricing', [ServiceOperationsController::class, 'updatePricing']);
+    Route::put('/tenants/{tenant}/services/{service}/pricing', [ServiceOperationsController::class, 'updatePricing'])->middleware('permission:catalog.services.manage');
 
     Route::get('/tenants/{tenant}/repair-guides', [RepairGuideController::class, 'index']);
-    Route::post('/tenants/{tenant}/repair-guides', [RepairGuideController::class, 'store']);
+    Route::post('/tenants/{tenant}/repair-guides', [RepairGuideController::class, 'store'])->middleware('permission:catalog.services.manage');
 
     Route::get('/tenants/{tenant}/service-areas', [ServiceAreaController::class, 'index']);
-    Route::post('/tenants/{tenant}/service-areas', [ServiceAreaController::class, 'store']);
-    Route::patch('/tenants/{tenant}/service-areas/{serviceArea}', [ServiceAreaController::class, 'update']);
-    Route::delete('/tenants/{tenant}/service-areas/{serviceArea}', [ServiceAreaController::class, 'destroy']);
+    Route::post('/tenants/{tenant}/service-areas', [ServiceAreaController::class, 'store'])->middleware('permission:catalog.services.manage');
+    Route::patch('/tenants/{tenant}/service-areas/{serviceArea}', [ServiceAreaController::class, 'update'])->middleware('permission:catalog.services.manage');
+    Route::delete('/tenants/{tenant}/service-areas/{serviceArea}', [ServiceAreaController::class, 'destroy'])->middleware('permission:catalog.services.manage');
 
     Route::get('/tenants/{tenant}/settings', [TenantSettingsController::class, 'show']);
-    Route::put('/tenants/{tenant}/settings', [TenantSettingsController::class, 'update']);
+    Route::put('/tenants/{tenant}/settings', [TenantSettingsController::class, 'update'])->middleware('permission:catalog.services.manage');
 });

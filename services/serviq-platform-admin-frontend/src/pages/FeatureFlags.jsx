@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, Empty, ErrorBox, btn, input, label, td, th } from '../ui'
+import { Badge, Empty, ErrorBox, td, th } from '../ui'
 
 export default function FeatureFlags() {
   const { token } = useAuth()
   const [flags, setFlags] = useState(null)
-  const [form, setForm] = useState({ key: '', description: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -23,7 +22,6 @@ export default function FeatureFlags() {
     setError(null)
     try {
       await api.saveFeatureFlag(token, data)
-      setForm({ key: '', description: '' })
       load()
     } catch (err) {
       setError(err.fields ? Object.values(err.fields).flat().join(' ') : err.message)
@@ -35,30 +33,15 @@ export default function FeatureFlags() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <h1 className="text-xl font-semibold text-slate-900">Feature flags</h1>
+      <p className="text-sm text-slate-500">
+        Kill-switches for platform capabilities. A flag only works where a consumer checks it —
+        new gates ship with the codebase, not this page.
+      </p>
       <ErrorBox error={error} />
-      <form
-        className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-5 shadow"
-        onSubmit={(e) => {
-          e.preventDefault()
-          save({ key: form.key, description: form.description || null, enabled: false })
-        }}
-      >
-        <div className="min-w-48 flex-1">
-          <label className={label}>Flag key</label>
-          <input className={input} required value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="e.g. ai_agent.refund_drafting" />
-        </div>
-        <div className="min-w-48 flex-1">
-          <label className={label}>Description</label>
-          <input className={input} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        </div>
-        <button type="submit" className={btn} disabled={busy}>
-          Add flag
-        </button>
-      </form>
       {!flags && !error && <p className="text-sm text-slate-500">Loading…</p>}
       {flags && flags.length === 0 && <Empty>No feature flags defined.</Empty>}
       {flags && flags.length > 0 && (
-        <table className="w-full overflow-hidden rounded-lg bg-white text-sm shadow">
+        <div className="hidden sm:block overflow-x-auto"><table className="w-full overflow-hidden rounded-lg bg-white text-sm shadow">
           <thead className="bg-slate-50">
             <tr>
               <th className={th}>Key</th>
@@ -77,7 +60,7 @@ export default function FeatureFlags() {
                 </td>
                 <td className={td}>
                   <button
-                    className={f.enabled ? 'text-red-700 hover:underline' : 'text-teal-700 hover:underline'}
+                    className={f.enabled ? 'text-red-700 hover:underline' : 'text-violet-700 hover:underline'}
                     disabled={busy}
                     onClick={() => save({ key: f.key, enabled: !f.enabled, description: f.description })}
                   >
@@ -87,7 +70,29 @@ export default function FeatureFlags() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
+      )}
+      {flags && flags.length > 0 && (
+        <div className="sm:hidden divide-y divide-slate-100 rounded-lg bg-white text-sm shadow">
+          {flags.map((f) => (
+            <div key={f.id} className="space-y-1.5 px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm">{f.key}</span>
+                <Badge tone={f.enabled ? 'green' : 'slate'}>{f.enabled ? 'enabled' : 'disabled'}</Badge>
+              </div>
+              {f.description && <div className="text-slate-600">{f.description}</div>}
+              <div className="pt-1">
+                <button
+                  className={f.enabled ? 'text-red-700 hover:underline' : 'text-violet-700 hover:underline'}
+                  disabled={busy}
+                  onClick={() => save({ key: f.key, enabled: !f.enabled, description: f.description })}
+                >
+                  {f.enabled ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

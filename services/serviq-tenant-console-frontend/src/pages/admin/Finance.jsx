@@ -43,7 +43,7 @@ export default function Finance() {
         actions={(
           <div className="flex gap-1">
             {TABS.map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm ${tab === t ? 'bg-teal-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm ${tab === t ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                 {t}
               </button>
             ))}
@@ -74,19 +74,35 @@ const Td = ({ children }) => <td className="px-3 py-2 text-sm text-slate-700">{c
 function Invoices({ rows: list }) {
   if (list.length === 0) return <Empty text="No invoices." />
   return (
-    <table className="w-full">
-      <thead><tr className="border-b border-slate-200"><Th>Invoice</Th><Th>Amount</Th><Th>Status</Th><Th>Issued</Th></tr></thead>
-      <tbody className="divide-y divide-slate-100">
+    <>
+      <div className="hidden sm:block overflow-x-auto"><table className="w-full">
+        <thead><tr className="border-b border-slate-200"><Th>Invoice</Th><Th>Amount</Th><Th>Status</Th><Th>Issued</Th></tr></thead>
+        <tbody className="divide-y divide-slate-100">
+          {list.map((i) => (
+            <tr key={i.id}>
+              <Td><span className="font-mono text-xs">{i.id}</span></Td>
+              <Td>{money(i.amount_cents, i.currency)}</Td>
+              <Td><StatusBadge value={i.status} /></Td>
+              <Td>{fmtDate(i.created_at)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <div className="sm:hidden divide-y divide-slate-100">
         {list.map((i) => (
-          <tr key={i.id}>
-            <Td><span className="font-mono text-xs">{i.id}</span></Td>
-            <Td>{money(i.amount_cents, i.currency)}</Td>
-            <Td><StatusBadge value={i.status} /></Td>
-            <Td>{fmtDate(i.created_at)}</Td>
-          </tr>
+          <div key={i.id} className="space-y-1 px-1 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-mono text-xs">{i.id}</span>
+              <StatusBadge value={i.status} />
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{money(i.amount_cents, i.currency)}</span>
+              <span className="text-xs text-slate-500">{fmtDate(i.created_at)}</span>
+            </div>
+          </div>
         ))}
-      </tbody>
-    </table>
+      </div>
+    </>
   )
 }
 
@@ -111,7 +127,7 @@ function Refunds({ rows: list, token, tenant, onDone }) {
   return (
     <>
       <ErrorBox error={err} />
-      <table className="w-full">
+      <div className="hidden sm:block overflow-x-auto"><table className="w-full">
         <thead><tr className="border-b border-slate-200"><Th>Invoice</Th><Th>Reason</Th><Th>Status</Th><Th>Requested</Th><Th /></tr></thead>
         <tbody className="divide-y divide-slate-100">
           {list.map((r) => (
@@ -130,7 +146,26 @@ function Refunds({ rows: list, token, tenant, onDone }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
+      <div className="sm:hidden divide-y divide-slate-100">
+        {list.map((r) => (
+          <div key={r.id} className="space-y-1.5 px-1 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-mono text-xs">{r.invoice_id}</span>
+              <StatusBadge value={r.status} />
+            </div>
+            <div className="text-sm text-slate-600">{r.reason || '—'}</div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-500">{fmtDate(r.created_at)}</span>
+              {r.status === 'approved' && (
+                <button onClick={() => execute(r.id)} disabled={busy === r.id} className={btn}>
+                  {busy === r.id ? 'Executing…' : 'Execute refund'}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </>
   )
 }
@@ -156,7 +191,7 @@ function Payouts({ rows: list, token, tenant, onDone }) {
   return (
     <>
       <ErrorBox error={err} />
-      <table className="w-full">
+      <div className="hidden sm:block overflow-x-auto"><table className="w-full">
         <thead><tr className="border-b border-slate-200"><Th>Payout</Th><Th>Agent</Th><Th>Net</Th><Th>Shortfall</Th><Th>Status</Th><Th /></tr></thead>
         <tbody className="divide-y divide-slate-100">
           {list.map((p) => (
@@ -177,7 +212,30 @@ function Payouts({ rows: list, token, tenant, onDone }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
+      <div className="sm:hidden divide-y divide-slate-100">
+        {list.map((p) => (
+          <div key={p.id} className="space-y-1.5 px-1 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs">{p.id.slice(0, 8)}…</span>
+              <StatusBadge value={p.status} />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="font-medium">{money(p.net_cents ?? p.amount_cents)}</span>
+              {p.shortfall_cents ? <span className="text-amber-700">shortfall {money(p.shortfall_cents)}</span> : null}
+              <span className="font-mono text-xs text-slate-500">agent {p.agent_id?.slice(0, 8)}…</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              {p.disbursement_ref && <span className="font-mono text-xs text-slate-500">{p.disbursement_ref}</span>}
+              {p.status === 'pending' && (
+                <button onClick={() => settle(p.id)} disabled={busy === p.id} className={btn}>
+                  {busy === p.id ? 'Settling…' : 'Settle'}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </>
   )
 }

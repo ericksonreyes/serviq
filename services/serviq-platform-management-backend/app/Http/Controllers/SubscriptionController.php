@@ -42,10 +42,17 @@ class SubscriptionController
 
             $tenant->update(['plan_id' => $subscription->plan_id]);
 
+            // Events carry the resolved plan (code + features) so consumers
+            // can project plan limits without a callback across contexts —
+            // same contract as Workforce.AgentRegistered carrying schedule.
             $events->record('Platform.SubscriptionAssigned', [
                 'subscription_id' => $subscription->id,
                 'tenant_id' => $tenant->id,
                 'plan_id' => $subscription->plan_id,
+                'plan' => [
+                    'code' => $subscription->plan->code,
+                    'features' => $subscription->plan->features,
+                ],
                 'status' => $subscription->status,
             ], $tenant->id);
 

@@ -30,6 +30,7 @@ class TenantController
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:100', 'alpha_dash', 'unique:tenants,slug'],
+            'description' => ['nullable', 'string', 'max:500'],
             'admin_username' => ['required', 'string', 'max:100'],
             'admin_email' => ['required', 'email'],
             'admin_display_name' => ['required', 'string', 'max:255'],
@@ -40,6 +41,7 @@ class TenantController
             $tenant = Tenant::create([
                 'name' => $data['name'],
                 'slug' => $data['slug'],
+                'description' => $data['description'] ?? null,
                 'status' => TenantLifecycle::PENDING,
             ]);
 
@@ -48,6 +50,9 @@ class TenantController
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
                 'plan_id' => $tenant->plan_id,
+                'plan' => $tenant->plan
+                    ? ['code' => $tenant->plan->code, 'features' => $tenant->plan->features]
+                    : null,
                 'initial_users' => [[
                     'username' => $data['admin_username'],
                     'email' => $data['admin_email'],
@@ -65,8 +70,13 @@ class TenantController
 
     public function index(Request $request): JsonResponse
     {
+        $term = $request->query('q');
         $tenants = Tenant::with('plan')
             ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($term, function ($query, $term) {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
+                $query->where(fn ($w) => $w->where('name', 'ilike', $like)->orWhere('slug', 'ilike', $like));
+            })
             ->orderBy('name')
             ->paginate(50);
 
@@ -78,6 +88,7 @@ class TenantController
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:100', 'alpha_dash', 'unique:tenants,slug'],
+            'description' => ['nullable', 'string', 'max:500'],
             'plan_id' => ['nullable', 'uuid', 'exists:plans,id'],
             'activate' => ['nullable', 'boolean'],
         ]);
@@ -86,6 +97,7 @@ class TenantController
             $tenant = Tenant::create([
                 'name' => $data['name'],
                 'slug' => $data['slug'],
+                'description' => $data['description'] ?? null,
                 'plan_id' => $data['plan_id'] ?? null,
                 'status' => TenantLifecycle::PENDING,
             ]);
@@ -95,6 +107,9 @@ class TenantController
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
                 'plan_id' => $tenant->plan_id,
+                'plan' => $tenant->plan
+                    ? ['code' => $tenant->plan->code, 'features' => $tenant->plan->features]
+                    : null,
             ], $tenant->id);
 
             if ($data['activate'] ?? false) {
@@ -117,6 +132,7 @@ class TenantController
     {
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:500'],
             'plan_id' => ['nullable', 'uuid', 'exists:plans,id'],
         ]);
 

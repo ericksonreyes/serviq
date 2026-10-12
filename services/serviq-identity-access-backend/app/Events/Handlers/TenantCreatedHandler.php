@@ -59,9 +59,10 @@ class TenantCreatedHandler
             ['scope' => $tenantId, 'name' => $data['role'] ?? Role::CUSTOMER],
             ['description' => 'Provisioned at tenant creation'],
         );
-        if ($role->name === Role::TENANT_ADMINISTRATOR) {
+        $permissions = Role::DEFAULT_PERMISSIONS[$role->name] ?? [];
+        if ($permissions !== []) {
             $role->permissions()->syncWithoutDetaching(
-                Permission::whereIn('name', Role::TENANT_ADMINISTRATOR_PERMISSIONS)->pluck('id')
+                Permission::whereIn('name', $permissions)->pluck('id')
             );
         }
         $user->roles()->syncWithoutDetaching([$role->id]);

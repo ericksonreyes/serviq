@@ -1,8 +1,12 @@
 export const input =
-  'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600'
+  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-violet-600 focus:outline-none focus:ring-1 focus:ring-violet-600'
+// Custom chevron — the native arrow ignores padding on some engines (Safari
+// pins it to the border) and px->pr overrides are order-sensitive in v4.
+export const select =
+  'w-full appearance-none rounded-lg border border-slate-300 bg-white bg-no-repeat pl-3 pr-9 py-2 text-sm focus:border-violet-600 focus:outline-none focus:ring-1 focus:ring-violet-600 [background-image:url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M6%208l4%204%204-4%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E)] [background-position:right_0.75rem_center] [background-size:0.875rem]'
 export const label = 'block text-sm font-medium text-slate-700'
 export const btn =
-  'rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50'
+  'rounded-lg bg-violet-700 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50'
 export const btnSecondary =
   'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50'
 export const btnDanger =
@@ -16,12 +20,12 @@ const TONES = {
   green: 'bg-green-100 text-green-800',
   amber: 'bg-amber-100 text-amber-800',
   red: 'bg-red-100 text-red-800',
-  teal: 'bg-teal-100 text-teal-800',
+  teal: 'bg-violet-100 text-violet-800',
 }
 
 export function Badge({ tone = 'slate', children }) {
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TONES[tone] || TONES.slate}`}>
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-sm font-medium ${TONES[tone] || TONES.slate}`}>
       {children}
     </span>
   )

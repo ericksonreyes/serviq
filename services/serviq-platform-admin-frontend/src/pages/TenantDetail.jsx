@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, ErrorBox, STATUS_TONE, btn, btnDanger, btnSecondary, card, input, label } from '../ui'
+import { Badge, ErrorBox, STATUS_TONE, btn, btnDanger, btnSecondary, card, input, label, select } from '../ui'
 
 const TRANSITIONS = {
   pending: ['activate', 'deactivate'],
@@ -63,11 +63,11 @@ export default function TenantDetail() {
   const transition = (action) =>
     run(async () => {
       await api.transitionTenant(token, id, action)
-    }, `Tenant ${action}d.`)
+    }, `Provider ${action}d.`)
 
   const saveName = run(async () => {
     await api.updateTenant(token, id, { name })
-  }, 'Tenant updated.')
+  }, 'Provider updated.')
 
   const saveSubscription = run(async () => {
     await api.saveSubscription(token, id, subForm)
@@ -78,8 +78,8 @@ export default function TenantDetail() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <div>
-        <Link to="/tenants" className="text-sm text-teal-700 hover:underline">
-          ← Tenants
+        <Link to="/providers" className="text-sm text-violet-700 hover:underline">
+          ← Service providers
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">{tenant?.name}</h1>
       </div>
@@ -98,10 +98,8 @@ export default function TenantDetail() {
                 <dd>
                   <Badge tone={STATUS_TONE[tenant.status]}>{tenant.status}</Badge>
                 </dd>
-                <dt className="text-slate-500">Tenant ID</dt>
-                <dd className="font-mono text-xs">{tenant.id}</dd>
               </dl>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 {(TRANSITIONS[tenant.status] || []).map((action) => (
                   <button
                     key={action}
@@ -152,7 +150,7 @@ export default function TenantDetail() {
               <div>
                 <label className={label}>Plan</label>
                 <select
-                  className={input}
+                  className={select}
                   required
                   value={subForm.plan_id}
                   onChange={(e) => setSubForm({ ...subForm, plan_id: e.target.value })}
@@ -168,7 +166,7 @@ export default function TenantDetail() {
               <div>
                 <label className={label}>Status</label>
                 <select
-                  className={input}
+                  className={select}
                   value={subForm.status}
                   onChange={(e) => setSubForm({ ...subForm, status: e.target.value })}
                 >

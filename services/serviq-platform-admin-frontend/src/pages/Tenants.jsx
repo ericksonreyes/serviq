@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, Empty, ErrorBox, STATUS_TONE, btn, btnSecondary, input, label, td, th } from '../ui'
+import { useDebounced } from '../hooks'
+import { Badge, Empty, ErrorBox, STATUS_TONE, btn, btnSecondary, input, label, select, td, th } from '../ui'
 
 const STATUSES = ['', 'pending', 'active', 'suspended', 'deactivated']
 
@@ -55,7 +56,7 @@ function CreateTenant({ plans, onCreated, onCancel }) {
         </div>
         <div>
           <label className={label}>Plan (optional)</label>
-          <select className={input} value={form.plan_id} onChange={set('plan_id')}>
+          <select className={select} value={form.plan_id} onChange={set('plan_id')}>
             <option value="">No plan</option>
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
@@ -69,9 +70,9 @@ function CreateTenant({ plans, onCreated, onCancel }) {
           Activate immediately (skip review)
         </label>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <button type="submit" className={btn} disabled={busy}>
-          {busy ? 'Creating…' : 'Create tenant'}
+          {busy ? 'Creating…' : 'Create provider'}
         </button>
         <button type="button" className={btnSecondary} onClick={onCancel}>
           Cancel
@@ -87,17 +88,27 @@ export default function Tenants() {
   const [tenants, setTenants] = useState(null)
   const [plans, setPlans] = useState([])
   const [status, setStatus] = useState('')
+  const [q, setQ] = useState('')
+  const dq = useDebounced(q)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  const load = () => {
+  const load = (term) => {
+    setLoading(true)
     api
-      .tenants(token, status)
+      .tenants(token, status, term)
       .then((res) => setTenants(res.data ?? []))
       .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(load, [token, status])
+  useEffect(() => load(dq), [token, status, dq])
+
+  const search = (e) => {
+    e.preventDefault()
+    load(q)
+  }
   useEffect(() => {
     api.plans(token).then((res) => setPlans(res.data ?? [])).catch(() => {})
   }, [token])
@@ -106,45 +117,54 @@ export default function Tenants() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">Service providers</h1>
-        <div className="flex items-center gap-3">
-          <select className={input} value={status} onChange={(e) => setStatus(e.target.value)}>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s === '' ? 'All statuses' : s}
-              </option>
-            ))}
-          </select>
-          <button className={btn} onClick={() => setCreating((v) => !v)}>
-            {creating ? 'Close' : 'New tenant'}
-          </button>
-        </div>
+        <button type="button" className={`${btn} whitespace-nowrap`} onClick={() => setCreating((v) => !v)}>
+          {creating ? 'Close' : 'New provider'}
+        </button>
       </div>
+      <form onSubmit={search} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input
+          className={`${input} sm:max-w-xs`}
+          placeholder="Search name or slug…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <button type="submit" className={btnSecondary} disabled={loading}>
+          {loading ? 'Searching…' : 'Search'}
+        </button>
+        <select className={select} value={status} onChange={(e) => setStatus(e.target.value)}>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s === '' ? 'All statuses' : s}
+            </option>
+          ))}
+        </select>
+      </form>
       <ErrorBox error={error} />
+      {loading && <p className="text-sm text-slate-500">Searching…</p>}
       {creating && (
         <CreateTenant
           plans={plans}
           onCancel={() => setCreating(false)}
-          onCreated={(t) => navigate(`/tenants/${t.id}`)}
+          onCreated={(t) => navigate(`/providers/${t.id}`)}
         />
       )}
       {!tenants && !error && <p className="text-sm text-slate-500">Loading…</p>}
-      {tenants && tenants.length === 0 && <Empty>No tenants match.</Empty>}
+      {tenants && tenants.length === 0 && <Empty>No service providers match.</Empty>}
       {tenants && tenants.length > 0 && (
-        <table className="w-full overflow-hidden rounded-lg bg-white text-sm shadow">
+        <div className="hidden sm:block overflow-x-auto"><table className="w-full overflow-hidden rounded-lg bg-white text-sm shadow">
           <thead className="bg-slate-50">
             <tr>
               <th className={th}>Name</th>
               <th className={th}>Slug</th>
               <th className={th}>Status</th>
               <th className={th}>Plan</th>
-              <th className={th}>Tenant ID</th>
             </tr>
           </thead>
           <tbody>
             {tenants.map((t) => (
               <tr key={t.id}>
                 <td className={td}>
-                  <Link to={`/tenants/${t.id}`} className="font-medium text-teal-700 hover:underline">
+                  <Link to={`/providers/${t.id}`} className="font-medium text-violet-700 hover:underline">
                     {t.name}
                   </Link>
                 </td>
@@ -153,11 +173,26 @@ export default function Tenants() {
                   <Badge tone={STATUS_TONE[t.status]}>{t.status}</Badge>
                 </td>
                 <td className={td}>{t.plan?.name ?? '—'}</td>
-                <td className={`${td} font-mono text-xs`}>{t.id}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
+      )}
+      {tenants && tenants.length > 0 && (
+        <div className="sm:hidden divide-y divide-slate-100 rounded-lg bg-white text-sm shadow">
+          {tenants.map((t) => (
+            <div key={t.id} className="space-y-1 px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <Link to={`/providers/${t.id}`} className="font-medium text-violet-700 hover:underline">
+                  {t.name}
+                </Link>
+                <Badge tone={STATUS_TONE[t.status]}>{t.status}</Badge>
+              </div>
+              <div className="text-xs text-slate-500">{t.slug}</div>
+              <div className="text-slate-600">Plan: {t.plan?.name ?? '—'}</div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

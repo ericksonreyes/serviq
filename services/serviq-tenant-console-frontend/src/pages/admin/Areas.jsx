@@ -56,7 +56,8 @@ export default function Areas() {
         <div className="xl:col-span-2">
           <Card title="Coverage">
             {loading ? <Loading /> : !areas || areas.length === 0 ? <Empty text="No service areas configured." /> : (
-              <table className="w-full">
+              <>
+              <div className="hidden sm:block overflow-x-auto"><table className="w-full">
                 <thead><tr className="border-b border-slate-200"><Th>Name</Th><Th>Description / geo</Th><Th /></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {areas.map((a) => (
@@ -64,13 +65,26 @@ export default function Areas() {
                       <td className="px-3 py-2 text-sm font-medium">{a.name}</td>
                       <td className="px-3 py-2 text-sm">{a.description || a.geo || '—'}</td>
                       <td className="px-3 py-2 text-right">
-                        <button onClick={() => { setEditing(a.id); setForm({ name: a.name, description: a.description || '' }) }} className="mr-2 text-sm font-medium text-teal-700 hover:underline">Edit</button>
+                        <button onClick={() => { setEditing(a.id); setForm({ name: a.name, description: a.description || '' }) }} className="mr-2 text-sm font-medium text-violet-700 hover:underline">Edit</button>
                         <button onClick={() => remove(a.id)} className={btnDanger}>Remove</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
+              <div className="sm:hidden divide-y divide-slate-100">
+                {areas.map((a) => (
+                  <div key={a.id} className="space-y-1.5 px-1 py-3">
+                    <div className="text-sm font-medium">{a.name}</div>
+                    <div className="text-sm text-slate-600">{a.description || a.geo || '—'}</div>
+                    <div className="flex gap-3 pt-1">
+                      <button onClick={() => { setEditing(a.id); setForm({ name: a.name, description: a.description || '' }) }} className="text-sm font-medium text-violet-700 hover:underline">Edit</button>
+                      <button onClick={() => remove(a.id)} className="text-sm font-medium text-red-700 hover:underline">Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              </>
             )}
           </Card>
         </div>
@@ -78,7 +92,7 @@ export default function Areas() {
           <form onSubmit={submit} className="space-y-3">
             <div><label className={label}>Name</label><input className={input} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div><label className={label}>Description / geo descriptor</label><input className={input} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button type="submit" disabled={busy} className={btn}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Add area'}</button>
               {editing && <button type="button" onClick={() => { setEditing(null); setForm({ name: '', description: '' }) }} className={btnDanger}>Cancel</button>}
             </div>

@@ -25,12 +25,17 @@ export default function Users() {
         <div className="xl:col-span-2">
           <Card title="Staff">
             {loading ? <Loading /> : !data || data.users.length === 0 ? <Empty /> : (
-              <table className="w-full">
+              <>
+              <div className="hidden sm:block overflow-x-auto"><table className="w-full">
                 <thead><tr className="border-b border-slate-200"><Th_>Username</Th_><Th_>Name</Th_><Th_>Roles</Th_><Th_>Status</Th_><Th_ /></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {data.users.map((u) => <UserRow key={u.id} user={u} roles={data.roles} token={token} onDone={reload} />)}
                 </tbody>
-              </table>
+              </table></div>
+              <div className="sm:hidden divide-y divide-slate-100">
+                {data.users.map((u) => <UserCard key={u.id} user={u} roles={data.roles} token={token} onDone={reload} />)}
+              </div>
+              </>
             )}
           </Card>
         </div>
@@ -42,7 +47,9 @@ export default function Users() {
 
 const Th_ = ({ children }) => <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</th>
 
-function UserRow({ user, roles, token, onDone }) {
+// Shared row state — the desktop <tr> and the mobile card render the same
+// expandable role-assignment panel.
+function useAssignState(user, token, onDone) {
   const [open, setOpen] = useState(false)
   const [sel, setSel] = useState(user.roles?.map((r) => r.name) ?? [])
   const [busy, setBusy] = useState(false)
@@ -62,6 +69,34 @@ function UserRow({ user, roles, token, onDone }) {
     }
   }
 
+  return { open, setOpen, sel, setSel, busy, err, save }
+}
+
+function AssignPanel({ roles, s }) {
+  return (
+    <>
+      {s.err && <p className="mb-2 text-sm text-red-600">{s.err}</p>}
+      <div className="flex flex-wrap items-center gap-3">
+        {roles.map((r) => (
+          <label key={r.id} className="flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              checked={s.sel.includes(r.name)}
+              onChange={(e) => s.setSel(e.target.checked ? [...s.sel, r.name] : s.sel.filter((n) => n !== r.name))}
+            />
+            {r.name}
+          </label>
+        ))}
+        {roles.length === 0 && <p className="text-sm text-slate-400">No roles yet — they appear once a user is created with one.</p>}
+        <button onClick={s.save} disabled={s.busy || s.sel.length === 0} className={btn}>{s.busy ? 'Saving…' : 'Save roles'}</button>
+      </div>
+    </>
+  )
+}
+
+function UserRow({ user, roles, token, onDone }) {
+  const s = useAssignState(user, token, onDone)
+
   return (
     <>
       <tr>
@@ -70,33 +105,46 @@ function UserRow({ user, roles, token, onDone }) {
         <td className="px-3 py-2 text-sm">{(user.roles || []).map((r) => r.name).join(', ') || '—'}</td>
         <td className="px-3 py-2"><StatusBadge value={user.status || 'active'} /></td>
         <td className="px-3 py-2 text-right">
-          <button onClick={() => setOpen(!open)} className="text-sm font-medium text-teal-700 hover:underline">
-            {open ? 'Close' : 'Assign roles'}
+          <button onClick={() => s.setOpen(!s.open)} className="text-sm font-medium text-violet-700 hover:underline">
+            {s.open ? 'Close' : 'Assign roles'}
           </button>
         </td>
       </tr>
-      {open && (
+      {s.open && (
         <tr>
           <td colSpan={5} className="bg-slate-50 px-3 py-3">
-            {err && <p className="mb-2 text-sm text-red-600">{err}</p>}
-            <div className="flex flex-wrap items-center gap-3">
-              {roles.map((r) => (
-                <label key={r.id} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={sel.includes(r.name)}
-                    onChange={(e) => setSel(e.target.checked ? [...sel, r.name] : sel.filter((n) => n !== r.name))}
-                  />
-                  {r.name}
-                </label>
-              ))}
-              {roles.length === 0 && <p className="text-sm text-slate-400">No tenant roles yet — create users with a role to seed it.</p>}
-              <button onClick={save} disabled={busy || sel.length === 0} className={btn}>{busy ? 'Saving…' : 'Save roles'}</button>
-            </div>
+            <AssignPanel roles={roles} s={s} />
           </td>
         </tr>
       )}
     </>
+  )
+}
+
+function UserCard({ user, roles, token, onDone }) {
+  const s = useAssignState(user, token, onDone)
+
+  return (
+    <div className="space-y-1.5 px-1 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">{user.username}</div>
+          {user.display_name && <div className="truncate text-xs text-slate-500">{user.display_name}</div>}
+        </div>
+        <StatusBadge value={user.status || 'active'} />
+      </div>
+      <div className="text-sm text-slate-600">{(user.roles || []).map((r) => r.name).join(', ') || '—'}</div>
+      <div className="pt-1">
+        <button onClick={() => s.setOpen(!s.open)} className="text-sm font-medium text-violet-700 hover:underline">
+          {s.open ? 'Close' : 'Assign roles'}
+        </button>
+      </div>
+      {s.open && (
+        <div className="rounded-lg bg-slate-50 p-3">
+          <AssignPanel roles={roles} s={s} />
+        </div>
+      )}
+    </div>
   )
 }
 

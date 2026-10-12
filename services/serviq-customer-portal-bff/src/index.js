@@ -30,6 +30,7 @@ const SERVICES = {
   catalog: process.env.SERVICE_MGMT_URL || 'http://service-management-backend',
   notifications: process.env.NOTIFICATION_URL || 'http://notification-backend',
   ai: process.env.AI_AGENT_URL || 'http://ai-agent:8000',
+  platform: process.env.PLATFORM_MGMT_URL || 'http://platform-management-backend',
 }
 
 async function auth(req, res, next) {
@@ -67,6 +68,32 @@ await mongo.connect()
 const db = mongo.db()
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'customer-portal-bff' }))
+
+// Feature-flag gate — Platform Management owns the flag store and exposes
+// a public /v1/feature-flags/{key} probe. Cached briefly so requests don't
+// round-trip; fail-open on errors or unknown keys (a flag-store outage must
+// not take the portal down with it).
+const flagCache = new Map()
+async function flagEnabled(key, ttlMs = 30_000) {
+  const hit = flagCache.get(key)
+  if (hit && hit.expires > Date.now()) return hit.value
+  try {
+    const r = await fetch(`${SERVICES.platform}/api/v1/feature-flags/${key}`)
+    const value = r.status === 404 ? true : !!(await r.json()).data?.enabled
+    flagCache.set(key, { value, expires: Date.now() + ttlMs })
+    return value
+  } catch {
+    return hit ? hit.value : true
+  }
+}
+
+// `customer-portal` is the portal kill-switch — 503 the whole API surface
+// (health excluded) while it is off.
+async function portalGate(req, res, next) {
+  if (await flagEnabled('customer-portal')) return next()
+  res.status(503).json({ error: 'maintenance', message: 'The customer portal is temporarily unavailable.' })
+}
+app.use('/api/v1', portalGate)
 
 // The caller's CRM customer record — resolved from the IAM sub. null
 // means "no profile yet" (first sign-in / not yet provisioned).
@@ -277,15 +304,19 @@ app.post('/api/v1/me/notifications/:id/read', auth, (req, res) =>
 
 // The only chat edge for the portal — the profile is pinned server-side
 // so a customer can never reach the dispatcher/support tool registries.
-app.post('/api/v1/chat', auth, (req, res) =>
-  upstream(req, res, SERVICES.ai, '/api/v1/chat', {
+// Gated by the `ai-agent` flag — feature-level off, not portal maintenance.
+app.post('/api/v1/chat', auth, async (req, res) => {
+  if (!(await flagEnabled('ai-agent')))
+    return res.status(503).json({ error: 'feature_disabled', message: 'The assistant is temporarily unavailable.' })
+  return upstream(req, res, SERVICES.ai, '/api/v1/chat', {
     method: 'POST',
     body: {
       profile: 'customer',
       message: req.body?.message,
       context: req.body?.context,
     },
-  }))
+  })
+})
 
 app.use((err, req, res, _next) => {
   console.error('[bff]', req.method, req.path, err.cause?.code ?? err.message)

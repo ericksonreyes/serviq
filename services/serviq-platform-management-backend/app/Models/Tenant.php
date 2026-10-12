@@ -18,7 +18,7 @@ class Tenant extends Model
 {
     use HasUuid7;
 
-    protected $fillable = ['name', 'slug', 'status', 'plan_id'];
+    protected $fillable = ['name', 'slug', 'description', 'status', 'plan_id'];
 
     protected $attributes = ['status' => TenantLifecycle::PENDING];
 

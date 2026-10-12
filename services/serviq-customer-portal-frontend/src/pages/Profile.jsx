@@ -6,22 +6,52 @@ import {
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import PlaceIcon from '@mui/icons-material/Place'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import MapPicker from '../MapPicker'
 
-const EMPTY_ADDRESS = { label: '', line1: '', barangay: '', city: '', is_default: false }
+const EMPTY_ADDRESS = { label: '', line1: '', barangay: '', city: '', lat: null, lng: null, is_default: false }
+
+// Nominatim reverse geocode — a dropped pin prefills the address fields
+// (best-effort; the fields stay editable either way).
+async function reverseGeocode({ lat, lng }) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)
+    const j = await res.json()
+    const a = j.address || {}
+    return {
+      line1: [a.house_number, a.road].filter(Boolean).join(' ') || j.name || '',
+      barangay: a.suburb || a.village || a.neighbourhood || a.quarter || '',
+      city: a.city || a.town || a.municipality || a.city_district || '',
+    }
+  } catch {
+    return null
+  }
+}
 
 function AddressDialog({ open, initial, onClose, onSave, busy }) {
   const [form, setForm] = useState(EMPTY_ADDRESS)
   useEffect(() => { setForm(initial || EMPTY_ADDRESS) }, [initial, open])
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
+  const position = form.lat != null && form.lng != null ? { lat: form.lat, lng: form.lng } : null
+  const pick = async (latlng) => {
+    setForm((f) => ({ ...f, lat: latlng.lat, lng: latlng.lng }))
+    const geo = await reverseGeocode(latlng)
+    if (geo) setForm((f) => ({ ...f, ...Object.fromEntries(
+      Object.entries(geo).filter(([, v]) => v),
+    ) }))
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>{initial?.id ? 'Edit address' : 'Add address'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField label="Label (Home, Office…)" value={form.label} onChange={set('label')} />
+          <MapPicker position={position} onPick={pick} />
           <TextField label="Street / house no." required value={form.line1} onChange={set('line1')} />
           <TextField label="Barangay / district" value={form.barangay} onChange={set('barangay')} />
           <TextField label="City" required value={form.city} onChange={set('city')} />
@@ -90,7 +120,14 @@ export default function Profile() {
     try {
       const body = {
         label: formAddr.label || null,
-        address: { line1: formAddr.line1, barangay: formAddr.barangay || null, city: formAddr.city },
+        address: {
+          line1: formAddr.line1,
+          barangay: formAddr.barangay || null,
+          city: formAddr.city,
+          ...(formAddr.lat != null && formAddr.lng != null
+            ? { lat: formAddr.lat, lng: formAddr.lng }
+            : {}),
+        },
         is_default: formAddr.is_default || addresses.length === 0,
       }
       if (formAddr.id) {
@@ -115,7 +152,7 @@ export default function Profile() {
   if (loading) return <Container sx={{ mt: 4 }}><CircularProgress /></Container>
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 4, pb: 10 }}>
+    <Container maxWidth="md" sx={{ mt: 4, pb: 10 }}>
       <Typography variant="h5" gutterBottom>Profile</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
@@ -153,6 +190,9 @@ export default function Profile() {
               <div style={{ flexGrow: 1 }}>
                 <Typography variant="subtitle1">
                   {a.label || 'Address'} {a.is_default && <Chip size="small" label="Default" sx={{ ml: 1 }} />}
+                  {a.address?.lat != null && (
+                    <Chip size="small" icon={<PlaceIcon />} label="Pinned" variant="outlined" sx={{ ml: 1 }} />
+                  )}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {[a.address?.line1, a.address?.barangay, a.address?.city].filter(Boolean).join(', ')}
@@ -163,6 +203,7 @@ export default function Profile() {
                 initial: {
                   id: a.id, label: a.label || '', line1: a.address?.line1 || '',
                   barangay: a.address?.barangay || '', city: a.address?.city || '',
+                  lat: a.address?.lat ?? null, lng: a.address?.lng ?? null,
                   is_default: a.is_default,
                 },
               })}>

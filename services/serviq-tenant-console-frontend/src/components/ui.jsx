@@ -1,9 +1,17 @@
 // Shared dense-console primitives — one interaction idiom across pages.
 export const input =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600'
+  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-violet-600 focus:outline-none focus:ring-1 focus:ring-violet-600'
+// Custom chevron — native select arrows ignore padding on some engines
+// (Safari pins them to the border).
+const chevron =
+  'appearance-none bg-white bg-no-repeat [background-image:url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M6%208l4%204%204-4%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E)] [background-position:right_0.6rem_center] [background-size:0.75rem]'
+export const select =
+  `w-full rounded-lg border border-slate-300 pl-3 pr-9 py-2 text-sm focus:border-violet-600 focus:outline-none focus:ring-1 focus:ring-violet-600 ${chevron}`
+export const selectCompact =
+  `rounded-lg border border-slate-300 pl-2 pr-7 py-1.5 text-sm ${chevron}`
 export const label = 'block text-xs font-medium uppercase tracking-wide text-slate-500'
 export const btn =
-  'rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50'
+  'rounded-lg bg-violet-700 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50'
 export const btnGhost =
   'rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50'
 export const btnDanger =
@@ -11,7 +19,7 @@ export const btnDanger =
 
 const TONES = {
   slate: 'bg-slate-100 text-slate-700',
-  teal: 'bg-teal-100 text-teal-800',
+  teal: 'bg-violet-100 text-violet-800',
   green: 'bg-green-100 text-green-800',
   amber: 'bg-amber-100 text-amber-800',
   red: 'bg-red-100 text-red-800',
@@ -35,7 +43,7 @@ const STATUS_TONE = {
 export function StatusBadge({ value }) {
   const v = String(value ?? 'unknown')
   return (
-    <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${TONES[STATUS_TONE[v] ?? 'slate']}`}>
+    <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-sm font-medium ${TONES[STATUS_TONE[v] ?? 'slate']}`}>
       {v.replace(/_/g, ' ')}
     </span>
   )
@@ -66,7 +74,7 @@ export function ErrorBox({ error }) {
 
 export function Notice({ children }) {
   if (!children) return null
-  return <div className="mb-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">{children}</div>
+  return <div className="mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800">{children}</div>
 }
 
 export function Loading({ text = 'Loading…' }) {

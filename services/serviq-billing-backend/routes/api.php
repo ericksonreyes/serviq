@@ -11,24 +11,24 @@ Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 
 Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function () {
     Route::get('/tenants/{tenant}/invoices', [InvoiceController::class, 'index']);
     Route::get('/tenants/{tenant}/invoices/{invoice}', [InvoiceController::class, 'show']);
-    Route::post('/tenants/{tenant}/invoices/{invoice}/pay', [InvoiceController::class, 'pay']);
+    Route::post('/tenants/{tenant}/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->middleware('permission:billing.payments.record');
 
     // Refunds — request intake, Support decision approves, gated execute.
     Route::get('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'index']);
-    Route::post('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'store']);
-    Route::post('/tenants/{tenant}/refund-requests/{refundRequest}/execute', [RefundRequestController::class, 'execute']);
+    Route::post('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'store'])->middleware('permission:billing.remit');
+    Route::post('/tenants/{tenant}/refund-requests/{refundRequest}/execute', [RefundRequestController::class, 'execute'])->middleware('permission:billing.remit');
 
     // AI-parsed payment evidence — intake, review queue, dispatcher resolution.
     Route::get('/tenants/{tenant}/payment-evidence', [PaymentEvidenceController::class, 'index']);
-    Route::post('/tenants/{tenant}/payment-evidence', [PaymentEvidenceController::class, 'store']);
-    Route::post('/tenants/{tenant}/payment-evidence/{evidence}/review', [PaymentEvidenceController::class, 'review']);
+    Route::post('/tenants/{tenant}/payment-evidence', [PaymentEvidenceController::class, 'store'])->middleware('permission:billing.payments.record');
+    Route::post('/tenants/{tenant}/payment-evidence/{evidence}/review', [PaymentEvidenceController::class, 'review'])->middleware('permission:billing.remit');
 
     // Remittances — expected cash, turn-ins, deposit-slip batches, digital bulk-mark.
     Route::get('/tenants/{tenant}/remittances', [RemittanceController::class, 'index']);
     Route::get('/tenants/{tenant}/remittances/expected', [RemittanceController::class, 'expected']);
     Route::get('/tenants/{tenant}/remittances/{remittance}', [RemittanceController::class, 'show']);
-    Route::post('/tenants/{tenant}/remittances/turn-ins', [RemittanceController::class, 'turnIn']);
-    Route::post('/tenants/{tenant}/remittances/batches', [RemittanceController::class, 'batch']);
-    Route::post('/tenants/{tenant}/remittances/digital', [RemittanceController::class, 'digital']);
-    Route::post('/tenants/{tenant}/remittances/{remittance}/confirm', [RemittanceController::class, 'confirm']);
+    Route::post('/tenants/{tenant}/remittances/turn-ins', [RemittanceController::class, 'turnIn'])->middleware('permission:billing.payments.record');
+    Route::post('/tenants/{tenant}/remittances/batches', [RemittanceController::class, 'batch'])->middleware('permission:billing.remit');
+    Route::post('/tenants/{tenant}/remittances/digital', [RemittanceController::class, 'digital'])->middleware('permission:billing.remit');
+    Route::post('/tenants/{tenant}/remittances/{remittance}/confirm', [RemittanceController::class, 'confirm'])->middleware('permission:billing.remit');
 });

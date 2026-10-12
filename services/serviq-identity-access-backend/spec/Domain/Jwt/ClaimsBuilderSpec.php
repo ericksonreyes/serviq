@@ -15,13 +15,16 @@ class ClaimsBuilderSpec extends ObjectBehavior
     public function it_builds_the_canonical_claim_set()
     {
         $claims = $this->build(
-            'user-1', 'tenant-1', ['Dispatcher'], ['payout.read'],
+            'user-1', 'tenant-1', 'jane.dispatcher', 'Jane Dispatcher',
+            ['Dispatcher'], ['payout.read'],
             'serviq-iam', 'serviq', 1000, 3600, 'token-1'
         );
 
         $claims->shouldBeArray();
         $claims->shouldHaveKeyWithValue('sub', 'user-1');
         $claims->shouldHaveKeyWithValue('tenant_id', 'tenant-1');
+        $claims->shouldHaveKeyWithValue('username', 'jane.dispatcher');
+        $claims->shouldHaveKeyWithValue('display_name', 'Jane Dispatcher');
         $claims->shouldHaveKeyWithValue('roles', ['Dispatcher']);
         $claims->shouldHaveKeyWithValue('permissions', ['payout.read']);
         $claims->shouldHaveKeyWithValue('iss', 'serviq-iam');
@@ -34,7 +37,8 @@ class ClaimsBuilderSpec extends ObjectBehavior
     public function it_emits_null_tenant_for_platform_scope_users()
     {
         $claims = $this->build(
-            'user-1', null, ['Platform Administrator'], ['iam.users.manage'],
+            'user-1', null, 'admin', 'Platform Administrator',
+            ['Platform Administrator'], ['iam.users.manage'],
             'serviq-iam', 'serviq', 0, 60, 'token-2'
         );
 

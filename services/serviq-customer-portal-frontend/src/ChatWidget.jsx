@@ -13,6 +13,18 @@ import { useAuth } from './auth'
 // server-side; the widget just renders reply + tool-call summaries).
 export default function ChatWidget() {
   const { token } = useAuth()
+  // `ai-agent` flag off → the assistant is gone from the UI entirely, not
+  // a button that just fails. Fail-open: errors/missing flag show it.
+  const [aiOn, setAiOn] = useState(true)
+  useEffect(() => {
+    const check = () =>
+      api.featureFlag('ai-agent')
+        .then((r) => setAiOn(r.data?.enabled !== false))
+        .catch(() => setAiOn(true))
+    check()
+    const id = setInterval(check, 30_000)
+    return () => clearInterval(id)
+  }, [])
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([
     { role: 'agent', text: 'Hi! I can help with booking, request status, or questions about our services.' },
@@ -46,6 +58,8 @@ export default function ChatWidget() {
     }
   }
 
+  if (!aiOn) return null
+
   return (
     <>
       {open && (
@@ -57,7 +71,7 @@ export default function ChatWidget() {
             display: 'flex', flexDirection: 'column', zIndex: 1300, overflow: 'hidden',
           }}
         >
-          <Box sx={{ px: 2, py: 1.5, bgcolor: '#0f172a', color: 'white', display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ px: 2, py: 1.5, bgcolor: '#1e1b4b', color: 'white', display: 'flex', alignItems: 'center' }}>
             <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>ServIQ Assistant</Typography>
             <IconButton size="small" onClick={() => setOpen(false)} sx={{ color: 'white' }} aria-label="Close chat">
               <CloseIcon fontSize="small" />

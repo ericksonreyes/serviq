@@ -56,3 +56,4 @@ What this buys us and what it costs.
 - [ADR-0018](0018-docs-as-generated-artifacts.MD) — Playwright-generated screenshots/recordings; docs visuals are artifacts, not manual captures
 - [ADR-0019](0019-nestjs-customer-support.MD) — NestJS at the domain tier (superseded by ADR-0020)
 - [ADR-0020](0020-express-customer-support-read-model.MD) — Support backend on plain Express+Node
+- [ADR-0021](0021-permission-claim-route-authorization.MD) — Route authorization by JWT permission claims; permission catalog defined in code

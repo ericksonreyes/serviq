@@ -89,4 +89,5 @@ allow request
 - [JWT Signing Keys](./JWT_SIGNING_KEYS.MD) — key distribution between IAM and resource services, plus the symmetric fallback
 - [JWT Invalidation](./JWT_INVALIDATION.MD) — shared Redis blacklist for pre-expiry token revocation
 - [Internal Service Security](./INTERNAL_SERVICE_SECURITY.MD) — which endpoints are public vs service-mesh-only, and how service-to-service calls authenticate
+- [ADR-0021](../../decisions/0021-permission-claim-route-authorization.MD) — the live permission catalog and which routes each key gates
 - [Engineering Disciplines](../README.MD)

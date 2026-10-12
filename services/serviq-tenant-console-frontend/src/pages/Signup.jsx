@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
-const input = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600'
+const input = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-violet-600 focus:outline-none focus:ring-1 focus:ring-violet-600'
 const label = 'block text-sm font-medium text-slate-700'
 
 export default function Signup({ tenantSlug }) {
   const navigate = useNavigate()
   const [form, setForm] = useState({
-    name: '', slug: '',
+    name: '', slug: '', description: '',
     admin_display_name: '', admin_username: '', admin_email: '',
     admin_password: '', admin_password_confirmation: '',
   })
@@ -35,7 +35,7 @@ export default function Signup({ tenantSlug }) {
 
   if (tenantId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+      <div className="flex min-h-screen items-center justify-center bg-violet-50">
         <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
           <h1 className="text-2xl font-bold text-slate-900">Organization created</h1>
           <p className="mt-2 text-sm text-slate-600">
@@ -46,7 +46,7 @@ export default function Signup({ tenantSlug }) {
           <Link
             to="/login"
             state={{ tenant_id: form.slug || tenantId }}
-            className="mt-4 block w-full rounded bg-slate-900 px-3 py-2 text-center text-sm font-medium text-white hover:bg-slate-700"
+            className="mt-4 block w-full rounded bg-indigo-950 px-3 py-2 text-center text-sm font-medium text-white hover:bg-violet-700"
           >
             Continue to sign in
           </Link>
@@ -56,7 +56,7 @@ export default function Signup({ tenantSlug }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
+    <div className="flex min-h-screen items-center justify-center bg-violet-50">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
         <h1 className="text-2xl font-bold text-slate-900">Become a service provider</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -75,6 +75,10 @@ export default function Signup({ tenantSlug }) {
               <label className={label}>Slug</label>
               <input className={input} required pattern="[a-z0-9-]+" placeholder="acme-services" value={form.slug} onChange={set('slug')} />
             </div>
+          </div>
+          <div>
+            <label className={label}>Describe your services <span className="font-normal text-slate-400">(optional)</span></label>
+            <input className={input} maxLength={500} placeholder="Appliance repair across the metro" value={form.description} onChange={set('description')} />
           </div>
           <div>
             <label className={label}>Your name</label>
@@ -103,7 +107,7 @@ export default function Signup({ tenantSlug }) {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-lg bg-teal-700 px-3 py-2.5 text-base font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+            className="w-full rounded-lg bg-violet-700 px-3 py-2.5 text-base font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
           >
             {busy ? 'Creating…' : 'Create organization'}
           </button>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CatalogService;
+use App\Models\ProjectedPlanFeatures;
 use App\Services\DomainEventRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,19 @@ class CatalogServiceController
             'steps.*.name' => ['required', 'string', 'max:100'],
             'steps.*.required_evidence' => ['nullable', 'array'],
         ]);
+
+        // Plan limit — projected from Platform subscription events.
+        // Missing projection or a canceled subscription fails open;
+        // only active services count against the catalog cap.
+        $features = ProjectedPlanFeatures::where('tenant_id', $data['tenant_id'])
+            ->where('status', '!=', 'canceled')
+            ->first()?->features ?? [];
+        $maxServices = $features['max_services'] ?? null;
+        if ($maxServices !== null) {
+            $active = CatalogService::where('tenant_id', $data['tenant_id'])->where('active', true)->count();
+            abort_if($active >= (int) $maxServices, 422,
+                "Plan limit reached — this plan allows up to {$maxServices} active services.");
+        }
 
         $service = DB::transaction(function () use ($data, $events) {
             $service = CatalogService::create($data);

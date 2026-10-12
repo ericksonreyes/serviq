@@ -57,6 +57,8 @@ class JwtIssuer
         $payload = (new ClaimsBuilder)->build(
             $user->id,
             $user->tenantId(),
+            $user->username,
+            $user->display_name,
             $user->roleNames(),
             $user->permissionNames(),
             (string) config('iam.jwt.issuer'),

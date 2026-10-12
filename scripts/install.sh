@@ -7,6 +7,8 @@
 #   3. Choose: fresh start (empty databases) or keep existing data
 #   4. Repair minio-data volume ownership (bitnamilegacy/minio runs as UID 1001)
 #   5. Build + start in order: infra -> domain services -> AI -> frontends
+#   6. Seed demo accounts/data (loud, ordered) — entrypoints also seed at
+#      boot but silently; this pass guarantees a usable stack post-install
 #
 # Usage: ./scripts/install.sh
 
@@ -76,13 +78,56 @@ done
 
 # ── 6. Staged bring-up: essential first, UI last ─────────────────────────────
 echo
-echo "==> [1/5] Infrastructure (postgres, mongo, redis, rabbitmq, minio, fluent-bit)"
+echo "==> [1/6] Infrastructure (postgres, mongo, redis, rabbitmq, minio, fluent-bit)"
 $COMPOSE --profile infra up -d --wait --build
 
-echo "==> [2/5] Domain services (Laravel backends + BFFs)"
+echo "==> [2/6] Domain services (Laravel backends + BFFs)"
 $COMPOSE --profile domain up -d --wait --build
 
-echo "==> [3/5] AI (ollama + ai-agent)"
+# ── Seed demo accounts + demo data ───────────────────────────────────────
+# Ordered for the async bit: IAM first (platform admin, synchronous), then
+# platform-management (emits Platform.TenantCreated), then WAIT for IAM's
+# consumer to provision the acme.* accounts before the rest — Demo*Seeders
+# (workforce's agent, customer-request's customer) look up IAM user ids.
+echo
+echo "==> [3/6] Seeding demo accounts + demo data"
+seed_fail=0
+seed() { # $1 = backend container name
+  if out=$(docker exec "$1" php artisan db:seed --force 2>&1); then
+    printf '  ok   %s\n' "$1"
+  else
+    printf '  FAIL %s\n' "$1"
+    echo "$out" | tail -5 | sed 's/^/       /'
+    seed_fail=$((seed_fail + 1))
+  fi
+}
+seed serviq-identity-access-backend
+seed serviq-platform-management-backend
+
+echo "  waiting for demo tenant accounts (event pipeline)..."
+provisioned=0
+for _ in $(seq 1 60); do
+  provisioned=$(docker exec infra-postgres psql -U serviq -d serviq_identity -tAc \
+    "select count(*) from users where scope <> 'platform'" 2>/dev/null || echo 0)
+  [ "${provisioned:-0}" -ge 3 ] && break
+  sleep 2
+done
+if [ "${provisioned:-0}" -ge 3 ]; then
+  echo "  ok   demo tenant accounts provisioned"
+else
+  echo "  WARN tenant accounts not provisioned within 2min — check: docker logs serviq-identity-access-consumer"
+fi
+
+for c in $($COMPOSE ps --format '{{.Name}}' | grep -- '-backend$'); do
+  case "$c" in
+    serviq-identity-access-backend|serviq-platform-management-backend) continue ;;
+  esac
+  # Non-Laravel backends (customer-support is Express) have no artisan.
+  docker exec "$c" sh -c 'test -f artisan' 2>/dev/null || continue
+  seed "$c"
+done
+
+echo "==> [4/6] AI (ollama + ai-agent)"
 $COMPOSE --profile ai up -d --wait --build
 
 # Model weights aren't part of the stack — without them ai-agent runs in
@@ -103,7 +148,7 @@ else
   echo "  Later: docker exec infra-ollama ollama pull moondream && docker exec infra-ollama ollama pull qwen2.5:3b"
 fi
 
-echo "==> [4/5] Frontends (vite dev servers with hot reload, 3000-3003)"
+echo "==> [5/6] Frontends (vite dev servers with hot reload, 3000-3003)"
 $COMPOSE --profile dev up -d --wait
 
 # Dev containers report "running" while first-boot `npm install` is still in
@@ -118,7 +163,7 @@ done
 
 # ── 6. Smoke checks ──────────────────────────────────────────────────────────
 echo
-echo "==> [5/5] Smoke checks"
+echo "==> [6/6] Smoke checks"
 fail=0
 check() { # $1=url  $2=label
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$1" || echo 000)
@@ -156,8 +201,9 @@ if [ "$bad" -gt 0 ]; then
 fi
 
 echo
-if [ "$fail" -gt 0 ]; then
-  echo "Done with $fail smoke-check failure(s). Inspect: $COMPOSE logs <service>"
+total=$((fail + seed_fail))
+if [ "$total" -gt 0 ]; then
+  echo "Done with $total failure(s): $seed_fail seed, $fail smoke. Inspect: $COMPOSE logs <service>"
   exit 1
 fi
 

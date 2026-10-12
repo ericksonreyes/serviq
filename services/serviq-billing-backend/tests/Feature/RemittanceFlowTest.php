@@ -221,4 +221,66 @@ class RemittanceFlowTest extends TestCase
             'extracted' => ['amount_cents' => 100],
         ])->assertStatus(422);
     }
+
+    public function test_claimed_values_mismatching_parsed_fields_flag_the_evidence(): void
+    {
+        $invoice = $this->invoice(null, 150000);
+
+        $r = $this->api('POST', '/payment-evidence', [
+            'document_type' => 'E_WALLET', 'file_ref' => 'minio://e/claimed', 'confidence' => 0.95,
+            'invoice_id' => $invoice->id,
+            'extracted' => ['reference' => 'GC-REAL-1', 'amount_cents' => 150000],
+            'claimed' => ['reference' => 'GC-TYPED-WRONG', 'amount_cents' => 150000],
+        ]);
+
+        $r->assertCreated()->assertJsonPath('data.status', 'flagged');
+        $this->assertContains('claimed_mismatch', $r->json('data.flags'));
+    }
+
+    public function test_under_expected_batch_lands_in_manual_review(): void
+    {
+        $a = $this->invoice($this->agent, 90000);
+        $b = $this->invoice($this->agent, 60000);
+        $this->paidCash($a);
+        $this->paidCash($b);
+
+        // The slip covers less than the invoices it claims to settle.
+        $slip = $this->api('POST', '/payment-evidence', [
+            'document_type' => 'BANK_SLIP', 'file_ref' => 'minio://s/short', 'confidence' => 0.97,
+            'extracted' => ['reference' => 'DEP-SHORT', 'amount_cents' => 140000],
+        ])->assertCreated();
+
+        $batch = $this->api('POST', '/remittances/batches', [
+            'evidence_id' => $slip->json('data.id'), 'invoice_ids' => [$a->id, $b->id],
+        ])->assertCreated()->assertJsonPath('data.status', 'manual_review');
+
+        $this->assertContains('under_remitted', $batch->json('data.flags'));
+        // Flagged batches cannot reach remitted through a plain confirm.
+        $this->api('POST', "/remittances/{$batch->json('data.id')}/confirm", ['decision' => 'confirm'])
+            ->assertStatus(422);
+    }
+
+    public function test_paid_invoice_never_settles_itself(): void
+    {
+        $invoice = $this->invoice($this->agent, 150000);
+        $this->paidCash($invoice);
+
+        // `paid` is where an invoice waits for a remittance — nothing in the
+        // payment path may push it to `remitted` on its own.
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertDatabaseMissing('remittances', ['status' => 'remitted']);
+    }
+
+    public function test_expired_token_is_rejected(): void
+    {
+        $expired = JWT::encode([
+            'iss' => 'serviq-iam', 'aud' => 'serviq',
+            'sub' => (string) Str::uuid7(), 'tenant_id' => $this->tenant,
+            'roles' => ['Dispatcher'], 'jti' => (string) Str::uuid(),
+            'iat' => time() - 7200, 'exp' => time() - 3600,
+        ], config('platform.jwt.secret'), 'HS256');
+
+        $this->withToken($expired)->json('GET', "/api/v1/tenants/{$this->tenant}/invoices")
+            ->assertStatus(401);
+    }
 }

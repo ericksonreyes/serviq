@@ -13,7 +13,7 @@ This file is the canonical vocabulary source for ServIQ documentation. Use these
 - **ServIQ** — the multi-tenant service operations platform.
 - **Platform** — the shared SaaS layer that serves all tenants.
 - **Tenant** — a logically isolated customer instance on the platform.
-- **Service Provider** — the business that operates inside a tenant and uses ServIQ to deliver services. Prefer this term when describing the business itself.
+- **Service Provider** — the business that operates inside a tenant and uses ServIQ to deliver services. Prefer this term when describing the business itself. **UI copy always uses "Service Provider" (short form: "Provider")**; `tenant`/`tenant_id` remain the code, API, and URL terms and must not leak into user-visible text.
 - **Platform Administrator** — the person who manages the shared ServIQ platform.
 - **Tenant Administrator** — the person who manages one Service Provider's configuration, users, and operations.
 - **Dispatcher** — the person who coordinates jobs, assignments, and operational exceptions for a Service Provider.
