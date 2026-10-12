@@ -11,13 +11,14 @@ export default function Remittances() {
   const { token } = useAuth()
   const tenant = useTenant()
   const { data, error, loading, reload } = useLoader(async () => {
-    const [remittances, agents, invoices, evidence] = await Promise.all([
+    const [remittances, agents, invoices, digital, evidence] = await Promise.all([
       api.remittances(token, tenant),
       api.agents(token, tenant).catch(() => []),
       api.invoices(token, tenant).catch(() => []),
+      api.digitallyPaidInvoices(token, tenant).catch(() => []),
       api.paymentEvidence(token, tenant).catch(() => []),
     ])
-    return { remittances: rows(remittances), agents: rows(agents), invoices: rows(invoices), evidence: rows(evidence) }
+    return { remittances: rows(remittances), agents: rows(agents), invoices: rows(invoices), digital: rows(digital), evidence: rows(evidence) }
   }, [token, tenant])
 
   return (
@@ -27,7 +28,7 @@ export default function Remittances() {
       {loading ? <Loading /> : !data ? <Empty /> : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <TurnIn token={token} tenant={tenant} agents={data.agents} onDone={reload} />
-          <DigitalRemit token={token} tenant={tenant} invoices={data.invoices} onDone={reload} />
+          <DigitalRemit token={token} tenant={tenant} invoices={data.digital} onDone={reload} />
           <BatchRemit token={token} tenant={tenant} invoices={data.invoices} evidence={data.evidence} onDone={reload} />
           <RemittanceList token={token} tenant={tenant} list={data.remittances} onDone={reload} />
         </div>

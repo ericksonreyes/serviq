@@ -163,6 +163,7 @@ export default function JobDetail() {
     // photo upstream and Billing compares them (claimed_mismatch → review).
     const res = await api.submitPaymentEvidence(token, {
       document_type: payment.document_type,
+      execution_id: id,
       file_ref: fileRef,
       file_b64: await fileToB64(file),
       filename: file.name,
