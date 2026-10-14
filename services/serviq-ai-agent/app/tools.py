@@ -6,6 +6,7 @@ is a thin adapter over the owning microservice's API — the caller's JWT
 is forwarded verbatim and every business decision (cancellation policy,
 refund approval, remittance confirmation) stays in the domain service.
 """
+import base64
 import json
 import os
 import re
@@ -42,6 +43,37 @@ def _amount_cents(fields: dict) -> int:
         return 0
 
 
+def _denominations_total(rows) -> int:
+    """Sum a model-emitted denomination table into cents. Rows look like
+    {"denomination": "₱1000", "count": 5} with widely varying key names —
+    pick a face-value key and a quantity key per row, extract numerics from
+    strings ('₱1,000 bill' → 1000). Unrecognized rows contribute 0."""
+    if not isinstance(rows, list):
+        return 0
+    value_keys = ("denomination", "value", "amount", "face_value", "bill", "note", "coin")
+    count_keys = ("count", "quantity", "qty", "pieces", "pcs", "number")
+    total = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        value = count = None
+        for key in value_keys:
+            if key in row:
+                m = re.search(r"[\d,.]+", str(row[key]).replace(",", ""))
+                if m:
+                    value = float(m.group(0))
+                break
+        for key in count_keys:
+            if key in row:
+                m = re.search(r"[\d.]+", str(row[key]))
+                if m:
+                    count = float(m.group(0))
+                break
+        if value is not None:
+            total += value * (count if count is not None else 1)
+    return int(round(total * 100))
+
+
 def _reference(fields: dict) -> str | None:
     for key in ("reference_no", "reference", "check_no", "po_number", "reference_id"):
         if fields.get(key):
@@ -72,7 +104,9 @@ def _submit_evidence(ctx: dict, params: dict, label: str) -> dict:
     fields = parsed.get("fields") or {}
     body = {
         "document_type": doc_type,
-        "file_ref": f"chat-upload:{upload.get('filename') or 'attachment'}",
+        # Billing persists the artifact — file_ref becomes the MinIO object ref.
+        "file_b64": base64.b64encode(upload["content"]).decode(),
+        "filename": upload.get("filename") or "attachment",
         "raw_text": json.dumps(fields),
         "confidence": parsed.get("confidence"),
         "extracted": {
@@ -259,20 +293,22 @@ def cash_turnin_count(ctx, params):
         return {"summary": "Which agent is turning in? Give me the agent id."}
     if not upload or not upload.get("content"):
         return {"summary": "Attach the photo of the laid-out bills and coins."}
-    # The AI only counts — Billing owns expected-vs-counted reconciliation.
+    # The AI only counts — it never submits. The dispatcher reviews the
+    # number and performs the turn-in through Billing's own action.
     parsed = parse_document(upload["content"])
     fields = parsed.get("fields") or {}
-    counted = _amount_cents(fields)
+    rows = fields.get("denominations") or fields.get("items")
+    # Trust the item enumeration over the model's own arithmetic — small
+    # vision models hallucinate plausible totals; summing visible items is
+    # deterministic.
+    counted = _denominations_total(rows) or _amount_cents(fields)
     if counted <= 0:
         return {"summary": "I couldn't read a countable total from that photo — retake it or count manually.",
                 "data": {"parsed": parsed}}
-    body = {"agent_id": agent_id, "counted_total_cents": counted,
-            "breakdown": fields.get("denominations") or fields}
-    res = call("POST", BILLING_URL, f"/api/v1/tenants/{ctx['tenant_id']}/remittances/turn-ins",
-               ctx["token"], body=body)
-    row = res.get("data") or {}
-    return {"summary": f"Counted {counted / 100:.2f} and submitted the turn-in — status '{row.get('status', 'pending')}'.",
-            "data": {"parsed": parsed, "remittance": row}}
+    return {"summary": f"Counted {counted / 100:.2f} PHP — check the number against the physical cash, "
+                       "then submit the turn-in yourself.",
+            "data": {"parsed": parsed, "counted_total_cents": counted,
+                     "denominations": rows if isinstance(rows, list) else None}}
 
 
 def remittance_evidence_upload(ctx, params):
@@ -406,7 +442,7 @@ PROFILE_TOOLS = {
             "Advisory top-N agent recommendations for a job, with reasons",
             {"job_id": "uuid"}, ["job_id"], dispatch_recommend),
         "cash_turnin_count": _t(
-            "Count photographed bills and coins for a cash turn-in and submit the count to Billing",
+            "Count photographed bills and coins for a cash turn-in — returns the counted total for review (does not submit)",
             {"agent_id": "uuid"}, ["agent_id"], cash_turnin_count),
         "remittance_evidence_upload": _t(
             "Submit remittance evidence (e.g. bank deposit slip image attached to the chat) for parsing",

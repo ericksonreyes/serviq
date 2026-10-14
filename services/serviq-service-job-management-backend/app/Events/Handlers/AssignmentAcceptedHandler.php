@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Assignment.Accepted → Job.Assigned. Assignment owns the decision; the job
- * lifecycle advances by event, not by cross-service call.
+ * Assignment.Accepted → Job.Assigned, or Job.Reassigned when a dispatcher
+ * swaps the agent on an open job (ADR-0024). Assignment owns the decision;
+ * the job lifecycle advances by event, not by cross-service call.
  */
 class AssignmentAcceptedHandler
 {
@@ -28,19 +29,25 @@ class AssignmentAcceptedHandler
             return;
         }
 
-        // Assigned to the same agent → duplicate event, drop it. Past the
-        // dispatch-committed window (agent accepted/started/closed) → a late
-        // Accepted must not rewind the lifecycle. Assigned to a *different*
-        // agent → dispatcher reassign: re-record Job.Assigned with the new
-        // agent so the projection follows Assignment's decision.
-        if ($job->status === JobLifecycle::ASSIGNED && $job->assigned_agent_id === $agentId) {
+        // Assigned to the same agent → duplicate event, drop it. Closed jobs
+        // → a late Accepted must not reopen them. A *different* agent on any
+        // open job → dispatcher reassign (ADR-0024): record Job.Reassigned,
+        // which moves assigned_agent_id without rewinding the lifecycle
+        // (Job.Assigned would drag an in-progress job back to 'assigned').
+        if ($job->assigned_agent_id === $agentId) {
             return;
         }
-        if (in_array($job->status, [JobLifecycle::ACCEPTED, JobLifecycle::IN_PROGRESS, JobLifecycle::COMPLETED, JobLifecycle::CANCELLED], true)) {
+        if (in_array($job->status, JobLifecycle::TERMINAL, true)) {
             return;
         }
 
-        DB::transaction(fn () => app(JobStore::class)->record($job, 'Job.Assigned', ['agent_id' => $agentId]));
+        $store = app(JobStore::class);
+        DB::transaction(fn () => $job->assigned_agent_id === null
+            ? $store->record($job, 'Job.Assigned', ['agent_id' => $agentId])
+            : $store->record($job, 'Job.Reassigned', [
+                'agent_id' => $agentId,
+                'previous_agent_id' => $job->assigned_agent_id,
+            ]));
         Log::info("Job {$jobId} assigned to {$agentId}");
     }
 }

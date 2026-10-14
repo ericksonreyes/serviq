@@ -45,6 +45,10 @@ class InvoiceStore
                 'invoice_id' => $invoice->id, 'tenant_id' => $invoice->tenant_id,
                 'amount_cents' => $attrs['amount_cents'] ?? $invoice->amount_cents,
                 'method' => $attrs['method'],
+                // ADR-0026: cash is always agent-held; digital defaults to
+                // company-held unless the recorder declares the agent's wallet.
+                'holder' => $attrs['holder']
+                    ?? ($attrs['method'] === 'cash' ? 'agent' : 'company'),
                 'reference' => $attrs['reference'] ?? null,
                 'evidence_id' => $attrs['evidence_id'] ?? null,
                 'recorded_by' => $attrs['recorded_by'] ?? null,

@@ -147,6 +147,46 @@ class ServiceOperationsController
         return response()->json(['data' => $days]);
     }
 
+    /**
+     * Customer-facing business info: the weekly operating window and
+     * upcoming closures, so a picker can show "closed" with a reason
+     * instead of an unexplained disabled date. Deliberately omits
+     * capacity internals (crews, agent shifts, flags) — those are
+     * provider-side concerns; customers see the effect, not the roster.
+     */
+    public function summary(string $tenant): JsonResponse
+    {
+        $settings = TenantSetting::where('tenant_id', $tenant)->value('settings') ?? [];
+        $hours = $settings['operating_hours'] ?? self::DEFAULT_HOURS;
+        $today = Carbon::today();
+        $horizon = $today->copy()->addDays(self::MAX_RANGE_DAYS);
+
+        // One-off closures as their dates; recurring MM-DD holidays as
+        // their next occurrence inside the booking horizon.
+        $closures = collect($settings['non_working_days'] ?? [])
+            ->filter(fn ($d) => $d >= $today->toDateString())
+            ->map(fn ($d) => ['date' => $d, 'kind' => 'closure']);
+        foreach ($settings['holidays'] ?? [] as $md) {
+            $occurrence = Carbon::createFromFormat('m-d', (string) $md);
+            if (! $occurrence) {
+                continue;
+            }
+            $occurrence->setYear($today->year);
+            if ($occurrence->lt($today)) {
+                $occurrence->addYear();
+            }
+            if ($occurrence->lte($horizon)) {
+                $closures->push(['date' => $occurrence->toDateString(), 'kind' => 'holiday']);
+            }
+        }
+
+        return response()->json(['data' => [
+            'hours' => $hours,
+            'closures' => $closures->sortBy('date')->unique('date')->values()->all(),
+            'cancellation_policy' => $settings['cancellation_policy'] ?? null,
+        ]]);
+    }
+
     public function showPricing(string $tenant, CatalogService $service): JsonResponse
     {
         abort_unless($service->tenant_id === $tenant, 404);

@@ -44,17 +44,27 @@ class CoverageController
      * uncovered location. `user_id` comes from the token, never the body;
      * re-registering the same spot is idempotent.
      */
-    public function interested(Request $request, string $tenant, DomainEventRecorder $events): JsonResponse
+    public function interested(Request $request, string $tenant, DomainEventRecorder $events, Coverage $coverage): JsonResponse
     {
         $data = $request->validate(['admin_code' => ['required', 'string', 'max:20']]);
         $location = Location::find($data['admin_code']);
         abort_unless($location, 404);
+
+        // Interest in somewhere already served is meaningless — the
+        // customer can just book. (Unconfigured coverage is open too.)
+        abort_if($coverage->check($tenant, $data['admin_code'])['covered'], 422, 'already_covered');
 
         $interest = CoverageInterest::firstOrCreate([
             'tenant_id' => $tenant,
             'admin_code' => $data['admin_code'],
             'user_id' => $request->user()->userId(),
         ]);
+
+        // Re-subscribing after coverage shrank post-fulfilment → unmark so
+        // the next expansion notifies them again.
+        if (! $interest->wasRecentlyCreated && $interest->notified_at !== null) {
+            $interest->update(['notified_at' => null]);
+        }
 
         if ($interest->wasRecentlyCreated) {
             // No user_id in the payload — the notification is tenant-wide
@@ -69,10 +79,11 @@ class CoverageController
         return response()->json(['data' => $interest], $interest->wasRecentlyCreated ? 201 : 200);
     }
 
-    /** Demand grouped by location — the Areas page's "people asking" list. */
+    /** Demand grouped by location — the Areas page's "people asking" list (unmet only). */
     public function demand(string $tenant): JsonResponse
     {
         $rows = CoverageInterest::where('tenant_id', $tenant)
+            ->whereNull('notified_at')
             ->selectRaw('admin_code, count(*) as interested, max(created_at) as latest')
             ->groupBy('admin_code')
             ->orderByDesc('interested')

@@ -22,7 +22,9 @@ class EventsConsume extends Command
     private const HANDLERS = [
         'Job.ReadyForAssignment' => JobEventHandler::class,
         'Job.Assigned' => JobEventHandler::class,
+        'Job.Reassigned' => JobEventHandler::class,
         'Job.Accepted' => JobEventHandler::class,
+        'Job.Started' => JobEventHandler::class,
         'Job.Completed' => JobEventHandler::class,
         'Job.Cancelled' => JobEventHandler::class,
         'Workforce.AgentRegistered' => AgentProjectionHandler::class,

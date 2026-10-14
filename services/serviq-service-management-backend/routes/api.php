@@ -27,6 +27,7 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope'])->group(function ()
     Route::patch('/tenants/{tenant}/services/{service}', [CatalogServiceController::class, 'update'])->middleware('permission:catalog.services.manage');
     Route::put('/tenants/{tenant}/services/{service}/steps', [CatalogServiceController::class, 'reorderSteps'])->middleware('permission:catalog.services.manage');
 
+    Route::get('/tenants/{tenant}/operations', [ServiceOperationsController::class, 'summary']);
     Route::get('/tenants/{tenant}/services/{service}/availability', [ServiceOperationsController::class, 'availability']);
     Route::get('/tenants/{tenant}/services/{service}/pricing', [ServiceOperationsController::class, 'showPricing']);
     Route::put('/tenants/{tenant}/services/{service}/pricing', [ServiceOperationsController::class, 'updatePricing'])->middleware('permission:catalog.services.manage');

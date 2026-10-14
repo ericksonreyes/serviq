@@ -48,6 +48,49 @@ Billing compares expected vs counted
 - Manual overrides must store `overridden_by` with the dispatcher's IAM user ID — see [Identifiers](../IDENTIFIERS.MD) and the IAM accountability rules.
 - The denomination breakdown is advisory detail; the authoritative number is the confirmed count accepted by the dispatcher and recorded by Billing.
 
+## Transfer Turn-in (e-wallet, bank deposit, remittance center)
+
+An agent may also remit through an outside rail instead of handing over physical cash: an e-wallet transfer to the company wallet (GCash/Maya), a deposit straight into the company bank account, or a remittance-center send (Palawan Express, Cebuana, etc.) — then presents the receipt to the dispatcher as proof of turn-in. See [ADR-0026](../../decisions/0026-agent-remittance-via-e-wallet.MD) and [ADR-0027](../../decisions/0027-agent-remittance-via-bank-or-remittance-center.MD) for the domain decisions.
+
+| Channel | Evidence document | Dispatcher verifies arrival at |
+| --- | --- | --- |
+| `wallet` | `E_WALLET` receipt | company e-wallet |
+| `bank` | `BANK_SLIP` deposit slip | company bank account |
+| `remittance_center` | `REMITTANCE_RECEIPT` | remittance-center payout |
+
+```text
+Agent uploads the transfer receipt (any rail)
+        │
+        ▼
+AI Agent — vision model classifies the document and extracts
+           provider/bank, sender, amount, reference number
+        │
+        ▼
+Billing compares sent amount vs agent-held collections
+  (cash + customer wallet payments held by the agent —
+   company-held digital payments are already settled)
+        │
+        ▼
+Manual review — the receipt is a claim, not settlement;
+dispatcher confirms arrival at the rail's destination
+        │
+        ├── Reference reused (prior payment or remittance)
+        │     → duplicate_reference flag
+        ├── Wrong document for the channel → rejected at intake
+        ├── Sent < expected → variance, same shortfall path
+        │     (recount/override or accept + Payouts deduction)
+        └── Clean + funds arrived → dispatcher confirms REMITTED
+```
+
+## Rules — transfer turn-in
+
+- The sent amount comes from the parsed receipt, not the agent's typed-in figure.
+- The transfer's reference number is stored on the remittance and checked for reuse across payments and prior remittances — a screenshot can be re-submitted, a reference cannot.
+- A transfer turn-in never skips manual review: the dispatcher verifies the money actually arrived at the rail's destination before confirming.
+- The channel must match the evidence document — a `bank` turn-in requires a `BANK_SLIP`; an e-wallet receipt cannot stand in for it.
+- The AI also extracts the **recipient** (`recipient_name`/`recipient_account`) and the provider (`provider`/`bank`) — a receipt naming a recipient other than the tenant's configured receiving accounts (`company_accounts`, per rail) flags `recipient_mismatch` at intake, and the flag travels to the turn-in so only an explicit override or reject can settle it.
+- A `cash`-channel turn-in settles only cash-held collections; every transfer-channel turn-in settles all agent-held collections.
+
 ## Bank Deposit and Batch Remittance
 
 Confirmed cash sits with the dispatcher until it is deposited at a bank. The deposit closes the loop: one deposit slip remits a whole batch of cash collections at once.

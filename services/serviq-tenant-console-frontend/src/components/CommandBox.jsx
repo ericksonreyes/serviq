@@ -79,7 +79,7 @@ const rowsOf = (c) => (Array.isArray(c.data) ? c.data : [])
 // Per-tool row → {to, title, sub, status}. `to` makes the row a link.
 const ROW_FOR = {
   service_request_search: (r) => ({
-    to: `/dispatch/requests?request=${r.id}`,
+    to: `/dispatch/requests/${r.id}`,
     title: r.customer?.name || `Request ${String(r.id).slice(0, 8)}…`,
     sub: r.details?.notes || r.details?.description,
     status: r.status,
@@ -91,7 +91,7 @@ const ROW_FOR = {
     status: a.status,
   }),
   dispatch_recommend: (r, c) => ({
-    to: c.params?.job_id ? `/dispatch/jobs?job=${c.params.job_id}` : null,
+    to: c.params?.job_id ? `/dispatch/jobs/${c.params.job_id}` : null,
     title: r.name,
     sub: [`score ${r.score}`, ...(r.reasons || [])].filter(Boolean).join(' — '),
   }),

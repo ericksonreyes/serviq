@@ -49,6 +49,7 @@ ServIQ is designed around a generalized service model rather than a single indus
 ### Core Capabilities
 
 - **Multi-tenancy** — Isolated businesses operating on a shared platform
+- **Defense-in-depth tenant isolation** — JWT claims → application scoping → PostgreSQL Row-Level Security as the database-level net (Billing showcase, [ADR-0028](workspace/specs/decisions/0028-billing-row-level-security.MD))
 - **Customer Management** — Manage customers and their service requests
 - **Service Management** — Define and manage different types of services
 - **Work Orders** — Track the complete lifecycle of a service job

@@ -36,7 +36,7 @@ Test strategy, scenario inventory, and run instructions for the ServIQ stack. Th
 - `services/serviq-ai-agent/app/eval.py` + `evals/dataset.jsonl` — 20-fixture parse-accuracy eval on stub mode
 - `install.sh` smoke checks — `/api/health` on all 19 ports + frontends
 - `tests/integration/` — broker-level suite (3 scripts, helpers in `lib/broker.mjs`): publishes envelopes onto the live `serviq.events` exchange so the real consumer containers handle them, then asserts on the owning services' databases and DLQs. Covers job→billing→payouts, refund decision → billing, shortfall → payouts, duplicate-delivery dedupe, DLQ on handler failure, invitation → notifications, photo evidence in MinIO → ai-agent → `AI.PaymentProofParsed` (and unfetchable evidence → `ai-agent.events.dlq`). Opt-in — `./scripts/test.sh tests/integration` — runs in `node:22-alpine` on the `serviq_serviq` network. Uses random tenant/job IDs (the invitation check uses the demo tenant so its email channel is exercised).
-- `tests/e2e/` — Playwright persona suite (15 scripts, shared helpers in `lib/harness.mjs`); coverage per persona is listed in [TEST_SCENARIOS.MD](TEST_SCENARIOS.MD#portal-flows-browser-e2e). Opt-in — `./scripts/test.sh tests/e2e` — needs the running stack, not part of the default glob. Failure screenshots land as `tests/e2e/fail-*.png` (gitignored).
+- `tests/e2e/` — Playwright persona suite (16 scripts, shared helpers in `lib/harness.mjs`); coverage per persona is listed in [TEST_SCENARIOS.MD](TEST_SCENARIOS.MD#portal-flows-browser-e2e). Opt-in — `./scripts/test.sh tests/e2e` — needs the running stack, not part of the default glob. Failure screenshots land as `tests/e2e/fail-*.png` (gitignored).
 
 ## Browser E2E conventions
 
@@ -51,6 +51,7 @@ Established by the `tests/e2e` spike — follow these for new E2E tests:
 - **Projections are async** — after a write, re-enter the page (`reenter()` in the harness: navigate away and back) until the read model catches up; never `sleep` a fixed time.
 - **Strategy-changing tests restore `automatic` in `finally`** — the other scripts assume instant auto-assignment for `acme`.
 - **Match rows by your marker, not position** — bookings carry `E2E-<ts>` notes rendered in the console queue; the job lookup binds by `request_id`, not "first requested row" (stale leftovers poison positional matches).
+- **Parse-dependent suites need the stub provider** — `AI_VISION_PROVIDER=stub`/`AI_TEXT_PROVIDER=stub` (the `.env.example` default). The fake "image" buffers carry `key: value` text the stub regex-extracts; a real provider (Ollama/Gemini) can't read them, so `cash-remittance.mjs` path B and `money-flows.mjs` path A are only deterministic in stub mode. `transfer-remittance.mjs` is provider-agnostic — when the parse returns nothing it falls back to manual entry and asserts the `claimed_mismatch` flag instead of the clean path.
 - **Selectors: prefer role/label/text** — MUI labels resolve via `getByLabel`; Tailwind `<label>`s aren't `for`-associated (fall back to input types); hidden `<option>`s pollute `/status/i` text waits — match notice strings exactly.
 
 ## Environment quirks

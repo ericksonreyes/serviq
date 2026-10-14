@@ -77,6 +77,16 @@ if "payout.execute" not in claims.permissions:
 allow request
 ```
 
+## Tenant Isolation in Depth
+
+The JWT `tenant_id` claim and application-level scoping (`where('tenant_id', …)`, bound-model `abort_unless`, `tenantScope` middleware) are the first-class isolation contract. Billing additionally enforces the boundary **inside Postgres** via Row-Level Security ([ADR-0028](../../decisions/0028-billing-row-level-security.MD)):
+
+- Every tenant-bearing Billing table has `ENABLE` + `FORCE ROW LEVEL SECURITY` and a policy pinned to `current_setting('app.tenant_id')` — a forgotten application scope fails closed to an empty set instead of leaking rows. Tables without their own `tenant_id` gate via `EXISTS` on the parent.
+- `SetTenantContext` middleware `SET`s the GUC from the verified JWT claim after authentication; it never trusts request input.
+- Runtime connects as `serviq_app`, a non-superuser role — Postgres superusers bypass RLS unconditionally, so the demo only works on a bound role.
+- Console paths (consumers, `outbox:publish`, migrations) bypass via an explicit `app.is_system` GUC set on command start — the bypass is a greppable decision, not ambient privilege.
+- RLS answers only "is this row the right tenant's?" Roles, permissions, and concurrency (`lockForUpdate`) remain application concerns; RLS is the net, not the mechanism.
+
 ## Notes
 
 - Services should not infer access from request headers alone.
@@ -91,4 +101,5 @@ allow request
 - [Internal Service Security](./INTERNAL_SERVICE_SECURITY.MD) — which endpoints are public vs service-mesh-only, and how service-to-service calls authenticate
 - [ADR-0021](../../decisions/0021-permission-claim-route-authorization.MD) — the live permission catalog and which routes each key gates
 - [ADR-0022](../../decisions/0022-least-privilege-invitations.MD) — `iam.invitations.manage` splits customer/agent invites from full user management
+- [ADR-0028](../../decisions/0028-billing-row-level-security.MD) — Postgres RLS as tenant-isolation safety net in Billing; `serviq_app` role, GUC context, system bypass
 - [Engineering Disciplines](../README.MD)

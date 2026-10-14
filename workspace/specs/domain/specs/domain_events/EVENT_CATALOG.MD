@@ -51,7 +51,8 @@ Consumers: Service Job Management (`Request.Submitted` → job creation), Custom
 | `ServiceManagement.ServicePricingUpdated` | Pricing rules changed | `service_id`, pricing fields |
 | `ServiceManagement.WorkflowTemplateChanged` | Service steps edited | `service_id`, step template |
 | `ServiceManagement.ServiceAreaCreated` / `ServiceAreaUpdated` / `ServiceAreaDeleted` | Service area CRUD | area fields |
-| `ServiceManagement.CoverageInterested` | Customer registered demand for an uncovered location | `admin_code` |
+| `ServiceManagement.CoverageInterested` | Customer registered demand for an uncovered location | `admin_code`, `location_name`, `location_path` |
+| `ServiceManagement.CoverageSatisfied` | A service area newly covers an interested customer's location (notify-on-expansion; one event per user) | `user_id`, `admin_code`, `location_name`, `location_path`, `service_area_name` |
 | `ServiceManagement.SettingsUpdated` | Tenant operational settings saved | `settings` |
 
 Consumers: Service Job Management (`ServiceCreated`, `WorkflowTemplateChanged` → workflow-template projection).
@@ -65,6 +66,7 @@ All `Job.*` payloads carry `job_id` plus the keys listed.
 | `Job.Requested` | Job created from a converted request | request/service fields |
 | `Job.ReadyForAssignment` | Job enters dispatch queue | `service_id`, `scheduled_for` |
 | `Job.Assigned` | Dispatcher/AI assigns an agent | `agent_id` |
+| `Job.Reassigned` | Dispatcher swaps the agent on an open job (incl. mid-flight) — updates the assignment without rewinding the lifecycle | `agent_id`, `previous_agent_id` |
 | `Job.Accepted` | Agent accepts (projection back from dispatch) | `agent_id` |
 | `Job.Started` | Agent checks in | `agent_id` |
 | `Job.Confirmed` | Customer confirms | — |
@@ -119,9 +121,10 @@ Consumers: Service Job Management (`Execution.*` → job lifecycle projection), 
 | `Invoice.Refunded` | Refund executed against a paid invoice | `invoice_id`, `refund_id`, `executed_by` |
 | `PaymentEvidence.Received` | Evidence submitted (AI-parsed or manual) | `evidence_id`, `document_type`, `status`, `flags`, `invoice_id`, `uploader_id` |
 | `PaymentEvidence.Reviewed` | Dispatcher accepts/rejects evidence | `evidence_id`, `decision`, `reviewed_by` |
-| `Remittance.TurnInSubmitted` | Agent cash turn-in counted | `remittance_id`, `agent_id`, `expected_cents`, `counted_cents`, `variance_cents`, `invoice_ids`, `submitted_by` |
+| `Remittance.TurnInSubmitted` | Agent turn-in submitted (cash or transfer rail) | `remittance_id`, `agent_id`, `channel`, `reference`, `expected_cents`, `counted_cents`, `variance_cents`, `invoice_ids`, `submitted_by` |
 | `Remittance.BatchSubmitted` | Deposit-slip batch submitted | `remittance_id`, `evidence_id`, `reference`, `deposited_cents`, `expected_cents`, `invoice_ids`, `flags`, `submitted_by` |
-| `Remittance.Confirmed` | Dispatcher confirms/overrides/shortfall-accepts | `remittance_id`, `kind`, `total_cents`, `confirmed_by`, `overridden_by` |
+| `Remittance.Confirmed` | Dispatcher confirms/overrides/shortfall-accepts — decision and evidence trail in the payload | `remittance_id`, `kind`, `channel`, `reference`, `evidence_id`, `decision`, `decision_notes`, `total_cents`, `expected_cents`, `variance_cents`, `flags`, `confirmed_by`, `overridden_by` |
+| `Remittance.Rejected` | Dispatcher rejects a remittance — nothing settles, collections release back to pending | `remittance_id`, `kind`, `channel`, `reference`, `agent_id`, `flags`, `rejected_by`, `notes` |
 | `Remittance.ShortfallAccepted` | Turn-in shortage accepted | `remittance_id`, `agent_id`, `shortage_cents`, `accepted_by` |
 | `Billing.RefundRequested` | Customer/staff requests a refund | `refund_request_id`, `invoice_id`, `reason` |
 | `Billing.RefundRequestApproved` | Support decision → billing approves the request | `refund_request_id`, `invoice_id`, `decision_id`, `approved_by` |
@@ -166,7 +169,7 @@ Consumers: none yet — parsed data reaches Billing through the synchronous `/pa
 | --- | --- | --- | --- |
 | `identity-access-consumer` | `Platform.*` | `Platform.TenantCreated` | register tenant scope |
 | `platform-management-consumer` | — | — | publisher only (`outbox:publish`) |
-| `service-management-consumer` | — | — | publisher only |
+| `service-management-consumer` | `Workforce.*`, `Platform.*`, `ServiceManagement.ServiceAreaCreated/Updated` | `Workforce.AgentRegistered/Updated`, `Platform.TenantCreated/SubscriptionAssigned`, `ServiceManagement.ServiceAreaCreated/Updated` | agent-availability + plan-features projections; coverage expansion → `CoverageSatisfied` fan-out |
 | `customer-request-consumer` | — | — | publisher only |
 | `service-job-consumer` | `Request.*`, `ServiceManagement.*`, `Assignment.*`, `Execution.*` | `Request.Submitted`, `ServiceManagement.ServiceCreated`, `ServiceManagement.WorkflowTemplateChanged`, `Assignment.Accepted`, `Execution.CheckedIn/StepStarted/StepCompleted` | job projections + lifecycle |
 | `workforce-consumer` | — | — | publisher only |

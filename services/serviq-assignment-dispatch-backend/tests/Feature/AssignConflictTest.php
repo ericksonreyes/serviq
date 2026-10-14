@@ -155,9 +155,39 @@ class AssignConflictTest extends TestCase
             ->assertStatus(409)->assertJson(['error' => 'job_not_assigned']);
     }
 
-    public function test_reassign_after_agent_accepted_returns_409(): void
+    public function test_reassign_on_agent_accepted_swaps_agent(): void
     {
-        $this->job('agent_accepted');
+        $this->job('ready_for_assignment');
+        $this->assign()->assertCreated();
+        // Agent accepted — the dispatch projection moves past 'assigned'.
+        DispatchableJob::find($this->job)->update(['status' => 'agent_accepted']);
+        $other = $this->otherAgent();
+
+        $this->reassign($other->agent_id)->assertOk();
+
+        $assignments = Assignment::where('job_id', $this->job)->get();
+        $this->assertSame('revoked', $assignments->firstWhere('agent_id', $this->agent)->status);
+        $this->assertSame('accepted', $assignments->firstWhere('agent_id', $other->agent_id)->status);
+        // Mid-flight reassign must not rewind the projection.
+        $this->assertSame('agent_accepted', DispatchableJob::find($this->job)->status);
+    }
+
+    public function test_reassign_on_in_progress_job_swaps_agent(): void
+    {
+        $this->job('ready_for_assignment');
+        $this->assign()->assertCreated();
+        DispatchableJob::find($this->job)->update(['status' => 'in_progress']);
+        $other = $this->otherAgent();
+
+        $this->reassign($other->agent_id)->assertOk();
+
+        $this->assertSame('in_progress', DispatchableJob::find($this->job)->status);
+        $this->assertSame('accepted', Assignment::where('job_id', $this->job)->where('agent_id', $other->agent_id)->sole()->status);
+    }
+
+    public function test_reassign_on_closed_job_returns_409(): void
+    {
+        $this->job('closed');
 
         $this->reassign($this->agent)
             ->assertStatus(409)->assertJson(['error' => 'reassign_window_closed']);

@@ -6,22 +6,19 @@ the conversational surface:
 
 The model only ever emits {"tool": <whitelisted name>, "params": {...}}
 or {"tool": null, "reply": "..."} — strict schema, current server date
-injected, never free-form queries. When Ollama is unavailable (or in
-stub mode) a deterministic keyword/intent fallback takes over, so the
-endpoint never hard-fails.
+injected, never free-form queries. Intent translation runs on an
+injected TextModel port (app.ports); when no text provider is configured
+(stub mode) or the provider call fails, a deterministic keyword/intent
+fallback takes over, so the endpoint never hard-fails.
 """
 import datetime
 import json
-import os
 import re
-import urllib.request
 
+from .parser import _extract_json
+from .ports import TextModel
 from .tools import PROFILE_TOOLS, UUID_RE
 from .upstream import UpstreamError
-
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://ollama:11434")
-TEXT_MODEL = os.environ.get("AI_TEXT_MODEL", "qwen2.5:3b")
-MODE = os.environ.get("AI_MODEL_MODE", "stub")  # stub | ollama
 
 
 class ChatError(Exception):
@@ -37,16 +34,17 @@ def _tool_manifest(profile: str) -> str:
     return "\n".join(lines)
 
 
-def _translate_ollama(profile: str, message: str, context: dict, has_file: bool) -> dict:
-    """Ask the text model for exactly one whitelisted tool call (or a
-    plain reply). Raises on any failure — the caller falls back."""
+def _intent_prompt(profile: str, message: str, context: dict, has_file: bool) -> str:
     today = datetime.date.today().isoformat()
-    prompt = (
+    return (
         f"You are the ServIQ {profile} assistant. Translate the user's message into exactly "
         "one tool call from the whitelist below, or a plain reply when no tool fits.\n"
         f"Current server date: {today}.\n"
         "Rules: only tools from this whitelist exist; never invent tools, params, or values; "
         "copy ids/dates verbatim from the message or context; leave out params you cannot fill.\n"
+        "Vocabulary: riders, drivers, couriers, technicians, and field staff all mean "
+        "service agents; bookings/appointments/jobs mean service requests; cases mean "
+        "complaints.\n"
         f"Tools:\n{_tool_manifest(profile)}\n"
         f"A file is attached: {'yes' if has_file else 'no'}.\n"
         f"Context: {json.dumps(context)}\n"
@@ -55,17 +53,6 @@ def _translate_ollama(profile: str, message: str, context: dict, has_file: bool)
         '{"tool": null, "reply": "<helpful answer>"}\n'
         f"Message: {message}"
     )
-    payload = {"model": TEXT_MODEL, "prompt": prompt, "stream": False, "format": "json"}
-    req = urllib.request.Request(
-        f"{OLLAMA_HOST}/api/generate",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    # Budget must cover a cold model load — a 3B model takes ~2 min to map
-    # on CPU under the 4g ollama cap; shorter timeouts abort the load server-side.
-    with urllib.request.urlopen(req, timeout=300) as res:
-        body = json.loads(res.read())
-    return json.loads(body["response"])
 
 
 def _uuid_from(text: str, context: dict, *keys: str) -> str | None:
@@ -113,7 +100,10 @@ def _fallback(profile: str, message: str, context: dict, has_file: bool) -> dict
             return {"tool": "dispatch_recommend", "params": {"job_id": find_uuid("job_id")}}
         if re.search(r"guide|repair|troubleshoot|fix|how to", text):
             return {"tool": "repair_guide_search", "params": {"q": message}}
-        if re.search(r"agent|technician|workforce|staff", text) and re.search(r"find|search|available|list|skill|who", text):
+        # Field-workforce synonyms — riders/drivers/couriers/technicians
+        # are all service agents in this domain.
+        if re.search(r"agent|technician|workforce|staff|rider|driver|courier|delivery (rider|driver|crew|team|staff)", text) \
+                and re.search(r"find|search|available|list|skill|who|have|any|today|on.?duty|shift|free", text):
             return {"tool": "service_agent_search", "params": {"area": context.get("area"), "status": context.get("status")}}
         if re.search(r"request|queue|job|ticket", text):
             return {"tool": "service_request_search", "params": {"status": context.get("status")}}
@@ -145,12 +135,16 @@ def _fallback(profile: str, message: str, context: dict, has_file: bool) -> dict
                      "(e.g. a request or invoice reference)."}
 
 
-def _translate(profile: str, message: str, context: dict, has_file: bool) -> dict:
-    if MODE == "ollama":
+def _translate(profile: str, message: str, context: dict, has_file: bool,
+               text: TextModel | None) -> dict:
+    """text=None is the stub text provider — straight to the keyword
+    fallback. A configured provider that fails degrades the same way, so
+    the endpoint never hard-fails."""
+    if text is not None:
         try:
-            return _translate_ollama(profile, message, context, has_file)
+            return _extract_json(text.generate(_intent_prompt(profile, message, context, has_file)))
         except Exception as e:  # noqa: BLE001 — fallback by design
-            print(f"[ai-agent] ollama translate failed ({e}) — keyword fallback", flush=True)
+            print(f"[ai-agent] {text.name} translate failed ({e}) — keyword fallback", flush=True)
     return _fallback(profile, message, context, has_file)
 
 
@@ -168,14 +162,27 @@ def _error_reply(err: UpstreamError) -> str:
     return f"The request failed ({err.message})."
 
 
+_CONFIGURED = object()
+
+
 def run_chat(profile: str, message: str, context: dict, claims: dict,
-             token: str, upload: dict | None) -> dict:
+             token: str, upload: dict | None, text=_CONFIGURED) -> dict:
+    """`text` is injectable — pass a TextModel adapter, or None to force
+    the keyword fallback; when omitted it resolves to the env-configured
+    provider (None under stub → keyword fallback)."""
     if profile not in PROFILE_TOOLS:
         raise ChatError(f"unknown profile {profile!r}")
+    if text is _CONFIGURED:
+        from .providers import text_model
+        text = text_model()
 
-    intent = _translate(profile, message or "", context or {}, bool(upload))
+    intent = _translate(profile, message or "", context or {}, bool(upload), text)
+    if not isinstance(intent, dict):
+        intent = {}
     tool_name = intent.get("tool")
     params = intent.get("params") or {}
+    if not isinstance(params, dict):
+        params = {}
     tool_calls: list[dict] = []
 
     if tool_name is None:

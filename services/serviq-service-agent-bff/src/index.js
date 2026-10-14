@@ -325,14 +325,17 @@ app.post('/api/v1/payment-evidence', auth, async (req, res) => {
   const f = parsed?.fields ?? {}
   const payload = {
     ...rest,
+    file_b64, filename, // Billing persists the artifact; file_ref becomes the object ref
     document_type: DOC_MAP[parsed?.document_type] ?? rest.document_type ?? 'OTHER',
     extracted: {
       reference: f.reference_no ?? f.check_no ?? f.po_number ?? f.merchant
         ?? claimed?.reference ?? rest.extracted?.reference ?? null,
       amount_cents: toCents(f.amount ?? f.total_amount)
         ?? claimed?.amount_cents ?? rest.extracted?.amount_cents ?? 0,
-      channel: f.provider ?? f.merchant ?? rest.extracted?.channel ?? null,
+      channel: f.provider ?? f.bank ?? f.merchant ?? rest.extracted?.channel ?? null,
       payer_name: f.sender ?? rest.extracted?.payer_name ?? null,
+      recipient_name: f.recipient_name ?? rest.extracted?.recipient_name ?? null,
+      recipient_account: f.recipient_account ?? rest.extracted?.recipient_account ?? null,
       paid_at: f.deposit_date ?? f.date ?? rest.extracted?.paid_at ?? null,
     },
     claimed: claimed ?? null,
@@ -418,7 +421,7 @@ app.post('/api/v1/remittances/deposits', auth, async (req, res) => {
     method: 'POST', headers,
     body: JSON.stringify({
       document_type,
-      file_ref: `agent-deposit:${filename || 'slip.jpg'}`,
+      file_b64, filename, // Billing persists the artifact; file_ref becomes the object ref
       extracted: {
         reference: f.reference_no ?? claimed?.reference ?? null,
         amount_cents: toCents(f.amount ?? f.deposited_amount) ?? claimed?.amount_cents ?? 0,
@@ -438,6 +441,54 @@ app.post('/api/v1/remittances/deposits', auth, async (req, res) => {
   })
   const body = await batch.json().catch(() => ({}))
   res.status(batch.status).json(batch.ok ? { data: { evidence: evidence.data, remittance: body.data } } : body)
+})
+
+// External-transfer turn-in (ADR-0026/0027): the agent settles held
+// collections through an outside rail — e-wallet send, bank deposit, or a
+// remittance center — and the receipt is the claim. AI parses amount +
+// reference; Billing compares against all agent-held collections.
+const TURN_IN_RAILS = { wallet: 'E_WALLET', bank: 'BANK_SLIP', remittance_center: 'REMITTANCE_RECEIPT' }
+app.post('/api/v1/remittances/wallet-turn-ins', auth, async (req, res) => {
+  const t = req.jwt.tenant_id
+  const { file_b64, filename, claimed, channel = 'wallet' } = req.body ?? {}
+  const docType = TURN_IN_RAILS[channel]
+  if (!docType) return res.status(422).json({ message: 'channel must be wallet, bank, or remittance_center' })
+  if (!file_b64) return res.status(422).json({ message: 'Attach a photo of the transfer receipt' })
+
+  const parsed = await aiParse(file_b64, filename)
+  const f = parsed?.fields ?? {}
+  const headers = { ...AUTH(req), 'Content-Type': 'application/json' }
+  const ev = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/payment-evidence`, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      document_type: docType,
+      file_b64, filename, // Billing persists the artifact; file_ref becomes the object ref
+      extracted: {
+        reference: f.reference_no ?? claimed?.reference ?? null,
+        amount_cents: toCents(f.amount) ?? claimed?.amount_cents ?? 0,
+        channel: f.provider ?? f.bank ?? null,
+        payer_name: f.sender ?? null,
+        recipient_name: f.recipient_name ?? null,
+        recipient_account: f.recipient_account ?? null,
+        paid_at: f.date ?? f.deposit_date ?? null,
+      },
+      claimed: claimed ?? null,
+      confidence: parsed?.confidence ?? null,
+      raw_text: parsed ? JSON.stringify(f) : null,
+    }),
+  })
+  const evidence = await ev.json().catch(() => ({}))
+  if (!ev.ok) return res.status(ev.status).json(evidence)
+
+  const turnIn = await fetch(`${SERVICES.billing}/api/v1/tenants/${t}/remittances/turn-ins`, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      agent_id: await resolveAgentId(req, t),
+      channel, evidence_id: evidence.data.id,
+    }),
+  })
+  const body = await turnIn.json().catch(() => ({}))
+  res.status(turnIn.status).json(turnIn.ok ? { data: { evidence: evidence.data, remittance: body.data } } : body)
 })
 
 app.use((err, req, res, _next) => {

@@ -22,10 +22,12 @@ class DatabaseSeeder extends Seeder
             ['Assignment.Offered', 'New job offer', 'Job {{job_id}} is offered to you.'],
             ['Assignment.Accepted', 'Assignment accepted', 'Job {{job_id}} was accepted by {{agent_id}}.'],
             ['Assignment.Revoked', 'Assignment revoked', 'You have been unassigned from job {{job_id}} — a dispatcher reassigned it.'],
+            ['Job.Reassigned', 'Job reassigned to you', 'Job {{job_id}} is now yours — a dispatcher reassigned it from the previous agent.'],
             ['Billing.InvoiceIssued', 'Invoice issued', 'Invoice {{invoice_id}} for {{amount}} {{currency}} was issued.'],
             ['Billing.PaymentCaptured', 'Payment received', 'Payment {{payment_id}} was captured for invoice {{invoice_id}}.'],
             ['Billing.RefundExecuted', 'Refund issued', 'Refund {{refund_id}} was issued.'],
             ['ServiceManagement.CoverageInterested', 'Customer interest in {{location_name}}', 'A customer tried to book in {{location_path}} — outside your current coverage.'],
+            ['ServiceManagement.CoverageSatisfied', 'Good news — we now cover {{location_name}}', '{{service_area_name}} now serves {{location_path}}. You can go ahead and book your service.'],
         ];
 
         foreach ($defaults as [$type, $title, $body]) {

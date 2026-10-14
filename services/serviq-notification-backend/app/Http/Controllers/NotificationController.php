@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
 class NotificationController
 {
@@ -13,9 +14,12 @@ class NotificationController
     {
         $identity = $request->user();
 
+        // user_id accepts one or several ids — a recipient can be addressed
+        // by CRM customer id (domain events) or IAM sub (user events); the
+        // caller's BFF whitelists which ids it may ask about.
         $feed = Notification::where('tenant_id', $tenant)
             ->when($request->query('unread'), fn ($q) => $q->whereNull('read_at'))
-            ->when($request->query('user_id'), fn ($q, $u) => $q->where('user_id', $u))
+            ->when($request->query('user_id'), fn ($q, $u) => $q->whereIn('user_id', Arr::wrap($u)))
             ->latest()
             ->paginate(50);
 
@@ -27,7 +31,7 @@ class NotificationController
     {
         $marked = Notification::where('tenant_id', $tenant)
             ->whereNull('read_at')
-            ->when($request->query('user_id'), fn ($q, $u) => $q->where('user_id', $u))
+            ->when($request->query('user_id'), fn ($q, $u) => $q->whereIn('user_id', Arr::wrap($u)))
             ->update(['read_at' => now()]);
 
         return response()->json(['data' => ['marked' => $marked]]);

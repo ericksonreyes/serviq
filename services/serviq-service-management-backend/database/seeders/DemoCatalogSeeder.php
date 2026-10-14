@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\CatalogService;
+use App\Services\DomainEventRecorder;
 use Illuminate\Database\Seeder;
 
 /**
@@ -73,6 +74,19 @@ class DemoCatalogSeeder extends Seeder
 
             if ($service->wasRecentlyCreated) {
                 $service->workflowSteps()->createMany($steps);
+
+                // The job-mgmt service_templates projection only fills from
+                // the event stream — seeded rows must emit it too, else demo
+                // jobs fall back to the Booked/Serviced placeholder steps.
+                app(DomainEventRecorder::class)->record('ServiceManagement.ServiceCreated', [
+                    'service_id' => $service->id,
+                    'name' => $service->name,
+                    'steps' => $service->workflowSteps->map(fn ($s) => [
+                        'name' => $s->name,
+                        'position' => $s->position,
+                        'required_evidence' => $s->required_evidence,
+                    ])->all(),
+                ], $service->tenant_id);
             }
         }
     }

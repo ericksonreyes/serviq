@@ -93,4 +93,6 @@ export const api = {
     request(API_URL, '/api/v1/remittances/deposits', { token, method: 'POST', body: payload }),
   turnIn: (token, payload) =>
     request(API_URL, '/api/v1/remittances/turn-ins', { token, method: 'POST', body: payload }),
+  walletTurnIn: (token, payload) =>
+    request(API_URL, '/api/v1/remittances/wallet-turn-ins', { token, method: 'POST', body: payload }),
 }

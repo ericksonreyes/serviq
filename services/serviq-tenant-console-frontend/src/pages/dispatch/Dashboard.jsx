@@ -47,7 +47,7 @@ export default function Dashboard() {
                   <td className="px-3 py-2"><StatusBadge value={j.status} /></td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-3">
-                      <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={link}>Assign</Link>
+                      <Link to={`/dispatch/jobs/${j.job_id || j.id}`} className={link}>Assign</Link>
                       <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={link}>
                         {busy === (j.job_id || j.id) ? 'Broadcasting…' : 'Broadcast offers'}
                       </button>
@@ -65,7 +65,7 @@ export default function Dashboard() {
                   <StatusBadge value={j.status} />
                 </div>
                 <div className="flex gap-3">
-                  <Link to={`/dispatch/jobs?job=${j.job_id || j.id}`} className={link}>Assign</Link>
+                  <Link to={`/dispatch/jobs/${j.job_id || j.id}`} className={link}>Assign</Link>
                   <button onClick={() => broadcast(j.job_id || j.id)} disabled={busy === (j.job_id || j.id)} className={link}>
                     {busy === (j.job_id || j.id) ? 'Broadcasting…' : 'Broadcast offers'}
                   </button>

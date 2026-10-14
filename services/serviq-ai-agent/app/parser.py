@@ -4,87 +4,133 @@ The AI Agent may ONLY classify and extract. It never decides, settles,
 approves, or mutates domain state — parse output goes to Billing, which
 owns validation. Every parse carries a confidence + the raw fields the
 model saw so the domain can absorb mistakes.
+
+The vision backend is an injected VisionModel port (app.ports) — the
+pipeline below is provider-agnostic; vendor adapters live in
+app.providers.
 """
-import base64
+import io
 import json
-import os
 import re
-import urllib.request
 
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://ollama:11434")
-VISION_MODEL = os.environ.get("AI_VISION_MODEL", "moondream")
-MODE = os.environ.get("AI_MODEL_MODE", "stub")  # stub | ollama
-
-DOCUMENT_TYPES = [
-    "e_wallet_receipt", "cash_photo", "bank_deposit_slip", "remittance_receipt",
-    "check", "pos_receipt", "purchase_order", "unknown",
-]
-
-SCHEMA_HINTS = {
-    "e_wallet_receipt": ["reference_no", "amount", "currency", "sender", "provider"],
-    "cash_photo": ["denominations", "total_amount", "currency"],
-    "bank_deposit_slip": ["account_no", "amount", "deposit_date", "reference_no"],
-    "remittance_receipt": ["provider", "amount", "date", "reference_no"],
-    "check": ["check_no", "amount", "bank", "date"],
-    "pos_receipt": ["merchant", "amount", "date", "card_last4"],
-    "purchase_order": ["po_number", "vendor", "total_amount", "date"],
-}
+from .documents import DOCUMENT_TYPES
+from .ports import VisionModel
 
 PROMPT = (
     "Classify this document into exactly one of: "
     + ", ".join(DOCUMENT_TYPES)
-    + ". Then extract the fields for that type. Respond with JSON only: "
+    + ". Then extract the fields for that type. All currency is Philippine "
+    "Peso (PHP, ₱) — bills are ₱20, ₱50, ₱100, ₱200, ₱500, ₱1000 and coins "
+    "are ₱1, ₱5, ₱10, ₱20. For a cash_photo, enumerate what you see — one "
+    'entry per visible coin or bill in "denominations": '
+    '[{"denomination": <face value>}]. Do not estimate or total — list only '
+    'items actually visible. Respond with JSON only: '
     '{"document_type": "...", "fields": {...}, "confidence": 0.0-1.0}'
 )
 
 
-def _ollama_parse(image_bytes: bytes) -> dict:
-    payload = {
-        "model": VISION_MODEL,
-        "prompt": PROMPT,
-        "images": [base64.b64encode(image_bytes).decode()],
-        "stream": False,
-        "format": "json",
-    }
-    req = urllib.request.Request(
-        f"{OLLAMA_HOST}/api/generate",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    # Budget must cover a cold model load (~1-2 min on CPU); shorter
-    # timeouts abort the load server-side.
-    with urllib.request.urlopen(req, timeout=300) as res:
-        body = json.loads(res.read())
-    return json.loads(body["response"])
+def _normalize_image(image_bytes: bytes) -> bytes:
+    """Transcode HEIF-family containers (HEIC from iPhones, AVIF) to JPEG —
+    vision backends are JPEG/PNG-class only in practice (llama.cpp's clip
+    encoder 400s on HEIC; cloud APIs accept it inconsistently). Lazily
+    imports pillow so the stub path and test envs carry no image
+    dependency; undecodable input passes through unchanged so the
+    upstream error stays honest."""
+    heif_brands = (b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1", b"avif")
+    if len(image_bytes) < 12 or image_bytes[4:8] != b"ftyp" or image_bytes[8:12] not in heif_brands:
+        return image_bytes
+    try:
+        import pillow_heif
+        from PIL import Image
+
+        pillow_heif.register_heif_opener()
+        img = Image.open(io.BytesIO(image_bytes))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=90)
+        return buf.getvalue()
+    except Exception:
+        return image_bytes
 
 
-def _stub_parse(image_bytes: bytes) -> dict:
-    # Deterministic fallback for local dev / evals — keyword heuristic
-    # over any embedded text. Real parsing requires the ollama profile.
-    text = image_bytes.decode("utf-8", errors="ignore").lower()
-    doc_type = "unknown"
-    for t in DOCUMENT_TYPES:
-        if t != "unknown" and t.replace("_", "") in text.replace("_", ""):
-            doc_type = t
-            break
-    fields = {}
-    for key in SCHEMA_HINTS.get(doc_type, []):
-        m = re.search(rf"{key}[\":=\s]+([0-9A-Za-z.\-]+)", text)
-        if m:
-            fields[key] = m.group(1)
-    return {"document_type": doc_type, "fields": fields, "confidence": 0.4}
+def _closers(text: str) -> str:
+    stack = []
+    in_str = esc = False
+    for c in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+        elif c in "{[":
+            stack.append(c)
+        elif c in "}]":
+            if stack:
+                stack.pop()
+    return ('"' if in_str else "") + "".join("}" if b == "{" else "]" for b in reversed(stack))
 
 
-def parse_document(image_bytes: bytes) -> dict:
-    result = _ollama_parse(image_bytes) if MODE == "ollama" else _stub_parse(image_bytes)
+def _extract_json(text: str):
+    """Small vision models routinely emit fenced, wrapped, or truncated
+    JSON despite JSON mode. Try raw → strip fence → balanced span →
+    progressively trim the tail and close open containers."""
+    t = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    t = re.sub(r"\s*```$", "", t)
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        pass
+    starts = [i for i in (t.find("{"), t.find("[")) if i >= 0]
+    if not starts:
+        raise ValueError("model response contained no JSON")
+    start = min(starts)
+    for end in range(len(t), start, -1):
+        piece = t[start:end].rstrip(",: \t\n")
+        if not piece:
+            continue
+        try:
+            return json.loads(piece + _closers(piece))
+        except (json.JSONDecodeError, ValueError):
+            continue
+    raise ValueError("model response JSON unrecoverable")
+
+
+def parse_document(image_bytes: bytes, vision: VisionModel | None = None) -> dict:
+    """Classify → extract → normalize. `vision` is injectable for tests;
+    when omitted it resolves to the env-configured provider."""
+    if vision is None:
+        from .providers import vision_model
+        vision = vision_model()
+    raw = vision.describe(PROMPT, _normalize_image(image_bytes))
+    try:
+        result = _extract_json(raw)
+    except ValueError:
+        print(f"[ai-agent] unparseable vision output ({vision.name}): {raw[:160]!r}", flush=True)
+        result = {}
+    # Vision models may wrap the object in an array despite JSON mode —
+    # take the first object if so; a bare scalar/list-of-nothing is unusable.
+    if isinstance(result, list):
+        result = next((r for r in result if isinstance(r, dict)), {})
+    if not isinstance(result, dict):
+        result = {}
     doc_type = result.get("document_type") or "unknown"
     if doc_type not in DOCUMENT_TYPES:
         doc_type = "unknown"
     fields = result.get("fields") or {}
+    # Cash photos naturally produce a denomination table — models emit it
+    # as a list of {denomination, count} rows. Keep it under the hinted key
+    # so the counting tool can sum it instead of crashing on a bare list.
+    if isinstance(fields, list):
+        fields = {"denominations" if doc_type == "cash_photo" else "items": fields}
+    if not isinstance(fields, dict):
+        fields = {}
     return {
         "document_type": doc_type,
         "schema_version": "1",
         "fields": fields,
         "confidence": float(result.get("confidence") or 0.0),
-        "model": f"{MODE}:{VISION_MODEL if MODE == 'ollama' else 'heuristic'}",
+        "model": vision.name,
     }

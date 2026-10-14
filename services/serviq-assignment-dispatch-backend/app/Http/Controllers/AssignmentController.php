@@ -109,7 +109,11 @@ class AssignmentController
         return response()->json(['data' => $dispatch->broadcast($job, $ttl)], 201);
     }
 
-    /** Dispatcher reassign — swap the accepted agent while the job is still dispatch-committed. */
+    /**
+     * Dispatcher reassign — swap the accepted agent on any open job:
+     * dispatch-committed, agent-accepted, or in-flight. Once the job closes,
+     * reassignment is no longer possible (ADR-0024).
+     */
     public function reassign(Request $request, string $tenant, DispatchService $dispatch): JsonResponse
     {
         $data = $request->validate([
@@ -118,7 +122,7 @@ class AssignmentController
         ]);
         $job = $this->dispatchable($tenant, $data['job_id']);
 
-        if ($job->status === 'assigned') {
+        if (in_array($job->status, ['assigned', 'agent_accepted', 'in_progress'], true)) {
             try {
                 return response()->json(['data' => $dispatch->reassign($job, $data['agent_id'])]);
             } catch (UniqueConstraintViolationException) {
@@ -138,7 +142,7 @@ class AssignmentController
 
         return response()->json([
             'error' => 'reassign_window_closed',
-            'message' => 'The agent has already accepted or the job is closed — reassignment is no longer possible.',
+            'message' => 'The job is closed — reassignment is no longer possible.',
         ], 409);
     }
 

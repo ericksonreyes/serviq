@@ -19,7 +19,14 @@ const NAV = [
       { to: '/dispatch', label: 'Queue & command' },
       { to: '/dispatch/requests', label: 'Service requests' },
       { to: '/dispatch/jobs', label: 'Jobs' },
-      { to: '/dispatch/remittances', label: 'Remittances' },
+      {
+        to: '/dispatch/remittances', label: 'Remittances',
+        children: [
+          { to: '/dispatch/remittances/turn-in', label: 'Agent turn-in' },
+          { to: '/dispatch/remittances/digital', label: 'Digital payments' },
+          { to: '/dispatch/remittances/deposit-batch', label: 'Deposit batch' },
+        ],
+      },
       { to: '/dispatch/evidence', label: 'Payment evidence' },
     ],
   },
@@ -116,9 +123,16 @@ export default function Layout() {
             <div key={s.section}>
               <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{s.section}</p>
               {s.items.map((i) => (
-                <NavLink key={i.to} to={i.to} end={i.to === '/dispatch'} className={navClass}>
-                  {i.label}
-                </NavLink>
+                <div key={i.to}>
+                  <NavLink to={i.to} end={i.to === '/dispatch' || Boolean(i.children)} className={navClass}>
+                    {i.label}
+                  </NavLink>
+                  {i.children?.map((c) => (
+                    <NavLink key={c.to} to={c.to} className={subNavClass}>
+                      {c.label}
+                    </NavLink>
+                  ))}
+                </div>
               ))}
             </div>
           ))}
@@ -138,3 +152,6 @@ export default function Layout() {
 
 const navClass = ({ isActive }) =>
   `block rounded-lg px-2 py-1.5 text-sm ${isActive ? 'bg-violet-700 font-medium text-white' : 'text-slate-300 hover:bg-indigo-900'}`
+// Second-level items — indented and de-emphasized vs. parents.
+const subNavClass = ({ isActive }) =>
+  `block rounded-lg py-1 pl-6 pr-2 text-[13px] ${isActive ? 'bg-violet-700 font-medium text-white' : 'text-slate-400 hover:bg-indigo-900'}`

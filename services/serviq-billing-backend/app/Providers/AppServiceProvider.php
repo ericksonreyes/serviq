@@ -24,5 +24,15 @@ class AppServiceProvider extends ServiceProvider
         } catch (Throwable $e) {
             logger()->warning('JWT signing mode unresolved at boot: '.$e->getMessage());
         }
+
+        // RLS bypass for console processes (ADR-0028) — artisan commands
+        // (outbox relay, consumers, seeders, tinker) legitimately cross
+        // tenants; the HTTP surface is the boundary the policies guard.
+        if ($this->app->runningInConsole()) {
+            \Illuminate\Support\Facades\Event::listen(
+                \Illuminate\Console\Events\CommandStarting::class,
+                fn () => \App\Support\TenantContext::asSystem(),
+            );
+        }
     }
 }

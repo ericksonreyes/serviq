@@ -1,26 +1,54 @@
-# Customer & Request Management Backend
+# Customer & Request Management Backend (:8013)
 
-Customers and service requests — the customer's **intent**. A request may
-reference a catalog service and eventually produces a Service Job (conversion
-is handed to Job Management via `Request.Converted`).
+Command API for customers and service requests — the customer's
+**intent**. A request may reference a catalog service and eventually
+produces a Service Job; conversion is handed to Job Management via
+`Request.Converted`.
 
-- Stack: Laravel (php:apache) + PostgreSQL (`serviq_requests`) + RabbitMQ
-- Port: 8013
+## What it's for
 
-## API surface (JWT + `tenant.scope`)
+Everything starts as a request, not a job. This service is the front
+door for work:
 
-| Route | Purpose |
+- **Customer records** — the tenant's customer book: profiles and the
+  saved addresses jobs get dispatched to.
+- **Service requests** — "I need X done, preferably on date Y" — with
+  status tracking, cancellation, and post-service feedback.
+- **Conversion boundary** — staff approve intent into work via
+  `/convert`; Job Management owns everything after that.
+
+## Surface
+
+| Endpoint / flow | Purpose |
 | --- | --- |
-| `GET/POST …/customers`, `GET …/customers/{id}` | Tenant customer records |
-| `POST /api/v1/requests` | Submit a request → `Request.Submitted` |
-| `GET /api/v1/tenants/{tid}/requests` | List (`?status=`) |
-| `POST …/requests/{id}/convert` | → `Request.Converted` (Job Management consumes) |
-| `POST …/requests/{id}/cancel` | → `Request.Cancelled` (not after conversion) |
+| `GET …/tenants/{t}/customers`, `POST /api/v1/customers`, `GET/PATCH …/{customer}` | Customer records |
+| `GET …/customers/by-user/{user}` | Resolve the caller's customer profile (BFF/AI use) |
+| `GET/POST/PATCH/DELETE …/customers/{c}/addresses` | Saved addresses |
+| `POST /api/v1/requests` | Submit → `Request.Submitted` |
+| `GET …/tenants/{t}/requests[?status]`, `GET …/{request}` | Request tracking |
+| `POST …/requests/{r}/cancel` | → `Request.Cancelled` (not after conversion) |
+| `POST …/requests/{r}/feedback` | Post-service rating → `Request.FeedbackSubmitted` |
+| `POST …/requests/{r}/convert` | → `Request.Converted` (`dispatch.assignments.manage`) |
+| `GET /api/health` | Liveness |
+| Emits | `Customer.*`, `Request.*` via transactional outbox → `serviq.events` |
 
-## Events
+All `/api/v1/*` routes: `jwt.auth` + `tenant.scope`; mutations gated on
+`requests.manage` / `dispatch.assignments.manage`. This service
+publishes only — the `-consumer` container runs `outbox:publish` alone.
 
-`Customer.Created`, `Request.Submitted`, `Request.Converted`,
-`Request.Cancelled` — outbox → `serviq.events` (`Request.Submitted` is the
-first real domain event on the bus). `-consumer` runs `outbox:publish` only.
+## Ops
 
-Tests: `vendor/bin/phpspec run`, `vendor/bin/behat`.
+| Task | Command |
+| --- | --- |
+| Tests | `./scripts/test.sh services/serviq-customer-request-management-backend` (phpspec + behat, sqlite — **never** `phpunit`/`artisan test` inside the running container) |
+| Outbox relay | `serviq-customer-request-consumer` container runs `outbox:publish` |
+| Apply `.env` changes | `docker compose -f services/docker-compose.yml up -d customer-request-backend customer-request-consumer` |
+
+## Architecture
+
+| Discipline | How it shows up here |
+| --- | --- |
+| **DDD** | Owns intent, not work — the `convert` boundary is explicit: Job Management consumes `Request.Converted` and takes it from there. Cancellation is only legal pre-conversion, a rule enforced here. |
+| **Event-driven** | Every state change is a domain event through the transactional outbox (`Customer.Created`, `Request.Submitted/Converted/Cancelled/FeedbackSubmitted`) — `Request.Submitted` was the first real event on the bus and is what wakes Job Management. |
+| **Hexagonal** | Outbox + RabbitMQ messaging isolated in `App\Services\Messaging` — controllers record events, never touch the broker. |
+| **SOLID** | SRP — customers vs addresses vs requests as separate controllers; `DomainEventRecorder` is the single write-path for the bus. |
