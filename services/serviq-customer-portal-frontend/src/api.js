@@ -49,8 +49,10 @@ export const api = {
   acceptInvite: (token, body) =>
     request(IDENTITY_URL, `/api/v1/invitations/${token}/accept`, { method: 'POST', body }),
   // Public provider directory on Platform Management — no auth needed.
-  searchProviders: (q) =>
-    request(PLATFORM_URL, `/api/v1/providers${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  searchProviders: (q) => {
+    const query = q ? `?q=${encodeURIComponent(q)}` : ''
+    return request(PLATFORM_URL, `/api/v1/providers${query}`)
+  },
   provider: (slug) => request(PLATFORM_URL, `/api/v1/providers/${encodeURIComponent(slug)}`),
   // Public flag probe — {data:{key, enabled}}; 404 means the flag does not exist.
   featureFlag: (key) => request(PLATFORM_URL, `/api/v1/feature-flags/${encodeURIComponent(key)}`),
@@ -70,6 +72,7 @@ export const api = {
   service: (token, id) => request(API_URL, `/api/v1/catalog/${id}`, { token }),
   availability: (token, id, from, to) =>
     request(API_URL, `/api/v1/catalog/${id}/availability?from=${from}&to=${to}`, { token }),
+  operations: (token) => request(API_URL, '/api/v1/operations', { token }),
 
   profile: (token) => request(API_URL, '/api/v1/me/profile', { token }),
   createProfile: (token, body) => request(API_URL, '/api/v1/me/profile', { token, method: 'POST', body }),

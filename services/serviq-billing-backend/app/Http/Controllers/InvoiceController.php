@@ -45,6 +45,7 @@ class InvoiceController
         abort_unless($invoice->tenant_id === $tenant, 404);
         $data = $request->validate([
             'method' => ['required', 'in:cash,card,wallet,bank'],
+            'holder' => ['nullable', 'in:agent,company'],
             'reference' => ['nullable', 'string', 'max:255'],
             'amount_cents' => ['nullable', 'integer', 'min:1'],
         ]);
@@ -56,6 +57,7 @@ class InvoiceController
 
         $payment = $this->store->recordPayment($invoice, [
             'method' => $data['method'],
+            'holder' => $data['holder'] ?? null,
             'amount_cents' => $data['amount_cents'] ?? null,
             'reference' => $data['reference'] ?? null,
             'recorded_by' => $request->attributes->get('jwt')['sub'] ?? null,

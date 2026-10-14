@@ -182,6 +182,13 @@ class CoverageTest extends TestCase
 
     public function test_interest_registers_once_and_aggregates(): void
     {
+        // Enforcement must bind before interest is meaningful — declare
+        // coverage that leaves Holy Spirit outside.
+        ServiceArea::create([
+            'tenant_id' => $this->tenant, 'name' => 'Marikina zone',
+            'geo' => ['admin_areas' => [self::MARIKINA]],
+        ]);
+
         // One user, two attempts at the same spot — the row dedupes.
         $token = JWT::encode([
             'iss' => 'serviq-iam', 'aud' => 'serviq',
@@ -209,6 +216,11 @@ class CoverageTest extends TestCase
 
     public function test_demand_is_tenant_scoped(): void
     {
+        ServiceArea::create([
+            'tenant_id' => $this->tenant, 'name' => 'Marikina zone',
+            'geo' => ['admin_areas' => [self::MARIKINA]],
+        ]);
+
         $this->asTenant()->postJson("/api/v1/tenants/{$this->tenant}/coverage/interest", [
             'admin_code' => self::HOLY_SPIRIT,
         ])->assertStatus(201);
@@ -230,6 +242,18 @@ class CoverageTest extends TestCase
         $this->asTenant()->postJson("/api/v1/tenants/{$this->tenant}/coverage/interest", [
             'admin_code' => '9999999999',
         ])->assertStatus(404);
+    }
+
+    public function test_interest_rejects_already_covered_locations(): void
+    {
+        ServiceArea::create([
+            'tenant_id' => $this->tenant, 'name' => 'Marikina zone',
+            'geo' => ['admin_areas' => [self::MARIKINA]],
+        ]);
+
+        $this->asTenant()->postJson("/api/v1/tenants/{$this->tenant}/coverage/interest", [
+            'admin_code' => self::CONCEPCION,
+        ])->assertStatus(422);
     }
 
     public function test_service_area_rejects_unknown_location_codes(): void

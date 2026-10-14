@@ -1,57 +1,51 @@
-# Platform Management Backend
+# Workforce Management Backend (:8015)
 
-Platform Management command API — owns the Tenant entity (ADR-0002),
-subscription plans, and platform feature flags. IAM receives tenant scope via
-`Platform.TenantCreated` and binds identities to `tenant_id`.
+Command API for the field workforce — agent profiles, skills, service
+areas, and availability. Dispatch matches against `Workforce.*`
+projections; it never queries this service synchronously.
 
-- Stack: Laravel (php:apache, mod_php) + PostgreSQL + RabbitMQ (domain events)
-- Specs: `workspace/specs/domain/specs/domain_boundaries/platform/` + ADR-0002
-- Map entry: `SERVICE_MAP.md` → Platform Management Backend
+## What it's for
 
-## API surface
+Before a job can be assigned, someone has to know who exists and what
+they can do:
 
-All `/api/v1/*` routes require a platform-scoped JWT issued by IAM
-(`role:Platform Administrator`). Verification is RS256 via IAM's
-`/.well-known/jwks.json` (`JWT_JWKS_URL`), with `JWT_PUBLIC_KEY`/`JWT_SECRET`
-fallbacks — this service never issues tokens.
+- **Agent registry** — the tenant's field agents with skills, service
+  areas, and active/suspended status.
+- **Availability** — when agents are actually bookable
+  (`AgentAvailability`).
+- **Eligibility lookups** — `/agents/eligible` filters by skills/area for
+  dispatch and repair-guide recommendations.
+- **Plan gating** — tenant plan features are projected locally, so
+  headcount limits are enforced here without calling Platform
+  Management.
 
-| Route | Purpose |
+## Surface
+
+| Endpoint / flow | Purpose |
 | --- | --- |
-| `GET/POST /api/v1/plans`, `GET/PATCH /api/v1/plans/{id}` | Subscription plan catalog |
-| `GET/POST /api/v1/tenants`, `GET/PATCH /api/v1/tenants/{id}` | Tenant provisioning (`POST` emits `Platform.TenantCreated`) |
-| `POST /api/v1/tenants/{id}/activate` | pending/suspended → active |
-| `POST /api/v1/tenants/{id}/suspend` | active → suspended |
-| `POST /api/v1/tenants/{id}/deactivate` | → deactivated (terminal) |
-| `GET /api/v1/feature-flags`, `PUT /api/v1/feature-flags` | Platform-wide feature flags |
+| `GET …/tenants/{t}/agents`, `GET …/{agent}` | Agent roster |
+| `GET …/agents/eligible?skills[]&area` | Skill/area-filtered candidates |
+| `POST /api/v1/agents`, `PATCH …/{agent}` | Register / update (`workforce.agents.manage`) |
 | `GET /api/health` | Liveness |
+| Consumes | `Platform.*` → `projected_plan_features` (`PlanFeaturesHandler`) |
+| Emits | `Workforce.AgentRegistered`, `Workforce.AgentUpdated` via outbox |
 
-Illegal lifecycle transitions return `409 illegal_transition`
-(`App\Domain\Tenancy\TenantLifecycle` is the state machine).
+All `/api/v1/*` routes: `jwt.auth` + `tenant.scope`; mutations gated on
+`workforce.agents.manage`.
 
-## Events
+## Ops
 
-- `outbox` rows are written in the same transaction as each state change;
-  `php artisan outbox:publish` relays them to the `serviq.events` topic
-  exchange (routing key = event type, e.g. `Platform.TenantCreated`).
-- Published: `Platform.TenantCreated`, `Platform.TenantActivated`,
-  `Platform.TenantSuspended`, `Platform.TenantDeactivated`, `Platform.PlanCreated`.
-- The `platform-management-consumer` compose service runs the outbox relay in
-  a dedicated container. This service has no subscriptions yet —
-  `events:consume` lands with its first handler.
+| Task | Command |
+| --- | --- |
+| Tests | `./scripts/test.sh services/serviq-workforce-management-backend` (phpspec + behat, sqlite — **never** `phpunit`/`artisan test` inside the running container) |
+| Event loops | `serviq-workforce-consumer` container runs `outbox:publish` + `events:consume` |
+| Apply `.env` changes | `docker compose -f services/docker-compose.yml up -d workforce-backend workforce-consumer` |
 
-## Local
+## Architecture
 
-```sh
-./scripts/install.sh
-docker compose -f services/docker-compose.yml up -d serviq-workforce-management-backend --wait
-# needs a platform-scoped token from IAM (:8010):
-TOKEN=$(curl -s -X POST http://localhost:8010/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"serviq-local"}' | jq -r .access_token)
-curl -X POST http://localhost:8011/api/v1/tenants \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"Acme","slug":"acme","activate":true}'
-```
-
-Seeded plans: `free`, `starter`, `pro`. Tests: `vendor/bin/phpspec run` and
-`vendor/bin/behat` — no database required.
+| Discipline | How it shows up here |
+| --- | --- |
+| **DDD** | Workforce facts — skills, areas, availability, status — are owned here. Other contexts (dispatch, execution) read projections of `Workforce.*` events; they never reach into this schema. |
+| **Event-driven** | `Platform.*` events feed `ProjectedPlanFeatures` — plan limits enforced locally via event-carried state transfer, not synchronous calls upstream. |
+| **SOLID** | SRP — `AgentController` (roster) vs `PlanFeaturesHandler` (inbound projection) vs `DomainEventRecorder` (outbox). |
+| **Hexagonal** | Messaging behind `App\Services\Messaging\RabbitMq` + the shared outbox — controllers record events, never touch the broker. |

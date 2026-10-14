@@ -30,7 +30,7 @@ Customer-facing app for a Service Provider — signup, browsing, booking, tracki
 - ✅ Customer onboarding by Service Provider invitation — staff create the customer account; first sign-in links it
 - ✅ Customer account and profile management, including address book
 - ✅ Service catalog browsing and discovery
-- ✅ Service request submission and booking with availability-aware schedule selection — calendar date picker enables only bookable days; hourly start-time list disables hours with no agent coverage. Factors: provider-set business hours/days (incl. 24/7), holidays, non-working days, and projected agent schedules (Workforce events)
+- ✅ Service request submission and booking with availability-aware schedule selection — calendar date picker enables only bookable days (closures struck through with reason); hourly start-time list disables hours with no agent coverage; provider business hours, upcoming closures, and cancellation policy shown inline. Factors: provider-set business hours/days (incl. 24/7), holidays, non-working days, and projected agent schedules (Workforce events). The chosen schedule is re-validated server-side at request creation (ADR-0025)
 - ✅ Customer-facing request status tracking (received → technician assigned → en route → started → completed)
 - ✅ Notifications and self-service updates
 - ✅ Feedback / review after completion

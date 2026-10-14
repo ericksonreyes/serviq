@@ -78,7 +78,9 @@ services:
       POSTGRES_DB: serviq
     command: postgres -c shared_buffers=128MB
     ports: ["127.0.0.1:5432:5432"]
-    volumes: [postgres-data:/var/lib/postgresql/data]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U serviq"]
       interval: 5s
@@ -401,6 +403,18 @@ services:
     ports: ["8020:80"]
     environment:
       <<: *common-env
+      # Evidence artifacts (payment receipts, deposit slips) live in MinIO —
+      # matches .env.example; kept here so dev works before .env is updated.
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-serviq}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-serviq-local}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: serviq-evidence
+      AWS_ENDPOINT: http://minio:9000
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+      # RLS (ADR-0028): HTTP traffic connects as the non-privileged role so
+      # tenant_isolation policies bind — `serviq` is a superuser and would
+      # bypass them. Console processes get the app.is_system GUC bypass.
+      DB_USERNAME: serviq_app
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost/api/health || exit 1"]
       interval: 10s
@@ -543,6 +557,7 @@ services:
     environment:
       <<: *common-env
       SKIP_DB_SETUP: "true"
+      DB_USERNAME: serviq_app  # exercises the app.is_system console bypass (ADR-0028)
     command: "sh -c '(until php artisan outbox:publish; do sleep 5; done) & exec php artisan events:consume'"
   payouts-consumer:
     container_name: serviq-payouts-consumer

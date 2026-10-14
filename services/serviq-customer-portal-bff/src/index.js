@@ -130,6 +130,10 @@ app.get('/api/v1/catalog/:service/availability', auth, (req, res) => {
 app.get('/api/v1/catalog/:service/pricing', auth, (req, res) =>
   upstream(req, res, SERVICES.catalog, `/api/v1/tenants/${req.jwt.tenant_id}/services/${req.params.service}/pricing`))
 
+// Business info for the booking page — weekly hours + upcoming closures.
+app.get('/api/v1/operations', auth, (req, res) =>
+  upstream(req, res, SERVICES.catalog, `/api/v1/tenants/${req.jwt.tenant_id}/operations`))
+
 // --- Locations + coverage (Service Management) --------------------------
 // Reference hierarchy + the coverage probe — powers the booking
 // address cascade and early "outside service area" feedback.
@@ -307,15 +311,19 @@ app.post('/api/v1/me/requests/:id/cancel', auth, async (req, res) => {
 
 // The upstream feed is tenant-wide; the customer only gets rows addressed
 // to them, so the BFF injects user_id server-side (tenant-wide rows with no
-// user_id are staff traffic and must not leak). Caller-controlled params are
-// whitelisted to page/unread — user_id can never come from the query.
+// user_id are staff traffic and must not leak). Notifications address the
+// caller by either of their two identities — CRM customer id (domain events)
+// or IAM sub (user-level events like CoverageSatisfied) — so both go up.
+// Caller-controlled params are whitelisted to page/unread — user_id can
+// never come from the query.
 app.get('/api/v1/me/notifications', auth, async (req, res) => {
   const customer = await resolveCustomer(req)
-  if (!customer) return res.json({ data: [], total: 0 })
+  const ids = [...new Set([customer?.id, req.jwt.sub].filter(Boolean))]
+  if (!ids.length) return res.json({ data: [], total: 0 })
   const qs = new URLSearchParams()
   if (req.query.page) qs.set('page', req.query.page)
   if (req.query.unread) qs.set('unread', req.query.unread)
-  qs.set('user_id', customer.id)
+  ids.forEach((id) => qs.append('user_id[]', id))
   const r = await fetch(
     `${SERVICES.notifications}/api/v1/tenants/${req.jwt.tenant_id}/notifications?${qs}`,
     { headers: { Authorization: req.headers.authorization } })

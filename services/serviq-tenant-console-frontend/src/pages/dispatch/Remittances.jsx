@@ -1,231 +1,68 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, PageHead, Pager, StatusBadge, btn, input, label, link, linkDanger, money, select } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, Pager, StatusBadge, link, linkDanger, money } from '../../components/ui'
 
-// Remittance desk — cash turn-ins, digital-payment remittance, deposit
-// batches, and manual review of flagged records. Money flows require
-// explicit confirmation (see ui-ux skill).
+// Remittance desk index — the records ledger is the default view; each
+// money-movement task gets its own page so the dispatcher isn't juggling
+// unrelated forms side by side. Money flows require explicit
+// confirmation (see ui-ux skill).
 export default function Remittances() {
   const { token } = useAuth()
   const tenant = useTenant()
   const [page, setPage] = useState(1)
   const { data, error, loading, reload } = useLoader(async () => {
-    const [remittances, agents, invoices, digital, evidence] = await Promise.all([
-      api.remittances(token, tenant, page),
-      api.agents(token, tenant).catch(() => []),
-      api.invoices(token, tenant).catch(() => []),
-      api.digitallyPaidInvoices(token, tenant).catch(() => []),
-      api.paymentEvidence(token, tenant).catch(() => []),
-    ])
-    return { remittances: rows(remittances), remMeta: remittances, agents: rows(agents), invoices: rows(invoices), digital: rows(digital), evidence: rows(evidence) }
+    const remittances = await api.remittances(token, tenant, page)
+    return { remittances: rows(remittances), remMeta: remittances }
   }, [token, tenant, page])
 
   return (
     <div className="space-y-4">
-      <PageHead title="Remittances" desc="Agent cash turn-ins and over-the-counter deposits awaiting confirmation." />
+      <PageHead title="Remittances" desc="Agent turn-ins and over-the-counter deposits awaiting confirmation — nothing counts as received until a record here is reviewed." />
       <ErrorBox error={error} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <TaskLink
+          to="/dispatch/remittances/turn-in"
+          title="Cash turn-in"
+          desc="Log the physical cash an agent hands in at shift end."
+        />
+        <TaskLink
+          to="/dispatch/remittances/turn-in?channel=wallet"
+          title="Transfer turn-in"
+          desc="Settle an agent's held collections from a transfer receipt — e-wallet, bank deposit, or remittance center."
+        />
+        <TaskLink
+          to="/dispatch/remittances/digital"
+          title="Digital payments → remitted"
+          desc="Mark validated digital payments as landed in the company account."
+        />
+        <TaskLink
+          to="/dispatch/remittances/deposit-batch"
+          title="Deposit batch remittance"
+          desc="Reconcile an over-the-counter bank deposit against cash collections."
+        />
+      </div>
       {loading ? <Loading /> : !data ? <Empty /> : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <TurnIn token={token} tenant={tenant} agents={data.agents} onDone={reload} />
-          <DigitalRemit token={token} tenant={tenant} invoices={data.digital} onDone={reload} />
-          <BatchRemit token={token} tenant={tenant} invoices={data.invoices} evidence={data.evidence} onDone={reload} />
-          <RemittanceList token={token} tenant={tenant} list={data.remittances} meta={data.remMeta} onPage={setPage} onDone={reload} />
-        </div>
+        <RemittanceList token={token} tenant={tenant} list={data.remittances} meta={data.remMeta} onPage={setPage} onDone={reload} />
       )}
     </div>
   )
 }
 
+function TaskLink({ to, title, desc }) {
+  return (
+    <Link to={to} className="block rounded-xl bg-white p-4 shadow transition hover:shadow-md">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      <p className="mt-1 text-sm text-slate-500">{desc}</p>
+      <span className="mt-2 inline-block text-sm font-medium text-violet-700">Open →</span>
+    </Link>
+  )
+}
+
 const Th = ({ children }) => <th className="px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</th>
 const Td = ({ children }) => <td className="px-2 py-1.5 text-sm text-slate-700">{children}</td>
-
-function TurnIn({ token, tenant, agents, onDone }) {
-  const [agentId, setAgentId] = useState('')
-  const [expected, setExpected] = useState(null)
-  const [counted, setCounted] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState(null)
-  const [ok, setOk] = useState(null)
-
-  const loadExpected = async (id) => {
-    setAgentId(id)
-    setExpected(null)
-    setErr(null)
-    if (!id) return
-    try {
-      const res = await api.expectedRemittance(token, tenant, id)
-      setExpected(res.data ?? res)
-    } catch (e) {
-      setErr(e.message)
-    }
-  }
-
-  const submit = async () => {
-    setBusy(true)
-    setErr(null)
-    setOk(null)
-    try {
-      await api.submitTurnIn(token, tenant, {
-        agent_id: agentId,
-        counted_total_cents: Math.round(Number(counted) * 100),
-      })
-      setOk('Turn-in submitted for confirmation.')
-      setCounted('')
-      onDone()
-    } catch (e) {
-      setErr(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const expectedTotal = expected?.expected_cents ?? expected?.total_cents
-  const items = expected?.items ?? expected?.invoices ?? []
-
-  return (
-    <Card title="Cash turn-in">
-      <ErrorBox error={err} />
-      <Notice>{ok}</Notice>
-      <label className={label}>Agent</label>
-      <select className={select} value={agentId} onChange={(e) => loadExpected(e.target.value)}>
-        <option value="">Select agent…</option>
-        {agents.map((a) => <option key={a.id} value={a.agent_id || a.id}>{a.name}</option>)}
-      </select>
-      {expected && (
-        <div className="mt-3 space-y-2">
-          <div className="rounded-lg bg-slate-50 p-2 text-sm">
-            <p className="font-medium">Expected: {money(expectedTotal)} ({items.length} cash-paid services)</p>
-            <ul className="mt-1 max-h-32 space-y-0.5 overflow-y-auto text-xs text-slate-500">
-              {items.map((i, idx) => (
-                <li key={i.id ?? idx} className="flex justify-between">
-                  <span className="font-mono">{(i.invoice_id || i.id || '').slice(0, 12)}…</span>
-                  <span>{money(i.amount_cents)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <label className={label}>Counted total (PHP)</label>
-            <input className={input} type="number" min={0} step="0.01" value={counted} onChange={(e) => setCounted(e.target.value)} />
-            {counted && expectedTotal != null && Number(counted) * 100 !== expectedTotal && (
-              <p className="mt-1 text-sm text-amber-600">
-                Variance of {money(Math.abs(Math.round(Number(counted) * 100) - expectedTotal))} — will need dispatcher confirmation.
-              </p>
-            )}
-          </div>
-          <button onClick={submit} disabled={busy || !counted} className={btn}>{busy ? 'Submitting…' : 'Submit turn-in'}</button>
-          <p className="text-xs text-slate-400">Photograph the laid-out cash and count it via the dispatcher command box (cash_turnin_count), then enter the total here.</p>
-        </div>
-      )}
-    </Card>
-  )
-}
-
-function DigitalRemit({ token, tenant, invoices, onDone }) {
-  const [sel, setSel] = useState([])
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState(null)
-  const [ok, setOk] = useState(null)
-  const paid = invoices.filter((i) => i.status === 'paid')
-
-  const submit = async () => {
-    setBusy(true)
-    setErr(null)
-    setOk(null)
-    try {
-      await api.markDigital(token, tenant, sel)
-      setOk(`${sel.length} invoice(s) marked remitted.`)
-      setSel([])
-      onDone()
-    } catch (e) {
-      setErr(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card title="Digital payments → remitted">
-      <ErrorBox error={err} />
-      <Notice>{ok}</Notice>
-      {paid.length === 0 ? <Empty text="No validated digital payments awaiting remittance." /> : (
-        <>
-          <ul className="max-h-48 space-y-1 overflow-y-auto">
-            {paid.map((i) => (
-              <li key={i.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={sel.includes(i.id)} onChange={(e) => setSel(e.target.checked ? [...sel, i.id] : sel.filter((x) => x !== i.id))} />
-                <span className="font-mono text-xs">{i.id.slice(0, 12)}…</span>
-                <span className="ml-auto">{money(i.amount_cents, i.currency)}</span>
-              </li>
-            ))}
-          </ul>
-          <button onClick={submit} disabled={busy || sel.length === 0} className={`${btn} mt-3`}>
-            {busy ? 'Marking…' : `Mark ${sel.length || ''} as remitted`}
-          </button>
-        </>
-      )}
-    </Card>
-  )
-}
-
-function BatchRemit({ token, tenant, invoices, evidence, onDone }) {
-  const slips = evidence.filter((e) => e.document_type === 'BANK_SLIP' || e.document_type === 'bank_slip')
-  const cashPaid = invoices.filter((i) => i.status === 'paid')
-  const [evidenceId, setEvidenceId] = useState('')
-  const [sel, setSel] = useState([])
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState(null)
-  const [ok, setOk] = useState(null)
-
-  const submit = async () => {
-    setBusy(true)
-    setErr(null)
-    setOk(null)
-    try {
-      await api.submitBatch(token, tenant, { evidence_id: evidenceId, invoice_ids: sel })
-      setOk('Deposit batch submitted.')
-      setSel([])
-      setEvidenceId('')
-      onDone()
-    } catch (e) {
-      setErr(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card title="Deposit batch remittance">
-      <ErrorBox error={err} />
-      <Notice>{ok}</Notice>
-      <label className={label}>Bank deposit slip (parsed evidence)</label>
-      <select className={select} value={evidenceId} onChange={(e) => setEvidenceId(e.target.value)}>
-        <option value="">Select evidence…</option>
-        {slips.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.extracted?.reference || e.id.slice(0, 12)} — {money(e.extracted?.amount_cents)}
-          </option>
-        ))}
-      </select>
-      {slips.length === 0 && <p className="mt-1 text-xs text-slate-400">No deposit slips on file — upload one via the dispatcher command box (remittance_evidence_upload).</p>}
-      <label className={`${label} mt-3`}>Covered cash collections</label>
-      <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto">
-        {cashPaid.map((i) => (
-          <li key={i.id} className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={sel.includes(i.id)} onChange={(e) => setSel(e.target.checked ? [...sel, i.id] : sel.filter((x) => x !== i.id))} />
-            <span className="font-mono text-xs">{i.id.slice(0, 12)}…</span>
-            <span className="ml-auto">{money(i.amount_cents, i.currency)}</span>
-          </li>
-        ))}
-      </ul>
-      <button onClick={submit} disabled={busy || !evidenceId || sel.length === 0} className={`${btn} mt-3`}>
-        {busy ? 'Submitting…' : 'Submit batch'}
-      </button>
-    </Card>
-  )
-}
 
 function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
   const [err, setErr] = useState(null)
@@ -246,7 +83,7 @@ function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
   }
 
   return (
-    <Card title={`Remittance records${meta?.total ? ` (${meta.total})` : list.length ? ` (${list.length})` : ''}`} className="xl:col-span-2">
+    <Card title={`Remittance records${meta?.total ? ` (${meta.total})` : list.length ? ` (${list.length})` : ''}`} desc="Every submitted turn-in and batch lands here awaiting confirmation. Confirm clean records; override, accept the shortfall, or reject flagged ones (flagged rows highlight red).">
       <ErrorBox error={err} />
       <Pager meta={meta} onPage={onPage} top />
       {list.length === 0 ? <Empty text="No remittances yet." /> : (
@@ -258,14 +95,14 @@ function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
               const reviewable = r.status === 'pending_confirmation' || r.status === 'manual_review'
               return (
                 <tr key={r.id} className={r.status === 'manual_review' ? 'bg-red-50' : ''}>
-                  <Td>{(r.kind || '').replace(/_/g, ' ')}</Td>
+                  <Td>{(r.kind || '').replace(/_/g, ' ')}{r.channel && r.channel !== 'cash' ? ` · ${r.channel.replace(/_/g, ' ')}` : ''}</Td>
                   <Td>{money(r.expected_cents)}</Td>
                   <Td>{money(r.counted_cents ?? r.total_cents)}</Td>
                   <Td className={r.variance_cents ? 'text-amber-700' : ''}>{r.variance_cents ? money(r.variance_cents) : '—'}</Td>
                   <Td>{(r.flags || []).length ? <span className="text-sm text-red-600">{r.flags.join(', ')}</span> : '—'}</Td>
                   <Td><StatusBadge value={r.status} /></Td>
                   <Td>
-                    {reviewable && (
+                    {reviewable ? (
                       <div className="space-y-1">
                         <input className="w-44 rounded-lg border border-slate-300 px-2 py-1.5 text-sm" placeholder="Note (optional)" value={notes[r.id] || ''} onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })} />
                         <div className="flex flex-wrap gap-3">
@@ -273,8 +110,11 @@ function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
                           <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={link}>Override</button>
                           <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={link}>Accept shortfall</button>
                           <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={linkDanger}>Reject</button>
+                          {r.evidence_id && <button onClick={() => api.openEvidenceFile(token, tenant, r.evidence_id).catch(() => {})} className={link}>Receipt</button>}
                         </div>
                       </div>
+                    ) : (
+                      r.evidence_id && <button onClick={() => api.openEvidenceFile(token, tenant, r.evidence_id).catch(() => {})} className={link}>Receipt</button>
                     )}
                   </Td>
                 </tr>
@@ -288,7 +128,7 @@ function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
             return (
               <div key={r.id} className={`space-y-1.5 px-2 py-3 ${r.status === 'manual_review' ? 'bg-red-50' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">{(r.kind || '').replace(/_/g, ' ')}</span>
+                  <span className="text-sm font-medium">{(r.kind || '').replace(/_/g, ' ')}{r.channel && r.channel !== 'cash' ? ` · ${r.channel.replace(/_/g, ' ')}` : ''}</span>
                   <StatusBadge value={r.status} />
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
@@ -305,8 +145,12 @@ function RemittanceList({ token, tenant, list, meta, onPage, onDone }) {
                       <button onClick={() => confirm(r.id, 'override')} disabled={!!busy} className={link}>Override</button>
                       <button onClick={() => confirm(r.id, 'accept_shortfall')} disabled={!!busy} className={link}>Accept shortfall</button>
                       <button onClick={() => confirm(r.id, 'reject')} disabled={!!busy} className={linkDanger}>Reject</button>
+                      {r.evidence_id && <button onClick={() => api.openEvidenceFile(token, tenant, r.evidence_id).catch(() => {})} className={link}>Receipt</button>}
                     </div>
                   </div>
+                )}
+                {!reviewable && r.evidence_id && (
+                  <button onClick={() => api.openEvidenceFile(token, tenant, r.evidence_id).catch(() => {})} className={link}>View receipt</button>
                 )}
               </div>
             )

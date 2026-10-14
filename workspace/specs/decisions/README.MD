@@ -59,3 +59,8 @@ What this buys us and what it costs.
 - [ADR-0021](0021-permission-claim-route-authorization.MD) — Route authorization by JWT permission claims; permission catalog defined in code
 - [ADR-0022](0022-least-privilege-invitations.MD) — `iam.invitations.manage` splits invites from user management; Customer Support gains a default bundle
 - [ADR-0023](0023-hierarchical-admin-coverage-gate.MD) — Coverage as admin-hierarchy codes + ancestor walk; CRM gates booking via Service Management's check
+- [ADR-0024](0024-mid-flight-reassignment.MD) — Dispatcher reassign allowed on any open job; `Job.Reassigned` moves the agent without rewinding the lifecycle
+- [ADR-0025](0025-server-side-availability-gate.MD) — CRM re-validates `scheduled_for` against Service Management's availability probe; operations summary exposes hours/closures to customers
+- [ADR-0026](0026-agent-remittance-via-e-wallet.MD) — Agent-held collections may remit via e-wallet: payments gain an agent/company holder split and turn-ins gain a channel with receipt evidence + reference dedupe
+- [ADR-0027](0027-agent-remittance-via-bank-or-remittance-center.MD) — Agent turn-in channels extend to bank deposit and remittance-center receipts: all non-cash rails settle all agent-held collections under the same verify-arrival rules
+- [ADR-0028](0028-billing-row-level-security.MD) — PostgreSQL RLS as tenant-isolation safety net, showcased in Billing: `SetTenantContext` GUC + `serviq_app` non-superuser role + `is_system` console bypass; JWT and application scoping stay first-class

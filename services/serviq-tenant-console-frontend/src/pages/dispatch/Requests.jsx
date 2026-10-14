@@ -1,163 +1,58 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
 import { useLoader } from '../../hooks'
-import { Card, Empty, ErrorBox, Loading, Notice, PageHead, Pager, StatusBadge, btn, btnDanger, fmtDate, selectCompact, statusLabel } from '../../components/ui'
+import { Card, Empty, ErrorBox, Loading, PageHead, Pager, StatusBadge, fmtDate, selectCompact, statusLabel } from '../../components/ui'
 
 const STATUSES = ['', 'submitted', 'reviewed', 'converted', 'cancelled']
 
-// Incoming service requests — review, inspect the customer + location,
-// convert to a job, or cancel.
+// Incoming service requests — list for triage. Detail (customer, location,
+// conversion, cancellation) lives on /dispatch/requests/:requestId.
 export default function Requests() {
   const { token } = useAuth()
   const tenant = useTenant()
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
-  const [sel, setSel] = useState(null)
-  const { data, error, loading, reload } = useLoader(
-    async () => Promise.all([
-      api.requests(token, tenant, status, page),
-      api.services(token, tenant).catch(() => null),
-    ]).then(([reqs, services]) => ({ reqs, services })),
+  const { data, error, loading } = useLoader(
+    async () => api.requests(token, tenant, status, page),
     [token, tenant, status, page],
   )
-  const list = rows(data?.reqs)
-  // /services returns {data: {services: [...], areas: [...]}} — map ids to names.
-  const svcBody = data?.services?.data ?? data?.services ?? {}
-  const svcRows = Array.isArray(svcBody) ? svcBody : (svcBody.services ?? [])
-  const svcNames = Object.fromEntries(svcRows.map((s) => [s.id, s.name]))
-  const want = params.get('request')
-  useEffect(() => {
-    if (want && list) setSel(list.find((r) => r.id === want) ?? null)
-  }, [want, list])
+  const list = rows(data)
+  // Stale deep links: /dispatch/requests?request=<id> → canonical page.
+  const deepLink = params.get('request')
+  if (deepLink) return <Navigate to={`/dispatch/requests/${deepLink}`} replace />
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <PageHead title="Service requests" desc="Inbound customer asks — review details, convert to a job, or cancel." />
+        <PageHead title="Service requests" desc="Inbound customer asks — select one to review, convert to a job, or cancel." />
         <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className={selectCompact}>
           {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s) || 'all statuses'}</option>)}
         </select>
       </div>
       <ErrorBox error={error} />
-      <div className={`grid grid-cols-1 gap-4 ${sel ? 'xl:grid-cols-2' : ''}`}>
-        <Card title="Requests">
-          <Pager meta={data?.reqs} onPage={setPage} top />
-          {loading ? <Loading /> : list.length === 0 ? <Empty /> : (
-            <ul className="divide-y divide-slate-100">
-              {list.map((r) => (
-                <li key={r.id}>
-                  <button onClick={() => setSel(r)} className={`flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50 ${sel?.id === r.id ? 'bg-violet-50' : ''}`}>
-                    <span>
-                      <span className="block text-sm font-medium">{r.customer?.name || 'Customer'}</span>
-                      <span className="block text-xs text-slate-400">{fmtDate(r.created_at)} · {r.details?.notes || r.details?.description || '—'}</span>
-                    </span>
-                    <StatusBadge value={r.status} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Pager meta={data?.reqs} onPage={setPage} />
-        </Card>
-        {sel && <RequestDetail key={sel.id} request={sel} token={token} tenant={tenant} svcNames={svcNames} onDone={() => { setSel(null); reload() }} />}
-      </div>
+      <Card title="Requests">
+        <Pager meta={data} onPage={setPage} top />
+        {loading ? <Loading /> : list.length === 0 ? <Empty /> : (
+          <ul className="divide-y divide-slate-100">
+            {list.map((r) => (
+              <li key={r.id}>
+                <button onClick={() => navigate(`/dispatch/requests/${r.id}`)} className="flex w-full items-center justify-between px-2 py-2.5 text-left hover:bg-slate-50">
+                  <span>
+                    <span className="block text-sm font-medium">{r.customer?.name || 'Customer'}</span>
+                    <span className="block text-xs text-slate-400">{fmtDate(r.created_at)} · {r.details?.notes || r.details?.description || '—'}</span>
+                  </span>
+                  <StatusBadge value={r.status} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Pager meta={data} onPage={setPage} />
+      </Card>
     </div>
   )
 }
-
-function RequestDetail({ request: r, token, tenant, svcNames, onDone }) {
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState(null)
-  const [ok, setOk] = useState(null)
-  const [agents, setAgents] = useState(null)
-
-  // Converted requests continue as jobs — resolve the linked job so the
-  // dispatcher can jump straight to it.
-  const { data: jobEnv } = useLoader(
-    () => (r.status === 'converted' ? api.jobs(token, tenant, `?request_id=${r.id}`) : Promise.resolve(null)),
-    [token, tenant, r.id, r.status],
-  )
-  const linkedJob = rows(jobEnv ?? {})[0]
-
-  const act = async (fn, msg) => {
-    setBusy(true)
-    setErr(null)
-    try {
-      await fn()
-      setOk(msg)
-      setTimeout(onDone, 800)
-    } catch (e) {
-      setErr(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const addr = r.customer?.address || r.details?.address || {}
-  const findAgents = async () => {
-    setErr(null)
-    try {
-      setAgents(rows(await api.eligibleAgents(token, tenant)))
-    } catch (e) {
-      setErr(e.message)
-    }
-  }
-
-  return (
-    <Card title="Request detail">
-      <Notice>{ok}</Notice>
-      <ErrorBox error={err} />
-      <dl className="space-y-2 text-sm">
-        <Row k="Customer" v={r.customer?.name} />
-        <Row k="Contact" v={[r.customer?.contact?.phone, r.customer?.contact?.email].filter(Boolean).join(' · ') || '—'} />
-        <Row k="Location" v={[addr.line1, addr.barangay, addr.city].filter(Boolean).join(', ') || '—'} />
-        <Row k="Service" v={svcNames?.[r.service_id] || r.service_id || '—'} />
-        <Row k="Preferred schedule" v={r.details?.preferred_date || r.details?.scheduled_for || '—'} />
-        <Row k="Notes" v={r.details?.notes || r.details?.description || '—'} />
-        {r.feedback && <Row k="Customer feedback" v={`${'★'.repeat(r.feedback.rating || 0)} ${r.feedback.comment || ''}`} />}
-        <Row k="Status" v={<StatusBadge value={r.status} />} />
-        <Row k="Submitted" v={fmtDate(r.created_at)} />
-      </dl>
-      <div className="mt-4 space-y-2">
-        {agents && (
-          <div className="rounded-lg border border-slate-200 p-2 text-sm">
-            <p className="mb-1 text-xs font-semibold uppercase text-slate-500">Eligible agents</p>
-            {agents.length === 0 ? <p className="text-slate-400">None eligible for this request's requirements.</p> : (
-              <ul className="space-y-1">
-                {agents.map((a) => <li key={a.id}>{a.name} <span className="text-xs text-slate-400">{(a.skills || []).join(', ')}</span></li>)}
-              </ul>
-            )}
-          </div>
-        )}
-        <div className="flex flex-wrap gap-3">
-          {(r.status === 'submitted' || r.status === 'reviewed') && (
-            <button onClick={findAgents} disabled={busy} className={btn}>Check available agents</button>
-          )}
-          {linkedJob && (
-            <Link to={`/dispatch/jobs?job=${linkedJob.id}`} className={btn}>View job →</Link>
-          )}
-          {(r.status === 'submitted' || r.status === 'reviewed') && (
-            <button onClick={() => act(() => api.convertRequest(token, tenant, r.id), 'Job created — hand-off to job management emitted.')} disabled={busy} className={btn}>
-              Convert to job
-            </button>
-          )}
-          {r.status !== 'converted' && r.status !== 'cancelled' && (
-            <button onClick={() => act(() => api.cancelRequest(token, tenant, r.id), 'Request cancelled.')} disabled={busy} className={btnDanger}>
-              Cancel request
-            </button>
-          )}
-        </div>
-      </div>
-    </Card>
-  )
-}
-
-const Row = ({ k, v, mono }) => (
-  <div className="flex justify-between gap-4">
-    <dt className="shrink-0 text-slate-500">{k}</dt>
-    <dd className={`text-right ${mono ? 'font-mono text-xs' : ''}`}>{v ?? '—'}</dd>
-  </div>
-)

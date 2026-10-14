@@ -37,16 +37,51 @@ lives on the list it feeds.
 This applies to every portal — tenant console admin pages (users, customers,
 agents, services, areas, cases) and platform admin surfaces (providers, plans,
 platform users/roles). Two-column `xl:` splits remain appropriate for
-**list ↔ detail** pairings (e.g. jobs list + job detail), where the right pane
-is a viewer, not a form.
+**list ↔ detail** pairings where the right pane is a viewer, not a form —
+but see the next rule: dense detail views graduate to their own route.
 
-## Empty detail panes don't render
+## Dense detail views get their own page
 
-A list ↔ detail split only exists once a row is selected. Before that, the
-list takes the full width — never render an empty "Select a …" placeholder
-card to fill the second column. The grid activates with the selection
-(`${sel ? 'xl:grid-cols-2' : ''}`), so selecting a row splits the view and the
-viewer appears beside the list it came from.
+When a detail view carries a heavy action set — lifecycle transitions,
+assignment, status changes, threaded replies, multi-form editors — it
+graduates from a side pane or row expansion to a **dedicated route**, so
+the list stays a fast-scanning directory and the detail page gets full
+width. This is the standard across every portal:
+
+- Tenant console: `/dispatch/jobs/:jobId`, `/dispatch/requests/:requestId`,
+  `/support/cases/:caseId`, `/admin/services/:serviceId`
+- Tenant console task pages: `/dispatch/remittances/{turn-in,digital,
+  deposit-batch}` — the index is the records ledger plus entry cards; the
+  same convention applies to multi-task desks (one money task per page,
+  not stacked forms)
+- Platform admin: `/providers/:id`
+- Customer portal: `/requests/:id` · Service-agent app: `/jobs/:id`
+
+Rows navigate rather than select; deep links (`?job=<id>`-style params from
+older surfaces) redirect to the canonical route. Inside the page, group
+read-only detail and actions into separate cards side by side on wide
+screens, and offer a `← Back to …` link to the parent list.
+
+What stays inline: **quick row actions** (a checkbox set, a 3-field edit,
+an accept/reject decision — Users' role panel, Evidence's review panel) and
+**form-over-list create/edit swaps** (Plans, Areas). The dividing line is
+whether the surface is a single focused action or a multi-surface detail
+view the user dwells in.
+
+References: `dispatch/Jobs.jsx` → `JobDetail.jsx`, `dispatch/Requests.jsx`
+→ `RequestDetail.jsx`, `support/Cases.jsx` → `CaseDetail.jsx`,
+`admin/Services.jsx` → `admin/ServiceDetail.jsx`.
+
+## No phantom columns
+
+A row holds exactly what it needs — a single card spans the full row;
+it is never capped (`max-w-*`) into a narrow column beside dead
+whitespace, which reads as a broken two-column layout. Grids earn their
+columns: `sm:grid-cols-2` inside a form for related field pairs (Areas'
+name/description), `xl:grid-cols-2` between cards when two surfaces
+genuinely work side by side (JobDetail's detail/actions split). The
+same applies vertically — a page of stacked single-purpose cards uses
+`space-y-4` rows, not a grid that squeezes unrelated forms side by side.
 
 ## Row actions are links
 
@@ -67,6 +102,27 @@ debug output. Recurring year-less values (stored `MM-DD`) render as
 `format.js`) — which parse date-only strings locally (no timezone shift) and
 pass through unparseable values like free-text preferred schedules rather
 than crashing. Date *inputs* stay `type="date"` — the policy covers display.
+
+## Progress reads without color
+
+Steppers, timelines, and status sequences must convey position through
+**shape and iconography, not hue alone** — roughly 1 in 12 men have some
+form of color-vision deficiency, so a green-vs-grey pill distinction can
+carry no information for them.
+
+- Completed steps: filled background **plus a check glyph** (`✓`).
+- Current step: filled background plus a **non-color emphasis** — ring,
+  font weight, or a marker glyph.
+- Upcoming steps: **bordered and unfilled** (outline treatment), muted
+  text — the absence of fill is itself the "not yet" signal.
+- Connectors (`→`, chevrons, lines) may tint with progress as a secondary
+  cue, but never as the only one.
+
+Reference implementation: the dispatch Jobs workflow stepper
+(`tenant-console …/dispatch/Jobs.jsx`). The same rule applies to
+`StatusBadge`-style status chips when several sit side by side — consider
+a glyph or shape difference whenever color is the only thing separating
+"good" from "bad" states.
 
 ## Density over chrome
 

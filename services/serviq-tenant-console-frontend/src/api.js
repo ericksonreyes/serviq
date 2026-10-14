@@ -143,7 +143,25 @@ export const api = {
   invoice: (token, t, id) => request(BASES.billing, tp(t, `/invoices/${id}`), { token }),
   paymentEvidence: (token, t, q = '', page = 1) =>
     request(BASES.billing, tp(t, pg(`/payment-evidence${q}`, page)), { token }),
+  createEvidence: (token, t, body) =>
+    request(BASES.billing, tp(t, '/payment-evidence'), { token, method: 'POST', body }),
+  // Raw document parse — multipart photo → document_type + extracted fields.
+  parseDoc: (token, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return request(BASES.ai, '/api/v1/parse', { token, method: 'POST', form: fd })
+  },
   reviewEvidence: (token, t, id, body) => request(BASES.billing, tp(t, `/payment-evidence/${id}/review`), { token, method: 'POST', body }),
+  companyAccounts: (token, t) => request(BASES.billing, tp(t, '/company-accounts'), { token }),
+  // Stored evidence artifact — fetch with auth, open as a blob URL (the file
+  // endpoint is cross-origin; a plain <img>/link can't send the bearer token).
+  openEvidenceFile: async (token, t, id) => {
+    const res = await fetch(`${BASES.billing}${tp(t, `/payment-evidence/${id}/file`)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) throw new Error(`evidence file ${res.status}`)
+    window.open(URL.createObjectURL(await res.blob()), '_blank', 'noopener')
+  },
   remittances: (token, t, page = 1) => request(BASES.billing, tp(t, pg('/remittances', page)), { token }),
   expectedRemittance: (token, t, agent_id) => request(BASES.billing, tp(t, `/remittances/expected?agent_id=${agent_id}`), { token }),
   submitTurnIn: (token, t, body) => request(BASES.billing, tp(t, '/remittances/turn-ins'), { token, method: 'POST', body }),
@@ -177,4 +195,14 @@ export const api = {
   // AI agent — profile-scoped chat (dispatcher command box, support chat).
   chat: (token, profile, message, context = {}) =>
     request(BASES.ai, '/api/v1/chat', { token, method: 'POST', body: { profile, message, context } }),
+  // Multipart variant — carries a photo for upload tools (cash turn-in
+  // counts, remittance evidence).
+  chatUpload: (token, profile, message, context, file) => {
+    const fd = new FormData()
+    fd.append('profile', profile)
+    fd.append('message', message)
+    fd.append('context', JSON.stringify(context))
+    fd.append('file', file)
+    return request(BASES.ai, '/api/v1/chat', { token, method: 'POST', form: fd })
+  },
 }

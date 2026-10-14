@@ -55,7 +55,7 @@ for (const dir of readdirSync(SERVICES)) {
   const ai = join(SERVICES, dir, 'app/main.py');
   if (existsSync(ai)) {
     const src = readFileSync(ai, 'utf8');
-    for (const m of src.matchAll(/@(app|router)\.(get|post|put|patch|delete)\s*\(\s*'([^']+)'/g)) {
+    for (const m of src.matchAll(/@(app|router)\.(get|post|put|patch|delete)\s*\(\s*['"]([^'"]+)['"]/g)) {
       routes.push({ method: m[2].toUpperCase(), path: m[3], src: dir });
     }
   }

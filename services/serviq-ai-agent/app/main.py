@@ -5,7 +5,6 @@ endpoints forward the caller's JWT to the owning microservice — never
 a service credential.
 """
 import json
-import os
 import re
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -14,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import AuthError, verify_token
 from .orchestrator import ChatError, run_chat
 from .parser import parse_document
+from .providers import text_model, vision_model
 
 app = FastAPI(title="serviq-ai-agent")
 
@@ -32,12 +32,12 @@ PROFILES = ("customer", "dispatcher", "support")
 
 @app.get("/api/health")
 def health():
+    text = text_model()
     return {
         "status": "ok",
         "service": "ai-agent",
-        "mode": os.environ.get("AI_MODEL_MODE", "stub"),
-        "vision_model": os.environ.get("AI_VISION_MODEL", "moondream"),
-        "text_model": os.environ.get("AI_TEXT_MODEL", "qwen2.5:3b"),
+        "vision_model": vision_model().name,
+        "text_model": text.name if text else "stub:keywords",
     }
 
 

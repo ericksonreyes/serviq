@@ -118,8 +118,10 @@ class CatalogServiceController
 
             $events->record('ServiceManagement.WorkflowTemplateChanged', [
                 'service_id' => $service->id,
+                'name' => $service->name,
                 'steps' => $service->workflowSteps->map(fn ($s) => [
                     'name' => $s->name, 'position' => $s->position,
+                    'required_evidence' => $s->required_evidence,
                 ])->all(),
             ], $service->tenant_id);
         });

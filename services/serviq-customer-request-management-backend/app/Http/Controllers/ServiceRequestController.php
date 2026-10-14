@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CustomerAddress;
 use App\Models\ServiceRequest;
+use App\Services\AvailabilityGate;
 use App\Services\CoverageGate;
 use App\Services\DomainEventRecorder;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +24,7 @@ class ServiceRequestController
         return response()->json($requests);
     }
 
-    public function store(Request $request, DomainEventRecorder $events, CoverageGate $coverage): JsonResponse
+    public function store(Request $request, DomainEventRecorder $events, CoverageGate $coverage, AvailabilityGate $availability): JsonResponse
     {
         $data = $request->validate([
             'tenant_id' => ['required', 'uuid'],
@@ -63,6 +64,31 @@ class ServiceRequestController
                     'covered_names' => $verdict['covered_names'] ?? [],
                 ], 422),
             };
+        }
+
+        // Availability gate: the portal gates its pickers on the same
+        // probe, but a direct API call could book a closure or off-shift
+        // start — re-check the schedule server-side (fail-closed, like
+        // coverage). Only runs when the request carries a catalog
+        // service + a date; open-ended requests have nothing to check.
+        $when = $data['scheduled_for'] ?? $data['preferred_date'] ?? null;
+        if ($when !== null && ! empty($data['service_id'])) {
+            $date = substr((string) $when, 0, 10);
+            $time = strlen((string) $when) >= 16 ? substr((string) $when, 11, 5) : null;
+            $slot = $availability->check($data['tenant_id'], $data['service_id'], $date, $time, $request->bearerToken());
+            if (! ($slot['bookable'] ?? false)) {
+                return match ($slot['reason'] ?? 'unavailable') {
+                    'unavailable' => response()->json([
+                        'error' => 'availability_unavailable',
+                        'message' => 'Availability verification is temporarily unavailable — try again shortly.',
+                    ], 503),
+                    default => response()->json([
+                        'error' => 'outside_availability',
+                        'message' => 'That schedule is outside the provider\'s bookable hours — pick another date or time.',
+                        'bookable_times' => $slot['times'] ?? [],
+                    ], 422),
+                };
+            }
         }
 
         // Free-form booking input folds into details — the address book
@@ -149,18 +175,25 @@ class ServiceRequestController
     public function convert(string $tenant, ServiceRequest $serviceRequest, DomainEventRecorder $events): JsonResponse
     {
         abort_unless($serviceRequest->tenant_id === $tenant, 404);
-        if ($serviceRequest->status !== ServiceRequest::SUBMITTED && $serviceRequest->status !== ServiceRequest::REVIEWED) {
-            return response()->json(['error' => 'illegal_transition', 'message' => "Cannot convert a {$serviceRequest->status} request"], 409);
-        }
 
-        $serviceRequest->update(['status' => ServiceRequest::CONVERTED]);
-        $events->record('Request.Converted', [
-            'request_id' => $serviceRequest->id,
-            'customer_id' => $serviceRequest->customer_id,
-            'service_id' => $serviceRequest->service_id,
-            'details' => $serviceRequest->details,
-        ], $serviceRequest->tenant_id);
+        return DB::transaction(function () use ($serviceRequest, $events) {
+            // Lock before the status check — two concurrent converts would
+            // otherwise both read `submitted`, both pass, and both emit
+            // Request.Converted: Job Management would spawn two jobs.
+            $locked = ServiceRequest::where('id', $serviceRequest->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== ServiceRequest::SUBMITTED && $locked->status !== ServiceRequest::REVIEWED) {
+                return response()->json(['error' => 'illegal_transition', 'message' => "Cannot convert a {$locked->status} request"], 409);
+            }
 
-        return response()->json(['data' => $serviceRequest]);
+            $locked->update(['status' => ServiceRequest::CONVERTED]);
+            $events->record('Request.Converted', [
+                'request_id' => $locked->id,
+                'customer_id' => $locked->customer_id,
+                'service_id' => $locked->service_id,
+                'details' => $locked->details,
+            ], $locked->tenant_id);
+
+            return response()->json(['data' => $locked]);
+        });
     }
 }

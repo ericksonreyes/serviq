@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Events\Handlers\AgentAvailabilityHandler;
+use App\Events\Handlers\CoverageExpansionHandler;
 use App\Events\Handlers\PlanFeaturesHandler;
 use App\Models\ProcessedEvent;
 use App\Services\Messaging\RabbitMq;
@@ -17,13 +18,16 @@ class EventsConsume extends Command
 
     protected $description = 'Consume domain events from serviq.events';
 
-    private const BINDINGS = ['Workforce.AgentRegistered', 'Workforce.AgentUpdated', 'Platform.*'];
+    private const BINDINGS = ['Workforce.AgentRegistered', 'Workforce.AgentUpdated', 'Platform.*',
+        'ServiceManagement.ServiceAreaCreated', 'ServiceManagement.ServiceAreaUpdated'];
 
     private const HANDLERS = [
         'Workforce.AgentRegistered' => AgentAvailabilityHandler::class,
         'Workforce.AgentUpdated' => AgentAvailabilityHandler::class,
         'Platform.TenantCreated' => PlanFeaturesHandler::class,
         'Platform.SubscriptionAssigned' => PlanFeaturesHandler::class,
+        'ServiceManagement.ServiceAreaCreated' => CoverageExpansionHandler::class,
+        'ServiceManagement.ServiceAreaUpdated' => CoverageExpansionHandler::class,
     ];
 
     public function handle(RabbitMq $mq): int

@@ -15,7 +15,7 @@ use App\Models\ServiceArea;
 class Coverage
 {
     /** Tenant's aggregated coverage spec across all service areas. */
-    private function specFor(string $tenant): array
+    public function specFor(string $tenant): array
     {
         $covered = $excluded = [];
         $nationwide = $configured = false;
@@ -41,7 +41,17 @@ class Coverage
      */
     public function check(string $tenant, string $code): array
     {
-        ['covered' => $covered, 'excluded' => $excluded, 'nationwide' => $nationwide, 'configured' => $configured] = $this->specFor($tenant);
+        return $this->checkSpec($this->specFor($tenant), $code);
+    }
+
+    /**
+     * Verdict against a precomputed spec — batch callers (e.g. the
+     * expansion handler fanning out over interest rows) compute the spec
+     * once instead of per code.
+     */
+    public function checkSpec(array $spec, string $code): array
+    {
+        ['covered' => $covered, 'excluded' => $excluded, 'nationwide' => $nationwide, 'configured' => $configured] = $spec;
 
         if ($nationwide) {
             return ['covered' => true, 'reason' => 'countrywide'];

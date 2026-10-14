@@ -58,7 +58,7 @@ class JobStore
         if (isset(self::EVENT_STATUS[$type])) {
             $job->status = self::EVENT_STATUS[$type];
         }
-        if ($type === 'Job.Assigned') {
+        if ($type === 'Job.Assigned' || $type === 'Job.Reassigned') {
             $job->assigned_agent_id = $payload['agent_id'] ?? $job->assigned_agent_id;
         }
         if ($type === 'Job.Requested') {

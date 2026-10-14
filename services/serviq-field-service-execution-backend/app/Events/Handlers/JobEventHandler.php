@@ -23,7 +23,7 @@ class JobEventHandler
                 throw new \RuntimeException('Assignment.Accepted missing job_id/agent_id');
             }
             $steps = JobWorkflow::find($p['job_id'])?->steps;
-            Execution::firstOrCreate(
+            $execution = Execution::firstOrCreate(
                 ['job_id' => $p['job_id']],
                 [
                     'tenant_id' => $envelope['tenant_id'],
@@ -33,6 +33,17 @@ class JobEventHandler
                     'workflow_instance' => $steps ? array_map(fn ($s) => $s + ['state' => 'open'], $steps) : null,
                 ],
             );
+            // Dispatcher reassign (ADR-0024): the execution exists under the
+            // previous agent — hand the open field session to the new agent
+            // so it appears in their work list. Closed executions untouched.
+            if (! $execution->wasRecentlyCreated
+                && $execution->agent_id !== $p['agent_id']
+                && ! in_array($execution->status, ['completed', 'cancelled'], true)) {
+                $execution->update([
+                    'agent_id' => $p['agent_id'],
+                    'assignment_id' => $p['assignment_id'] ?? $execution->assignment_id,
+                ]);
+            }
             Log::info("Execution opened for job {$p['job_id']}");
 
             return;

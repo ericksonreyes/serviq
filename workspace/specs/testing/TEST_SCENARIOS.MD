@@ -52,6 +52,11 @@ The demo spine. Every step is independently automatable; the full chain is the P
 | ✅ | Digital bulk remit | non-cash paid invoices → `remitted` immediately | feature — billing `RemittanceFlowTest`; E2E `money-flows.mjs` |
 | ✅ | Cash invoice in digital set | 422 rejected | feature — billing `RemittanceFlowTest` |
 | ✅ | Nothing reaches `remitted` without dispatcher confirm | `paid` invoice never self-settles; no `remitted` remittance exists post-pay | feature — billing `RemittanceFlowTest` |
+| ✅ | Transfer turn-in — wallet/bank/remit-center rails | settles all agent-held collections; `manual_review` + rail flag; clean transfer still confirmable | feature — billing `RemittanceFlowTest`; E2E `transfer-remittance.mjs` |
+| ✅ | Evidence artifact persisted + retrievable | `file_ref` is a real MinIO object; `GET …/file` streams it back | feature — billing `RemittanceFlowTest`; E2E `transfer-remittance.mjs` (Receipt popup) |
+| ✅ | Recipient guardrail | receipt naming a non-configured recipient → `recipient_mismatch` on evidence + turn-in; absent config/recipient fails open | feature — billing `RemittanceFlowTest`; E2E `transfer-remittance.mjs` (stub mode) |
+| ✅ | Reject a suspect remittance | `rejected`, `Remittance.Rejected` emitted with actor + notes; collections released back to pending | feature — billing `RemittanceFlowTest`; E2E `transfer-remittance.mjs` |
+| ✅ | Confirm refused on anomaly flags | plain `confirm` on `manual_review` anomalies → 422 until override/accept/reject | feature — billing `RemittanceFlowTest`; E2E `transfer-remittance.mjs` |
 
 ## Lifecycle and edge cases
 

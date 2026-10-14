@@ -9,8 +9,11 @@ const iso = (y, m, d) =>
 
 // Minimal month calendar for availability picking — only `enabled` dates
 // are selectable (server-emitted bookable days); everything else renders
-// disabled. No date-lib dependency: pure Date math.
-export default function MiniCalendar({ enabled, value, onChange, maxMonths = 2 }) {
+// disabled. `closed` marks provider-declared closures/holidays with a
+// strikethrough + tooltip, so a closed day reads differently from a
+// merely full or out-of-window one. No date-lib dependency: pure Date
+// math.
+export default function MiniCalendar({ enabled, closed = {}, value, onChange, maxMonths = 2 }) {
   const today = useMemo(() => {
     const t = new Date()
     t.setHours(0, 0, 0, 0)
@@ -66,6 +69,7 @@ export default function MiniCalendar({ enabled, value, onChange, maxMonths = 2 }
           if (!d) return <Box key={`x${i}`} />
           const date = new Date(`${d}T00:00:00`)
           const off = date < today || !enabled?.[d]
+          const isClosed = off && Boolean(closed[d])
           const selected = value === d
           return (
             <Box
@@ -74,7 +78,8 @@ export default function MiniCalendar({ enabled, value, onChange, maxMonths = 2 }
               type="button"
               disabled={off}
               onClick={() => onChange(d)}
-              aria-label={date.toLocaleDateString(undefined, { dateStyle: 'medium' })}
+              title={isClosed ? 'Closed — provider\'s day off' : undefined}
+              aria-label={`${date.toLocaleDateString(undefined, { dateStyle: 'medium' })}${isClosed ? ' (closed)' : ''}`}
               aria-pressed={selected}
               sx={{
                 minHeight: 40,
@@ -84,6 +89,7 @@ export default function MiniCalendar({ enabled, value, onChange, maxMonths = 2 }
                 font: 'inherit',
                 fontSize: '1rem',
                 fontWeight: selected ? 800 : 500,
+                textDecoration: isClosed ? 'line-through' : 'none',
                 color: off ? 'text.disabled' : selected ? 'primary.contrastText' : 'text.primary',
                 bgcolor: selected ? 'primary.main' : 'transparent',
                 '&:not(:disabled):hover': { bgcolor: selected ? 'primary.main' : 'rgba(124, 58, 237, 0.08)' },

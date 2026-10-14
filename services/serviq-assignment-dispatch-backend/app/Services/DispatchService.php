@@ -133,7 +133,11 @@ class DispatchService
                 'strategy' => $strategy,
                 'status' => Assignment::ACCEPTED,
             ]);
-            $job->update(['status' => 'assigned']);
+            // Mid-flight reassign must not rewind the projection — a job
+            // already agent_accepted/in_progress keeps its status.
+            if (! in_array($job->status, ['agent_accepted', 'in_progress', 'closed'], true)) {
+                $job->update(['status' => 'assigned']);
+            }
             $this->events->record('Assignment.Accepted', [
                 'job_id' => $job->job_id,
                 'agent_id' => $agentId,
@@ -149,8 +153,8 @@ class DispatchService
      * Dispatcher reassign — revoke the current accepted assignment and accept
      * a new pick atomically, so the job never returns to the dispatchable
      * pool (auto-dispatch would snap it back before a human could pick).
-     * Only valid while the job is dispatch-committed ('assigned') — once the
-     * agent accepts or the job closes, reassignment is a cancel flow.
+     * Valid on any open job — dispatch-committed, agent-accepted, or
+     * in-flight; closed jobs are rejected by the controller (ADR-0024).
      */
     public function reassign(DispatchableJob $job, string $agentId): Assignment
     {

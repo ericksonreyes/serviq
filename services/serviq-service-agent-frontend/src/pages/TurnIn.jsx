@@ -19,6 +19,7 @@ export default function TurnIn() {
   const [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false)
   const [deposit, setDeposit] = useState(null)
+  const [wallet, setWallet] = useState(null)
 
   useEffect(() => {
     api.expectedRemittance(token)
@@ -28,7 +29,9 @@ export default function TurnIn() {
   }, [token])
 
   const collections = expected?.collections ?? []
+  const agentHeld = expected?.agent_held ?? []
   const expectedCents = expected?.expected_cents ?? 0
+  const walletExpectedCents = expected?.wallet_expected_cents ?? 0
   const countedCents = Math.round(parseFloat(counted || '0') * 100)
   const variance = countedCents - expectedCents
 
@@ -71,7 +74,16 @@ export default function TurnIn() {
         </Alert>
       )}
 
-      {!loading && expected && !result && !deposit && (
+      {wallet && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Wallet turn-in submitted — {money(wallet.remittance?.counted_cents)} sent vs{' '}
+          {money(wallet.remittance?.expected_cents)} held. Status: {wallet.remittance?.status}
+          {wallet.remittance?.flags?.length ? ` (${wallet.remittance.flags.join(', ')})` : ''}.
+          A dispatcher verifies the transfer arrived before confirming.
+        </Alert>
+      )}
+
+      {!loading && expected && !result && !deposit && !wallet && (
         <>
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             Expected cash-paid collections ({collections.length})
@@ -118,6 +130,10 @@ export default function TurnIn() {
                 Submit turn-in
               </Button>
             </Stack>
+          )}
+
+          {agentHeld.length > 0 && (
+            <WalletTurnInForm token={token} held={agentHeld} expectedCents={walletExpectedCents} onDone={setWallet} />
           )}
 
           {collections.length > 0 && (
@@ -234,6 +250,99 @@ function DepositForm({ token, collections, onDone }) {
             This slip covers {covered.length} collection{covered.length === 1 ? '' : 's'} totalling{' '}
             {money(coveredCents)}. Billing checks the amount and reference on the slip, then a
             dispatcher confirms.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirming(false)}>Back</Button>
+          <Button variant="contained" onClick={submit}>Submit</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
+// Transfer turn-in (ADR-0026/0027): one external send settles everything the
+// agent holds — cash collections plus wallet payments that landed in the
+// agent's own wallet. The receipt photo is the claim; a dispatcher verifies
+// arrival before anything remits. Rails: e-wallet, bank deposit, remittance
+// center.
+const TURN_IN_RAILS = [
+  { value: 'wallet', label: 'E-wallet transfer (GCash/Maya)', receipt: 'e-wallet receipt' },
+  { value: 'bank', label: 'Bank deposit', receipt: 'deposit slip' },
+  { value: 'remittance_center', label: 'Remittance center (Palawan/Cebuana)', receipt: 'remittance receipt' },
+]
+
+function WalletTurnInForm({ token, held, expectedCents, onDone }) {
+  const [channel, setChannel] = useState('wallet')
+  const [file, setFile] = useState(null)
+  const [reference, setReference] = useState('')
+  const [amount, setAmount] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const rail = TURN_IN_RAILS.find((r) => r.value === channel)
+
+  const submit = async () => {
+    setConfirming(false)
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await api.walletTurnIn(token, {
+        channel,
+        file_b64: await fileToB64(file),
+        filename: file.name,
+        claimed: {
+          reference: reference || null,
+          amount_cents: amount === '' ? null : Math.round(parseFloat(amount) * 100),
+        },
+      })
+      onDone(res.data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <Divider sx={{ my: 3 }} />
+      <Typography variant="h6" gutterBottom>Remitted via transfer</Typography>
+      <Typography variant="body2" color="text.secondary" gutterBottom>
+        Sent everything you hold — {money(expectedCents)} across {held.length} collection
+        {held.length === 1 ? '' : 's'} — through an e-wallet, bank deposit, or remittance
+        center? Attach the receipt; a dispatcher confirms the money arrived.
+      </Typography>
+      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+      <Stack spacing={1.5}>
+        <TextField select label="How did you send it?" value={channel} disabled={busy}
+          onChange={(e) => setChannel(e.target.value)}>
+          {TURN_IN_RAILS.map((r) => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
+        </TextField>
+        <Button variant="outlined" component="label" disabled={busy}>
+          {file ? `Receipt: ${file.name}` : `Attach ${rail.receipt}`}
+          <input hidden type="file" accept="image/*" aria-label="Transfer receipt"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </Button>
+        <TextField label="Reference number (as printed)" value={reference} disabled={busy}
+          onChange={(e) => setReference(e.target.value)}
+          helperText="Only used if the photo can't be read." />
+        <TextField label="Amount sent (₱)" type="number" value={amount} disabled={busy}
+          inputProps={{ min: 0, step: '0.01' }} onChange={(e) => setAmount(e.target.value)} />
+        <Button variant="contained" size="large" disabled={busy || !file}
+          onClick={() => setConfirming(true)}>
+          {busy ? <ThinkingDots /> : `Submit ${rail.label.split(' ')[0].toLowerCase()} turn-in`}
+        </Button>
+      </Stack>
+
+      <Dialog open={confirming} onClose={() => setConfirming(false)}>
+        <DialogTitle>Submit {rail.label} turn-in?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            This receipt settles all {held.length} collection{held.length === 1 ? '' : 's'} you
+            hold — {money(expectedCents)} expected. Billing reads the amount and reference from
+            the photo; the turn-in goes to manual review until a dispatcher confirms the
+            transfer arrived.
           </Typography>
         </DialogContent>
         <DialogActions>

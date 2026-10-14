@@ -43,7 +43,7 @@ These practices guide how ServIQ should be built, but they do not replace the do
 - [Glossary & Vocabulary](../GLOSSARY.MD)
 - [Service Stacks](./SERVICE_STACKS.MD) — per-family framework/library policy and CQRS read/write storage split
 - [Identifiers](./IDENTIFIERS.MD) — UUIDv7 entity IDs, SQID-masked public IDs for transactional records
-- [Security & Access Control](./security/README.MD) — JWT validation and role/permission policy example
+- [Security & Access Control](./security/README.MD) — JWT validation, role/permission policy, and Postgres Row-Level Security as tenant-isolation safety net (Billing showcase, ADR-0028)
 - [Identity & Access (IAM)](./security/IDENTITY_AND_ACCESS.MD) — dedicated microservice for tenants, users, and roles; tenant-scoped usernames
 - [JWT Signing Keys](./security/JWT_SIGNING_KEYS.MD) — IAM private-key signing, public-key verification, and symmetric fallback
 - [JWT Invalidation](./security/JWT_INVALIDATION.MD) — shared Redis blacklist for pre-expiry token revocation

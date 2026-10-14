@@ -10,6 +10,31 @@ import MiniCalendar from '../MiniCalendar'
 
 const isoDate = (d) => d.toISOString().slice(0, 10)
 
+const WEEK_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+const DAY_SHORT = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' }
+
+const fmtShortTime = (t) => t === '24:00'
+  ? 'midnight'
+  : new Date(`2000-01-01T${t}:00`).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+
+// "Mon–Sat 8 AM – 5 PM · Sun closed" — collapses the weekly window map
+// into runs of consecutive days sharing the same hours.
+const summarizeHours = (hours) => {
+  if (!hours) return null
+  const runs = []
+  for (const d of WEEK_ORDER) {
+    const w = hours[d]
+    const key = w?.open && w?.close ? `${w.open}-${w.close}` : 'closed'
+    const last = runs[runs.length - 1]
+    if (last && last.key === key) last.to = d
+    else runs.push({ key, from: d, to: d, window: w })
+  }
+  return runs.map((r) => {
+    const label = r.from === r.to ? DAY_SHORT[r.from] : `${DAY_SHORT[r.from]}–${DAY_SHORT[r.to]}`
+    return r.key === 'closed' ? `${label} closed` : `${label} ${fmtShortTime(r.window.open)} – ${fmtShortTime(r.window.close)}`
+  }).join(' · ')
+}
+
 // Booking: service → date (with availability hints when the catalog
 // exposes them) → address book entry or inline address → notes.
 export default function Book() {
@@ -35,15 +60,17 @@ export default function Book() {
   const [coverage, setCoverage] = useState(null)
   const [interest, setInterest] = useState(null) // null | 'sending' | 'sent'
   const [slots, setSlots] = useState(null) // null = availability unknown
+  const [ops, setOps] = useState(null) // provider hours + closures
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.catalog(token), api.addresses(token).catch(() => ({ data: [] }))])
-      .then(([svc, addr]) => {
+    Promise.all([api.catalog(token), api.addresses(token).catch(() => ({ data: [] })), api.operations(token).catch(() => null)])
+      .then(([svc, addr, o]) => {
         setServices((svc.data || []).filter((s) => s.active ?? true))
         setAddresses(addr.data || [])
+        setOps(o?.data ?? null)
         const def = (addr.data || []).find((a) => a.is_default)
         if (def) setForm((f) => ({ ...f, address_id: def.id }))
       })
@@ -290,6 +317,21 @@ export default function Book() {
               </Stack>
             )}
 
+            {ops && (
+              <Alert severity="info" icon={false} sx={{ py: 0.5 }}>
+                <Typography variant="body2">
+                  <strong>Open:</strong> {summarizeHours(ops.hours) || 'hours not set'}
+                </Typography>
+                {(ops.closures ?? []).length > 0 && (
+                  <Typography variant="body2">
+                    <strong>Closed:</strong>{' '}
+                    {ops.closures.slice(0, 6).map((c) =>
+                      new Date(`${c.date}T00:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })
+                    ).join(', ')}
+                  </Typography>
+                )}
+              </Alert>
+            )}
             {slots === null ? (
               // Availability unknown — plain pickers; still bookable.
               <>
@@ -310,6 +352,7 @@ export default function Book() {
                   <Typography variant="subtitle2" gutterBottom>Preferred date</Typography>
                   <MiniCalendar
                     enabled={slots}
+                    closed={Object.fromEntries((ops?.closures ?? []).map((c) => [c.date, c.kind]))}
                     value={form.date}
                     onChange={(d) => setForm({ ...form, date: d })}
                   />
@@ -350,6 +393,11 @@ export default function Book() {
               label="Notes for the technician" multiline minRows={2}
               value={form.notes} onChange={set('notes')}
             />
+            {ops?.cancellation_policy && (
+              <Typography variant="caption" color="text.secondary">
+                Cancellation policy: {ops.cancellation_policy}
+              </Typography>
+            )}
             <Button type="submit" variant="contained" disabled={busy}>
               {busy ? 'Submitting…' : 'Submit request'}
             </Button>

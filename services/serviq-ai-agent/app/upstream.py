@@ -36,12 +36,15 @@ def call(method: str, base_url: str, path: str, token: str,
             raw = res.read()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
-        detail = e.read()[:400].decode("utf-8", errors="replace")
+        # Read the whole body — Laravel debug errors carry file paths and
+        # traces; extracting the message needs the full JSON, and callers
+        # must never surface the raw dump.
+        detail = e.read().decode("utf-8", errors="replace")
         try:
             parsed = json.loads(detail)
             detail = parsed.get("message") or parsed.get("error") or detail
         except ValueError:
-            pass
-        raise UpstreamError(e.code, str(detail)) from e
+            detail = "unexpected upstream response"
+        raise UpstreamError(e.code, str(detail)[:300]) from e
     except urllib.error.URLError as e:
         raise UpstreamError(0, f"upstream unreachable: {e.reason}") from e

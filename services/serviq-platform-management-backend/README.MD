@@ -1,57 +1,49 @@
-# Platform Management Backend
+# Platform Management Backend (:8011)
 
-Platform Management command API — owns the Tenant entity (ADR-0002),
-subscription plans, and platform feature flags. IAM receives tenant scope via
-`Platform.TenantCreated` and binds identities to `tenant_id`.
+Platform operator command API — owns the Tenant entity (ADR-0002),
+subscription plans, and platform feature flags. Tenant scopes propagate
+to IAM via `Platform.TenantCreated`; identities bind to `tenant_id`.
 
-- Stack: Laravel (php:apache, mod_php) + PostgreSQL + RabbitMQ (domain events)
-- Specs: `workspace/specs/domain/specs/domain_boundaries/platform/` + ADR-0002
-- Map entry: `SERVICE_MAP.md` → Platform Management Backend
+## What it's for
 
-## API surface
+ServIQ is multi-tenant SaaS — someone has to own the tenant lifecycle
+itself:
 
-All `/api/v1/*` routes require a platform-scoped JWT issued by IAM
-(`role:Platform Administrator`). Verification is RS256 via IAM's
-`/.well-known/jwks.json` (`JWT_JWKS_URL`), with `JWT_PUBLIC_KEY`/`JWT_SECRET`
-fallbacks — this service never issues tokens.
+- **Tenant provisioning** — create, activate, suspend, deactivate; the
+  state machine is the single authority on legal transitions.
+- **Plan catalog** — subscription tiers (`free`, `starter`, `pro`
+  seeded) that downstream services gate against via projected features.
+- **Feature flags** — platform-wide switches read through the API.
+
+## Surface
 
 | Route | Purpose |
 | --- | --- |
-| `GET/POST /api/v1/plans`, `GET/PATCH /api/v1/plans/{id}` | Subscription plan catalog |
-| `GET/POST /api/v1/tenants`, `GET/PATCH /api/v1/tenants/{id}` | Tenant provisioning (`POST` emits `Platform.TenantCreated`) |
-| `POST /api/v1/tenants/{id}/activate` | pending/suspended → active |
-| `POST /api/v1/tenants/{id}/suspend` | active → suspended |
-| `POST /api/v1/tenants/{id}/deactivate` | → deactivated (terminal) |
-| `GET /api/v1/feature-flags`, `PUT /api/v1/feature-flags` | Platform-wide feature flags |
+| `GET/POST /api/v1/plans`, `GET/PATCH …/plans/{id}` | Subscription plan catalog |
+| `GET/POST …/tenants`, `GET/PATCH …/tenants/{id}` | Provisioning (`POST` → `Platform.TenantCreated`) |
+| `POST …/tenants/{id}/activate`, `/suspend`, `/deactivate` | Lifecycle transitions |
+| `GET/PUT /api/v1/feature-flags` | Platform-wide flags |
 | `GET /api/health` | Liveness |
+| Emits | `Platform.TenantCreated/Activated/Suspended/Deactivated`, `Platform.PlanCreated` via outbox |
 
-Illegal lifecycle transitions return `409 illegal_transition`
-(`App\Domain\Tenancy\TenantLifecycle` is the state machine).
+All `/api/v1/*` routes require a **platform-scoped** JWT
+(`role:Platform Administrator`) — verified via IAM JWKS/public key/secret
+resolution; this service never issues tokens. Illegal transitions return
+`409 illegal_transition` (`App\Domain\Tenancy\TenantLifecycle`).
 
-## Events
+## Ops
 
-- `outbox` rows are written in the same transaction as each state change;
-  `php artisan outbox:publish` relays them to the `serviq.events` topic
-  exchange (routing key = event type, e.g. `Platform.TenantCreated`).
-- Published: `Platform.TenantCreated`, `Platform.TenantActivated`,
-  `Platform.TenantSuspended`, `Platform.TenantDeactivated`, `Platform.PlanCreated`.
-- The `platform-management-consumer` compose service runs the outbox relay in
-  a dedicated container. This service has no subscriptions yet —
-  `events:consume` lands with its first handler.
+| Task | Command |
+| --- | --- |
+| Tests | `./scripts/test.sh services/serviq-platform-management-backend` (phpspec + behat — **never** `phpunit`/`artisan test` inside the running container) |
+| Outbox relay | `serviq-platform-management-consumer` runs `outbox:publish`; `events:consume` lands with its first subscription |
+| Smoke test | `POST :8011/api/v1/tenants {"name":"Acme","slug":"acme","activate":true}` with a platform token from IAM `:8010` |
 
-## Local
+## Architecture
 
-```sh
-./scripts/install.sh
-docker compose -f services/docker-compose.yml up -d platform-management-backend --wait
-# needs a platform-scoped token from IAM (:8010):
-TOKEN=$(curl -s -X POST http://localhost:8010/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"serviq-local"}' | jq -r .access_token)
-curl -X POST http://localhost:8011/api/v1/tenants \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"Acme","slug":"acme","activate":true}'
-```
-
-Seeded plans: `free`, `starter`, `pro`. Tests: `vendor/bin/phpspec run` and
-`vendor/bin/behat` — no database required.
+| Discipline | How it shows up here |
+| --- | --- |
+| **DDD** | `App\Domain\Tenancy\TenantLifecycle` is a domain state machine — the legal-transition table lives in the domain, controllers return its `409`s. Tenant ownership is exclusive (ADR-0002). |
+| **Event-driven** | `outbox` rows written in the same transaction as each state change → `serviq.events` (routing key = event type). IAM, Workforce, and Service Management all provision/gate off `Platform.*` — no synchronous fan-out. |
+| **SOLID** | SRP — `TenantLifecycle` (rules) vs controllers (HTTP) vs `DomainEventRecorder` (outbox). |
+| **Hexagonal** | Broker isolated in `App\Services\Messaging\RabbitMq`; JWT verification resolves PEM → JWKS → secret like every sibling service. |

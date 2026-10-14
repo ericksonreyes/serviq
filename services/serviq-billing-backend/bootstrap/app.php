@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => RequirePermission::class,
             'role' => RequireRole::class,
             'tenant.scope' => RequireTenantScope::class,
+            'tenant.rls' => \App\Http\Middleware\SetTenantContext::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

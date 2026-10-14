@@ -48,14 +48,16 @@ class RemittanceController
         return response()->json(['data' => $this->remittances->expectedForAgent($tenant, $data['agent_id'])]);
     }
 
-    /** End-of-shift cash turn-in: agent's expected list vs the counted total. */
+    /** End-of-shift turn-in: cash hand-over needs a counted total; a wallet
+     *  turn-in needs the transfer receipt — its parsed amount is the count. */
     public function turnIn(string $tenant, Request $request): JsonResponse
     {
         $data = $request->validate([
             'agent_id' => ['required', 'uuid'],
-            'counted_total_cents' => ['required', 'integer', 'min:0'],
+            'channel' => ['nullable', Rule::in(['cash', 'wallet', 'bank', 'remittance_center'])],
+            'counted_total_cents' => ['required_if:channel,cash', 'nullable', 'integer', 'min:0'],
             'breakdown' => ['nullable', 'array'],
-            'evidence_id' => ['nullable', 'uuid'],
+            'evidence_id' => ['required_if:channel,wallet,bank,remittance_center', 'nullable', 'uuid'],
         ]);
 
         $remittance = $this->remittances->submitTurnIn($tenant, $data, $this->actor($request));

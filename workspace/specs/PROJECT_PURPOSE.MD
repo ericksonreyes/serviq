@@ -17,6 +17,7 @@ Every architectural choice in this repository should be explainable against the 
 | **Event-Driven Architecture** | Domain events over the message broker (e.g. `JobCompleted` → Billing invoicing); no cross-service database coupling |
 | **Microservices Architecture** | [SERVICE_MAP.md](../../SERVICE_MAP.md) — one service per bounded context, each owning its store |
 | **Event Sourcing as source of truth** | Service Job Management, Billing, and Payouts persist event streams; see [Service Stacks](technical/SERVICE_STACKS.MD) |
+| **Security & tenant isolation** | JWT claims + permission-gated routes ([Security & Access Control](technical/security/README.MD)); PostgreSQL Row-Level Security in Billing as the database-layer safety net ([ADR-0028](decisions/0028-billing-row-level-security.MD)) |
 
 ## Non-Goals
 

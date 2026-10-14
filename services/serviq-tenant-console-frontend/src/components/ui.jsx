@@ -64,7 +64,7 @@ export function StatusBadge({ value }) {
   )
 }
 
-export function Card({ title, actions, children, className = '' }) {
+export function Card({ title, desc, actions, children, className = '' }) {
   return (
     <section className={`rounded-xl bg-white p-4 shadow ${className}`}>
       {(title || actions) && (
@@ -73,6 +73,7 @@ export function Card({ title, actions, children, className = '' }) {
           {actions}
         </div>
       )}
+      {desc && <p className="-mt-2 mb-3 text-sm text-slate-500">{desc}</p>}
       {children}
     </section>
   )
