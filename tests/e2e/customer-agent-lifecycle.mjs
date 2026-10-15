@@ -21,7 +21,7 @@ await run('LIFECYCLE', async (browser) => {
 
   const dp = await newPage(browser)
   await login(dp, BASE.console, 'acme.admin')
-  const jobId = await convertAndRelease(dp, MARK, requestId)
+  const jobId = await convertAndRelease(dp, MARK)
   ok(`job ${jobId} converted, confirmed, released`)
   await waitJobStatus(dp, jobId, /assigned|accepted/)
   ok('job auto-assigned')

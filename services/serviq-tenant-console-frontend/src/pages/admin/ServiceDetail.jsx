@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, rows } from '../../api'
 import { useAuth, useTenant } from '../../auth'
@@ -153,23 +153,26 @@ function StepsEditor({ service, token, tenant, onDone }) {
 }
 
 function PricingEditor({ service, token, tenant }) {
-  const [form, setForm] = useState({ base_price: (service.price_cents ?? 0) / 100, currency: service.currency || 'PHP', price_type: 'fixed' })
+  const [form, setForm] = useState({ base_price: (service.price_cents ?? 0) / 100, currency: service.currency || 'PHP', price_type: 'flat' })
   const [loaded, setLoaded] = useState(false)
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
 
   // Load the dedicated pricing record (overrides the catalog's list price).
-  useState(() => {
+  useEffect(() => {
+    let cancelled = false
     api.servicePricing(token, tenant, service.id)
       .then((res) => {
+        if (cancelled) return
         const p = res.data ?? res
         if (p && (p.base_price_cents != null)) {
-          setForm({ base_price: p.base_price_cents / 100, currency: p.currency || 'PHP', price_type: p.price_type || 'fixed' })
+          setForm({ base_price: p.base_price_cents / 100, currency: p.currency || 'PHP', price_type: p.price_type || 'flat' })
         }
       })
       .catch(() => {})
-      .finally(() => setLoaded(true))
-  })
+      .finally(() => { if (!cancelled) setLoaded(true) })
+    return () => { cancelled = true }
+  }, [token, tenant, service.id])
 
   const save = async (e) => {
     e.preventDefault()
@@ -198,9 +201,9 @@ function PricingEditor({ service, token, tenant }) {
         <div>
           <label className="text-xs text-slate-400">Type</label>
           <select className={select} value={form.price_type} onChange={(e) => setForm({ ...form, price_type: e.target.value })}>
-            <option value="fixed">Fixed</option>
+            <option value="flat">Flat</option>
             <option value="hourly">Hourly</option>
-            <option value="estimate">Estimate</option>
+            <option value="quote">Quote</option>
           </select>
         </div>
         <button type="submit" disabled={busy} className={btn}>{busy ? 'Saving…' : 'Save pricing'}</button>

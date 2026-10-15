@@ -15,7 +15,12 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(LocationsSeeder::class);
-        $this->call(DemoCatalogSeeder::class);
-        $this->call(DemoRepairGuideSeeder::class);
+
+        // Demo catalog skipped under SEED_DEMO=false (e2e world is built
+        // through the tenant console, not seeded).
+        if (env('SEED_DEMO', true)) {
+            $this->call(DemoCatalogSeeder::class);
+            $this->call(DemoRepairGuideSeeder::class);
+        }
     }
 }

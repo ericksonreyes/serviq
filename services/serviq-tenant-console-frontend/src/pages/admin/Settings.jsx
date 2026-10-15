@@ -123,8 +123,10 @@ export default function Settings() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     api.settings(token, tenant)
       .then((res) => {
+        if (cancelled) return
         // The endpoint nests settings: {data: {tenant_id, settings: {...}}}
         const s = res.data?.settings ?? res.data ?? res
         if (s && typeof s === 'object') {
@@ -136,7 +138,8 @@ export default function Settings() {
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [token, tenant])
 
   const save = async (e) => {
@@ -232,13 +235,16 @@ function DispatchRules({ token, tenant }) {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     api.dispatchRules(token, tenant)
       .then((res) => {
+        if (cancelled) return
         const r = res.data ?? res
         if (r?.strategy) setForm({ strategy: r.strategy, offer_ttl_seconds: r.offer_ttl_seconds ?? 60 })
       })
-      .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false))
+      .catch((e) => { if (!cancelled) setErr(e.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [token, tenant])
 
   const save = async (e) => {

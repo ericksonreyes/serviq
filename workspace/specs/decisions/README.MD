@@ -65,3 +65,4 @@ What this buys us and what it costs.
 - [ADR-0027](0027-agent-remittance-via-bank-or-remittance-center.MD) — Agent turn-in channels extend to bank deposit and remittance-center receipts: all non-cash rails settle all agent-held collections under the same verify-arrival rules
 - [ADR-0028](0028-billing-row-level-security.MD) — PostgreSQL RLS as tenant-isolation safety net, showcased in Billing: `SetTenantContext` GUC + `serviq_app` non-superuser role + `is_system` console bypass; JWT and application scoping stay first-class
 - [ADR-0029](0029-provider-agnostic-model-configuration.MD) — Per-capability `AI_<CAP>_PROVIDER` contract; Ollama stays the committed default, Gemini the validated cloud path (supersedes ADR-0012)
+- [ADR-0030](0030-e2e-world-is-built-not-seeded.MD) — `--fresh` E2E runs on an isolated platform-only database; `bootstrap.mjs` builds the world through the real onboarding UI (`SEED_DEMO` gates demo fixtures)

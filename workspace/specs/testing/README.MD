@@ -36,7 +36,62 @@ Test strategy, scenario inventory, and run instructions for the ServIQ stack. Th
 - `services/serviq-ai-agent/app/eval.py` + `evals/dataset.jsonl` — 20-fixture parse-accuracy eval on stub mode
 - `install.sh` smoke checks — `/api/health` on all 19 ports + frontends
 - `tests/integration/` — broker-level suite (3 scripts, helpers in `lib/broker.mjs`): publishes envelopes onto the live `serviq.events` exchange so the real consumer containers handle them, then asserts on the owning services' databases and DLQs. Covers job→billing→payouts, refund decision → billing, shortfall → payouts, duplicate-delivery dedupe, DLQ on handler failure, invitation → notifications, photo evidence in MinIO → ai-agent → `AI.PaymentProofParsed` (and unfetchable evidence → `ai-agent.events.dlq`). Opt-in — `./scripts/test.sh tests/integration` — runs in `node:22-alpine` on the `serviq_serviq` network. Uses random tenant/job IDs (the invitation check uses the demo tenant so its email channel is exercised).
-- `tests/e2e/` — Playwright persona suite (16 scripts, shared helpers in `lib/harness.mjs`); coverage per persona is listed in [TEST_SCENARIOS.MD](TEST_SCENARIOS.MD#portal-flows-browser-e2e). Opt-in — `./scripts/test.sh tests/e2e` — needs the running stack, not part of the default glob. Failure screenshots land as `tests/e2e/fail-*.png` (gitignored).
+- `tests/e2e/` — Playwright persona suite (16 scripts, shared helpers in `lib/harness.mjs`); coverage per persona is listed in [TEST_SCENARIOS.MD](TEST_SCENARIOS.MD#portal-flows-browser-e2e). Opt-in — `./scripts/test.sh tests/e2e` runs them all flat; **`scripts/e2e.sh` runs them in the persona-ordered stage map below** with health gates, per-suite timing, and service-log tails on failure. Needs the running stack, not part of the default glob. Failure screenshots land as `tests/e2e/fail-*.png` (gitignored).
+- `services/docker-compose.e2e.yml` — E2E overlay: pins the ai-agent services to `AI_*_PROVIDER=stub` so parse-dependent suites are deterministic regardless of the dev `.env`. Bring the stack up with `-f services/docker-compose.yml -f services/docker-compose.e2e.yml` before running the suite.
+
+## Browser E2E run order
+
+`scripts/e2e.sh` runs the suites in **persona-hierarchy order** — the same
+order the product itself onboards: a tenant can't take bookings until
+platform created it, services exist, and an agent accepted the invite.
+The stage report reads like a product tour, and a failure at stage N
+tells you the journey never had a chance rather than that everything is
+broken.
+
+| Stage | Suites | What it proves |
+| --- | --- | --- |
+| 0 — World *(only under `--fresh`)* | `bootstrap` | provider signup → platform activates → tenant configures → agent accepts invite → customer signs up — the onboarding story itself, on an empty database |
+| 0 — Canary | `login-negatives` | health gates pass, auth + tenant-slug resolution work — 30s before opening the journey |
+| 1 — Platform | `platform-admin`, `platform-admin-ops` | tenant lifecycle: create, approve/suspend, plans, flags, income |
+| 2 — Tenant setup | `tenant-admin`, `invitations` | services/areas/roster CRUD; agent + customer invites issued (makes stage 3 possible) |
+| 3 — Agent onboarding | *(covered inside `invitations` + agent legs of `customer-agent-lifecycle`)* | invite acceptance → agent portal login → jobs visible |
+| 4 — Customer | `customer-self-service` | signup, address book, book/cancel, own notifications |
+| 5 — Journey | `golden-chain`, `customer-agent-lifecycle` | book → convert → dispatch → execute → complete — the spine assembled from pieces 1–4 proved |
+| 6 — Money | `cash-remittance`, `money-flows`, `transfer-remittance` | captures payment → remits: all rails, guardrails, reject |
+| 7 — Dispatch ops | `dispatch-strategies`, `dispatch-ops`, `console-ops` | manual/broadcast/decline/expire/reassign — journey branches |
+| 8 — Support | `support` | the fifth persona — cases, refund decisions feeding back into billing |
+| 9 — AI surfaces | `chatbots` | per-persona chat tools — last because the AI dependency is flakiest even stubbed |
+
+Runner flags: `--only <suite>` for iteration, `--fail-fast` to stop at
+first failure, `--skip-health` when the stack is already verified up.
+Suite files run sequentially — they share the seeded `acme` tenant and
+parallelism would only buy minutes at a real debugging cost.
+
+### Fresh-world mode
+
+`./scripts/e2e.sh --fresh` proves the onboarding chain itself on an empty
+database. The e2e overlay adds a dedicated `postgres-e2e` cluster
+(`services/docker-compose.e2e.yml`) — every backend points there with
+`SEED_DEMO=false`, so entrypoints create/migrate/seed **canonical data
+only** (IAM permissions + platform admin, plans, feature flags,
+locations, notification templates). No `acme`, no demo accounts —
+dev `infra-postgres` is never touched.
+
+`--fresh` wipes the `postgres-e2e` volume, brings the stack up, and runs
+`bootstrap.mjs` first: the world is **built through the real UI flows**
+(ADR-0030) — console `/signup` → platform admin activates → acme.admin
+configures catalog/areas/invites the agent → agent accepts at her
+portal → customer signs up. Identities match the seeded constants, so
+the rest of the stage map runs unchanged. One documented exception:
+company accounts are API-seeded — the console renders them read-only.
+
+```bash
+docker compose -f services/docker-compose.yml -f services/docker-compose.e2e.yml \
+  --profile infra --profile domain --profile ai --profile frontends up -d
+./scripts/e2e.sh --fresh        # wipe + bootstrap + full stage map
+./scripts/e2e.sh                # same stack, world persists — rerun suites
+./scripts/e2e.sh --only bootstrap   # validate/build the world standalone
+```
 
 ## Browser E2E conventions
 

@@ -66,7 +66,7 @@ class AuthController
             $role = Role::firstOrCreate(
                 ['scope' => $scope, 'name' => $roleName],
                 ['description' => 'Self-registered accounts'],
-            );
+            )->syncDefaultPermissions();
             $user->roles()->sync([$role->id]);
 
             $events->record('Identity.UserRegistered', [

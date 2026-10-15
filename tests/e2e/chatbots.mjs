@@ -20,9 +20,8 @@ await run('CHATBOTS', async (browser) => {
   // ── A: customer ChatWidget ───────────────────────────────────────────
   const cp = await newPage(browser)
   await login(cp, BASE.customer, 'jane.customer')
-  // Harvest a real service id from the catalog → booking URL.
-  const cta = await customerHome(cp)
-  await cta.click()
+  // Harvest a real service id — Home's service cards link to /book/:id.
+  await customerHome(cp)
   await cp.getByRole('link', { name: 'Book', exact: true }).first().click()
   await cp.waitForURL(/\/book\//, { timeout: 10000 })
   const serviceId = cp.url().split('/').pop()
@@ -34,7 +33,9 @@ await run('CHATBOTS', async (browser) => {
   const ask = async (text, expected) => {
     await cp.getByPlaceholder('Ask about a service or booking…').fill(text)
     await cp.getByRole('button', { name: 'Send', exact: true }).click()
-    await cp.getByText(expected).waitFor({ timeout: 45000 })
+    // Reply text also lands in the tool-call summary caption — match the
+    // reply paragraph only, or getByText throws on the second hit.
+    await cp.locator('p', { hasText: expected }).first().waitFor({ timeout: 45000 })
   }
   await ask(`where is my request ${statusId}`, new RegExp(`${statusId} is currently`))
   ok('chatbot answered the request status')
@@ -52,7 +53,8 @@ await run('CHATBOTS', async (browser) => {
   const dp = await newPage(browser)
   await login(dp, BASE.console, 'acme.admin')
   const m = mark('E2E-CHAT-JOB')
-  const jobId = await convertAndRelease(dp, m, await book(cp, m))
+  await book(cp, m)
+  const jobId = await convertAndRelease(dp, m)
   await waitJobStatus(dp, jobId, /assigned|accepted/)
   ok('live job for dispatch_recommend')
 
@@ -88,17 +90,26 @@ await run('CHATBOTS', async (browser) => {
   await consoleGo(dp, 'Cases')
   await dp.getByRole('button', { name: 'Support assistant' }).click()
   const tell = async (text, tool) => {
+    // Tool tags persist in old bubbles — wait for the reply COUNT to grow,
+    // then assert the new (last) bubble carries this call's tool.
+    const bubbles = dp.locator('div.fixed.bottom-5 div.bg-slate-100')
+    const before = await bubbles.count()
     await dp.getByPlaceholder('Message…').fill(text)
     await dp.getByRole('button', { name: 'Send', exact: true }).click()
-    await dp.getByText(tool, { exact: true }).waitFor({ timeout: 45000 })
-    return (await dp.locator('div.bg-slate-100').last().textContent()) || ''
+    for (let i = 0; i < 90 && (await bubbles.count()) <= before; i++) await dp.waitForTimeout(500)
+    const last = bubbles.last()
+    if (!((await last.textContent().catch(() => '')) || '').includes(tool)) {
+      await last.locator('span.font-mono', { hasText: tool }).waitFor({ timeout: 45000 })
+    }
+    return (await last.textContent()) || ''
   }
   const caseList = await tell('list open cases', 'complaint_manage')
   // Listing rows render "<case id> [status] <subject>" — pick out the
   // complaint this script filed in section A.
   const caseId = caseList.match(/([0-9a-f-]{36}) \[[^\]]*\] I want to file a complaint/i)?.[1] || null
   const refundList = await tell('list pending refunds', 'refund_manage')
-  const refundId = refundList.match(/([0-9a-f-]{36}) \[/)?.[1] || null
+  // Only a pending row is refused at execute — an approved one succeeds.
+  const refundId = refundList.match(/([0-9a-f-]{36}) \[pending/i)?.[1] || null
   ok('support tools routed and answered')
 
   if (caseId) {

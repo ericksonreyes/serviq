@@ -43,9 +43,10 @@ class ServiceRequestController
         // request exists. Resolved from the inline address or the saved
         // address book entry; missing codes reject only when the tenant
         // has actually configured coverage (unverifiable ≠ uncovered).
-        $adminCode = $data['address']['admin_code']
-            ?? CustomerAddress::find($data['address_id'] ?? '')?->address['admin_code']
-            ?? null;
+        $adminCode = $data['address']['admin_code'] ?? null;
+        if ($adminCode === null && ! empty($data['address_id'])) {
+            $adminCode = CustomerAddress::find($data['address_id'])?->address['admin_code'] ?? null;
+        }
 
         $verdict = $coverage->check($data['tenant_id'], $adminCode, $request->bearerToken());
         if (! ($verdict['covered'] ?? false)) {

@@ -5,7 +5,7 @@
 //   customer address → captures the customer's typed-name confirmation.
 import {
   BASE, TENANT, PASS, run, ok, mark, newPage, login, book, convertAndRelease, waitJobStatus,
-  customerHome, reenter,
+  customerHome, reenter, signupSubmit,
 } from './lib/harness.mjs'
 
 await run('CUSTOMER SELF-SERVICE', async (browser) => {
@@ -17,7 +17,7 @@ await run('CUSTOMER SELF-SERVICE', async (browser) => {
   await cp.getByLabel('Email').fill(`${user}@example.test`)
   await cp.getByLabel(/^Password/).fill(PASS)
   await cp.getByLabel('Confirm password').fill(PASS)
-  await cp.getByRole('button', { name: 'Sign up' }).click()
+  await signupSubmit(cp)
   await customerHome(cp)
   ok(`customer ${user} signed up and landed home`)
 
@@ -64,7 +64,8 @@ await run('CUSTOMER SELF-SERVICE', async (browser) => {
   const ap = await newPage(browser)
   await login(ap, BASE.agent, 'anna.agent')
   const nm = mark('E2E-NAV')
-  const jobId = await convertAndRelease(dp, nm, await book(jp, nm))
+  await book(jp, nm)
+  const jobId = await convertAndRelease(dp, nm)
   await waitJobStatus(dp, jobId, /assigned|accepted/)
   const card = ap.locator('a[href*="/jobs/"]', { hasText: nm })
   await reenter(ap, () => ap.getByRole('link', { name: 'Cash turn-in' }).click(),

@@ -21,7 +21,8 @@ await run('MONEY FLOWS', async (browser) => {
 
   const release = async (tag) => {
     const m = mark(`E2E-${tag}`)
-    const jobId = await convertAndRelease(dp, m, await book(cp, m))
+    await book(cp, m)
+    const jobId = await convertAndRelease(dp, m)
     await waitJobStatus(dp, jobId, /assigned|accepted/)
     return m
   }
@@ -57,6 +58,8 @@ await run('MONEY FLOWS', async (browser) => {
   ok('dispatcher accepted the e-wallet evidence — invoice paid digitally')
 
   await consoleGo(dp, 'Remittances')
+  // Remittances is a task hub — the bulk-remit form lives on its own page.
+  await dp.getByRole('link', { name: /Digital payments/ }).click()
   const digital = dp.getByRole('button', { name: /^Mark \d* ?as remitted$/ })
   await digital.waitFor({ timeout: 15000 })
   for (const box of await dp.locator('li input[type="checkbox"]').all()) await box.check()

@@ -10,6 +10,7 @@ import base64
 import json
 import os
 import re
+from datetime import date, timedelta
 
 from .parser import parse_document
 from .upstream import call
@@ -136,8 +137,11 @@ def service_availability(ctx, params):
     service_id = params.get("service_id") or ctx["context"].get("service_id")
     if not service_id:
         return {"summary": "Which service would you like to check? I need a service to look up availability."}
-    query = {"from": params.get("from") or params.get("date"),
-             "to": params.get("to") or params.get("date")}
+    # The availability endpoint requires a bounded window — when the
+    # caller names no date, default to the next week.
+    today = date.today()
+    query = {"from": params.get("from") or params.get("date") or today.isoformat(),
+             "to": params.get("to") or params.get("date") or (today + timedelta(days=7)).isoformat()}
     res = call("GET", SERVICE_MGMT_URL,
                f"/api/v1/tenants/{ctx['tenant_id']}/services/{service_id}/availability",
                ctx["token"], query=query)
@@ -184,6 +188,17 @@ def service_request_create(ctx, params):
         "notes": params.get("notes") or ctx["message"],
         "details": params.get("details") or {"notes": ctx["message"]},
     }
+    if not body["address_id"] and not body["address"]:
+        # Chat booking names no address — reuse the customer's most recent
+        # booked address so coverage still validates ("book it again" means
+        # "same place" in a concierge conversation).
+        prev = call("GET", CRM_URL,
+                    f"/api/v1/tenants/{ctx['tenant_id']}/requests", ctx["token"])
+        for row in (prev.get("data") or []):
+            addr = (row.get("details") or {}).get("address")
+            if row.get("customer_id") == customer_id and addr:
+                body["address"] = addr
+                break
     res = call("POST", CRM_URL, "/api/v1/requests", ctx["token"], body={k: v for k, v in body.items() if v is not None})
     row = res.get("data") or {}
     return {"summary": f"Service request created — reference {row.get('id', 'submitted')}, status '{row.get('status', 'submitted')}'.",

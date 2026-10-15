@@ -59,6 +59,22 @@ class Role extends Model
 
     protected $fillable = ['scope', 'name', 'description'];
 
+    // The canonical grant set for a named role. Every provisioning path
+    // (tenant-created initial users, self-signup, invite accept) must run
+    // this — a firstOrCreate'd role row without it leaves members with a
+    // role name and zero permissions.
+    public function syncDefaultPermissions(): static
+    {
+        $names = self::DEFAULT_PERMISSIONS[$this->name] ?? [];
+        if ($names !== []) {
+            $this->permissions()->syncWithoutDetaching(
+                Permission::whereIn('name', $names)->pluck('id')
+            );
+        }
+
+        return $this;
+    }
+
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class, 'permission_role');

@@ -12,6 +12,12 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        // Entirely demo fixtures — skipped under SEED_DEMO=false (e2e
+        // seeds these through the bootstrap suite instead).
+        if (! env('SEED_DEMO', true)) {
+            return;
+        }
+
         // Receiving accounts the recipient check (ADR-0027) matches transfer
         // receipts against — demo data so the guardrail is exercised locally.
         foreach ([

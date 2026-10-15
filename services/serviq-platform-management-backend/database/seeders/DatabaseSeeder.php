@@ -38,6 +38,10 @@ class DatabaseSeeder extends Seeder
             FeatureFlag::firstOrCreate(['key' => $key], $attrs);
         }
 
-        $this->call(DemoTenantSeeder::class);
+        // Demo tenant + accounts are skipped under SEED_DEMO=false (e2e
+        // starts platform-only; tests build the world via real flows).
+        if (env('SEED_DEMO', true)) {
+            $this->call(DemoTenantSeeder::class);
+        }
     }
 }

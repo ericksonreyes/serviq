@@ -35,7 +35,7 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope', 'tenant.rls'])->gro
     Route::get('/tenants/{tenant}/remittances/expected', [RemittanceController::class, 'expected']);
     Route::get('/tenants/{tenant}/remittances/{remittance}', [RemittanceController::class, 'show']);
     Route::post('/tenants/{tenant}/remittances/turn-ins', [RemittanceController::class, 'turnIn'])->middleware('permission:billing.payments.record');
-    Route::post('/tenants/{tenant}/remittances/batches', [RemittanceController::class, 'batch'])->middleware('permission:billing.remit');
+    Route::post('/tenants/{tenant}/remittances/batches', [RemittanceController::class, 'batch'])->middleware('permission:billing.payments.record');
     Route::post('/tenants/{tenant}/remittances/digital', [RemittanceController::class, 'digital'])->middleware('permission:billing.remit');
     Route::post('/tenants/{tenant}/remittances/{remittance}/confirm', [RemittanceController::class, 'confirm'])->middleware('permission:billing.remit');
 });

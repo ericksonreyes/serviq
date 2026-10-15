@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\Invitation;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\TenantScope;
 use App\Models\User;
@@ -128,6 +129,27 @@ class InvitationFlowTest extends TestCase
         $this->assertContains(Role::SERVICE_AGENT, $user->roleNames());
         $this->assertEquals('anna@example.com', $user->email);
         $this->assertEquals(Invitation::ACCEPTED, Invitation::first()->status);
+    }
+
+    public function test_accepted_invite_grants_the_role_default_permissions(): void
+    {
+        foreach (Permission::CATALOG as $name => $description) {
+            Permission::firstOrCreate(['name' => $name], ['description' => $description]);
+        }
+        $this->withToken($this->token($this->tenant))
+            ->postJson("/api/v1/tenants/{$this->tenant}/invitations", [
+                'email' => 'anna@example.com', 'role' => 'Service Agent',
+            ]);
+        $raw = json_decode(\Illuminate\Support\Facades\DB::table('outbox')
+            ->where('type', 'Identity.InvitationCreated')->value('payload'), true)['token'];
+
+        $this->postJson("/api/v1/invitations/{$raw}/accept", $this->acceptPayload())
+            ->assertStatus(201);
+
+        $perms = Role::where('scope', $this->tenant)->where('name', Role::SERVICE_AGENT)
+            ->firstOrFail()->permissions->pluck('name')->all();
+        $this->assertContains(Permission::JOBS_EXECUTE, $perms);
+        $this->assertContains(Permission::BILLING_PAYMENTS_RECORD, $perms);
     }
 
     public function test_accept_rejects_replay_and_unknown_tokens(): void

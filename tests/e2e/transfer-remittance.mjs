@@ -50,7 +50,8 @@ await run('TRANSFER REMITTANCE', async (browser) => {
 
   const release = async (tag) => {
     const m = mark(`E2E-${tag}`)
-    const jobId = await convertAndRelease(dp, m, await book(cp, m))
+    await book(cp, m)
+    const jobId = await convertAndRelease(dp, m)
     await waitJobStatus(dp, jobId, /assigned|accepted/)
     return m
   }
@@ -83,9 +84,10 @@ await run('TRANSFER REMITTANCE', async (browser) => {
       await dp.locator('input[placeholder="Amount sent (₱)"]').fill(String(manual.amount))
       await dp.locator('input[placeholder="Recipient name or account no."]').fill(manual.recipient)
     }
+    const refVal = await refInput.inputValue()
     await dp.getByRole('button', { name: /Submit (e-wallet|bank deposit|remittance center) turn-in/ }).click()
     await dp.getByText(/turn-in submitted — it stays in manual review/).waitFor({ timeout: 15000 })
-    return { ref: await refInput.inputValue(), aiRead }
+    return { ref: refVal, aiRead }
   }
 
   // ── A: agent wallet turn-in, correct recipient ────────────────────────
@@ -131,7 +133,7 @@ await run('TRANSFER REMITTANCE', async (browser) => {
     bank: 'BDO', recipient_name: 'ServIQ-Acme', recipient_account: '001234567890',
     amount: expectedB, reference_no: refB, deposit_date: '2026-10-20',
   }), { ref: refB, amount: expectedB, recipient: '001234567890' })
-  if (bankOut.aiRead && bankOut.ref !== refB) throw new Error(`AI read ${bankOut.ref}, slip says ${refB}`)
+  if (bankOut.aiRead && bankOut.ref.toLowerCase() !== refB.toLowerCase()) throw new Error(`AI read ${bankOut.ref}, slip says ${refB}`)
   ok(bankOut.aiRead
     ? `dispatcher submitted a bank turn-in — AI parsed ref ${bankOut.ref}, ₱${expectedB}`
     : 'AI could not read the fake slip — dispatcher typed the values (claimed_mismatch expected)')

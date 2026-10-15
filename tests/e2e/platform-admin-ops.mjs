@@ -1,11 +1,13 @@
 // Platform Admin ops E2E — the platform surfaces the tenant-lifecycle
 // script doesn't touch: plan catalog, subscription assignment on tenant
 // detail, feature flags, platform users & roles (create, disable/enable,
-// permission grant), platform settings, and the income/settlement report.
+// permission grant), and the income/settlement report. (The Settings &
+// Policies surface was dropped from the platform admin in the demo rework.)
 // All writes create throwaway `e2e-` records; nothing global is deleted.
 import { BASE, run, ok, mark, newPage, login, field } from './lib/harness.mjs'
 
 const SLUG = mark('e2e').toLowerCase()
+const PLATFORM_API = `http://${process.env.API_HOST || 'host.docker.internal'}:8011`
 
 await run('PLATFORM ADMIN OPS', async (browser) => {
   const p = await newPage(browser)
@@ -19,7 +21,9 @@ await run('PLATFORM ADMIN OPS', async (browser) => {
   await field(p, 'Code').fill(`e2e-${SLUG}`)
   await field(p, 'Name').fill(`E2E Plan ${SLUG}`)
   await field(p, 'Price (cents)').fill('9900')
-  await field(p, 'Features (comma-separated)').fill('dispatch, analytics')
+  // Features are structured limits (JSONB map) — per-key number inputs,
+  // not a comma-separated text field.
+  await p.locator('xpath=//span[normalize-space()="Max agents"]/following::input[1]').fill('25')
   await p.getByRole('button', { name: 'Create plan' }).click()
   const planRow = p.locator('tr', { hasText: `e2e-${SLUG}` })
   await planRow.waitFor({ timeout: 15000 })
@@ -32,11 +36,11 @@ await run('PLATFORM ADMIN OPS', async (browser) => {
   ok('plan edited')
 
   // ── Subscription — assign the new plan to a throwaway tenant ─────────
-  await nav('Tenants')
-  await p.getByRole('button', { name: 'New tenant' }).click()
+  await nav('Service Providers')
+  await p.getByRole('button', { name: 'New provider' }).click()
   await field(p, 'Business name').fill(`E2E Sub Tenant ${SLUG}`)
   await field(p, 'Slug').fill(`sub-${SLUG}`)
-  await p.getByRole('button', { name: 'Create tenant' }).click()
+  await p.getByRole('button', { name: 'Create provider' }).click()
   // Creating opens the new tenant's detail page directly.
   await p.getByRole('heading', { name: `E2E Sub Tenant ${SLUG}` }).waitFor({ timeout: 15000 })
   await p.locator('select').first().selectOption({ label: `E2E Plan ${SLUG} Pro` })
@@ -45,14 +49,24 @@ await run('PLATFORM ADMIN OPS', async (browser) => {
   await p.getByText(`On E2E Plan ${SLUG} Pro (active)`).waitFor({ timeout: 15000 })
   ok('subscription assigned on tenant detail')
 
-  // ── Feature flags — add, enable, disable ─────────────────────────────
+  // ── Feature flags — enable/disable ───────────────────────────────────
+  // The page is toggle-only now ("gates ship with the codebase, not this
+  // page") — the throwaway flag is upserted via the admin API (same
+  // documented exception as bootstrap's company accounts), then toggled
+  // through the real UI.
+  const adminToken = await p.evaluate(
+    () => sessionStorage.getItem('serviq.token') || localStorage.getItem('serviq.token')
+  )
+  const flagRes = await fetch(`${PLATFORM_API}/api/v1/feature-flags`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ key: `e2e.${SLUG}`, enabled: false, description: 'e2e flag' }),
+  })
+  if (!flagRes.ok) throw new Error(`flag upsert failed: ${flagRes.status}`)
   await nav('Feature Flags')
-  await field(p, 'Flag key').fill(`e2e.${SLUG}`)
-  await field(p, 'Description').fill('e2e flag')
-  await p.getByRole('button', { name: 'Add flag' }).click()
   const flagRow = p.locator('tr', { hasText: `e2e.${SLUG}` })
   await flagRow.waitFor({ timeout: 15000 })
-  ok('feature flag added (disabled)')
+  ok('feature flag seeded via API — row renders')
 
   await flagRow.getByRole('button', { name: 'Enable' }).click()
   await flagRow.filter({ hasText: 'enabled' }).waitFor({ timeout: 15000 })
@@ -101,21 +115,14 @@ await run('PLATFORM ADMIN OPS', async (browser) => {
   await roleBlock.getByRole('button', { name: 'Grant selected' }).waitFor({ state: 'hidden', timeout: 15000 })
   ok('permission granted to e2e role')
 
-  // ── Settings & policies — merge a marker key, keep existing keys ─────
-  await nav('Settings & Policies')
-  const settingsJson = p.locator('textarea')
-  await settingsJson.waitFor({ timeout: 15000 })
-  const current = JSON.parse((await settingsJson.inputValue()) || '{}')
-  await settingsJson.fill(JSON.stringify({ ...current, e2e_marker: SLUG }, null, 2))
-  await p.getByRole('button', { name: 'Save settings' }).click()
-  await p.getByText('Settings saved.').waitFor({ timeout: 15000 })
-  ok('platform settings saved (existing keys preserved)')
-
   // ── Income & settlement — report renders ─────────────────────────────
   await nav('Income & Settlement')
   await p.getByRole('heading', { name: 'Income & settlement' }).waitFor({ timeout: 15000 })
+  // The <th>s carry no scope= so they aren't exposed as `columnheader` —
+  // match the cell directly; the header row only exists once the report
+  // has loaded (the "Platform fee income" description text renders early).
+  await p.locator('th', { hasText: 'Settlement' }).first().waitFor({ timeout: 15000 })
   await p.getByText('Platform fee income').or(p.getByText('No subscriptions on record.')).first()
     .waitFor({ timeout: 15000 })
-  await p.getByRole('columnheader', { name: 'Settlement' }).waitFor({ timeout: 15000 })
   ok('income & settlement report rendered')
 })

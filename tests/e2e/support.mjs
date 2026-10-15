@@ -24,12 +24,11 @@ await run('SUPPORT', async (browser) => {
   await p.getByLabel('Invoice id (optional)').fill(invoiceId)
   await p.getByLabel('Details').fill('Customer reports a double charge.')
   await p.getByRole('button', { name: 'Open case' }).click()
-  await p.getByText(`Case "Overcharged ${MARK}" opened.`).waitFor({ timeout: 15000 })
-  ok('case opened')
-
-  // The case list is a read model projected off Support.CaseOpened.
+  // The intake form unmounts on success — the durable signal is the
+  // reloaded case row (a read model projected off Support.CaseOpened).
   const row = p.locator('button', { hasText: `Overcharged ${MARK}` })
   await reenter(p, () => consoleGo(p, 'Refunds & revenue'), () => consoleGo(p, 'Cases'), row)
+  ok('case opened')
   await row.first().click()
   await p.getByPlaceholder('Write a reply or internal note…').fill(`Checked ledger ${MARK}`)
   await p.getByRole('button', { name: 'Post' }).click()

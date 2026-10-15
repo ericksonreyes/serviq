@@ -10,13 +10,15 @@
 // needed. page.goto is safe here: the no-goto rule only applies post-login.
 import {
   BASE, PASS, TENANT, run, ok, mark, newPage, login, field, consoleGo,
-  customerHome,
+  customerHome, signupSubmit,
 } from './lib/harness.mjs'
 
 // Console → send an invite, return the rendered accept link href.
+// List-first pages hide the form behind the "Invite by email" CTA.
 async function invite(dp, nav, email) {
   await consoleGo(dp, nav)
-  await dp.locator('input[type="email"]').last().fill(email)
+  await dp.getByRole('button', { name: 'Invite by email' }).click()
+  await field(dp, 'Email').fill(email)
   await dp.getByRole('button', { name: 'Send invite' }).click()
   const a = dp.locator('a[href*="invite="]')
   await a.waitFor({ timeout: 15000 })
@@ -31,7 +33,7 @@ async function acceptInvite(page, link, user) {
   await page.getByLabel('Username').fill(user)
   await page.getByLabel(/^Password/).fill(PASS)
   await page.getByLabel('Confirm password').fill(PASS)
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await signupSubmit(page)
 }
 
 await run('ONBOARDING', async (browser) => {
@@ -48,11 +50,13 @@ await run('ONBOARDING', async (browser) => {
 
   // ── B: customer record + invitation → invited signup → portal home ───
   await consoleGo(dp, 'Customers')
+  // List-first page — "Add customer" swaps the form in; on save the form
+  // (and its notice) unmounts, so assert the reloaded list row.
+  await dp.getByRole('button', { name: 'Add customer' }).click()
   await field(dp, 'Name').fill(`E2E Cust ${MARK}`)
   await field(dp, 'Address').fill(`${MARK} Street`)
   await field(dp, 'City').fill('E2E City')
   await dp.getByRole('button', { name: 'Create customer' }).click()
-  await dp.getByText(`Customer E2E Cust ${MARK} created.`).waitFor({ timeout: 15000 })
   await dp.locator('tr', { hasText: `E2E Cust ${MARK}` }).first().waitFor({ timeout: 15000 })
   ok('customer record created from the console')
 
@@ -71,7 +75,7 @@ await run('ONBOARDING', async (browser) => {
   await ap2.getByLabel('Email').fill(`${selfUser}@example.test`)
   await ap2.getByLabel(/^Password/).fill(PASS)
   await ap2.getByLabel('Confirm password').fill(PASS)
-  await ap2.getByRole('button', { name: 'Sign up' }).click()
+  await signupSubmit(ap2)
   await ap2.getByText(/Assignment offers|No open offers/).first().waitFor({ timeout: 15000 })
   ok('self-registered agent landed on agent home')
 
@@ -86,12 +90,38 @@ await run('ONBOARDING', async (browser) => {
   await field(pp, 'Email').fill(`${MARK}.admin@example.test`)
   await field(pp, 'Password').fill(PASS)
   await field(pp, 'Confirm password').fill(PASS)
-  await pp.getByRole('button', { name: 'Create organization' }).click()
-  await pp.getByText('Organization created').waitFor({ timeout: 20000 })
+  // Platform signup is rate-limited per IP like logins — wait out a
+  // throttle and resubmit rather than failing on "Too Many Attempts".
+  for (let i = 0; ; i++) {
+    await pp.getByRole('button', { name: 'Create organization' }).click()
+    try {
+      await pp.getByText('Organization created').waitFor({ timeout: 20000 })
+      break
+    } catch (e) {
+      const alerts = await pp.locator('.text-red-700, [role="alert"]').allTextContents().catch(() => [])
+      if (alerts.some((a) => /too many/i.test(a)) && i < 3) {
+        console.log('  org signup throttled — waiting out the limiter')
+        await pp.waitForTimeout(65000)
+        continue
+      }
+      throw e
+    }
+  }
   ok(`provider ${slug} self-registered`)
 
-  // Pending tenants may or may not be allowed to sign in — the assertion
-  // pins the decision: either way the flow must not hang on /login forever.
-  await login(pp, BASE.console, `${MARK}.admin`, { slug })
+  // The org admin is provisioned by the TenantCreated consumer — sign-in
+  // is expected to work once that lands ('Invalid credentials' until then
+  // because the slug→scope lookup misses). Poll rather than assert on a
+  // racing projection — deep backlog after a --fresh rebuild.
+  for (let i = 0; ; i++) {
+    try {
+      await login(pp, BASE.console, `${MARK}.admin`, { slug })
+      break
+    } catch (e) {
+      if (!/Invalid credentials/i.test(e.message) || i >= 12) throw e
+      console.log('  org admin not provisioned yet — waiting')
+      await pp.waitForTimeout(5000)
+    }
+  }
   ok('new org admin signed in under the pending tenant')
 })

@@ -1,0 +1,112 @@
+# E2E overlay — deterministic AI + an isolated, platform-only database.
+#
+# Parse-dependent suites feed the ai-agent `key: value` text buffers only the
+# stub provider can read; the dev .env may point at ollama/gemini instead, and
+# provider choice is baked at container creation.
+#
+# postgres-e2e gives the suite a disposable database cluster: every backend's
+# entrypoint self-creates its DB there, migrates, and seeds — with SEED_DEMO
+# false, only canonical seeds land (IAM permissions + platform admin, plans,
+# feature flags, locations, notification templates). The acme tenant and its
+# accounts do NOT exist until tests/e2e/bootstrap.mjs builds them through the
+# real UI flows. infra-postgres dev data is physically untouchable.
+#
+#   docker compose -f services/docker-compose.yml -f services/docker-compose.e2e.yml \
+#     --profile infra --profile domain --profile ai --profile frontends up -d
+#
+# then ./scripts/e2e.sh --fresh (wipe + bootstrap) or ./scripts/e2e.sh.
+
+x-e2e-db: &e2e-db
+  DB_HOST: postgres-e2e
+  SEED_DEMO: "false"
+
+services:
+  postgres-e2e:
+    container_name: infra-postgres-e2e
+    image: pgvector/pgvector:pg17
+    profiles: ["infra", "domain", "ai", "full"]
+    networks: [serviq]
+    environment:
+      POSTGRES_USER: serviq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-serviq}
+      POSTGRES_DB: serviq
+    command: postgres -c shared_buffers=128MB
+    ports: ["127.0.0.1:5433:5432"]
+    volumes:
+      - postgres-e2e-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serviq"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    mem_limit: 256m
+
+  ai-agent:
+    environment:
+      AI_VISION_PROVIDER: stub
+      AI_TEXT_PROVIDER: stub
+      AI_VISION_MODEL: ""
+      AI_TEXT_MODEL: ""
+
+  ai-agent-consumer:
+    environment:
+      AI_VISION_PROVIDER: stub
+      AI_TEXT_PROVIDER: stub
+      AI_VISION_MODEL: ""
+      AI_TEXT_MODEL: ""
+
+  # ── Backends — point at the e2e cluster, skip demo seeds ────────────────
+  identity-access-backend:
+    environment: *e2e-db
+  platform-management-backend:
+    environment: *e2e-db
+  service-management-backend:
+    environment: *e2e-db
+  customer-request-backend:
+    environment: *e2e-db
+  service-job-backend:
+    environment: *e2e-db
+  workforce-backend:
+    environment: *e2e-db
+  assignment-dispatch-backend:
+    environment: *e2e-db
+  field-service-backend:
+    environment: *e2e-db
+  customer-support-backend:
+    environment: *e2e-db
+  notification-backend:
+    environment: *e2e-db
+  billing-backend:
+    environment: *e2e-db
+  payouts-backend:
+    environment: *e2e-db
+
+  # ── Consumers — same repoint; they handle TenantCreated & co. ────────────
+  identity-access-consumer:
+    environment: *e2e-db
+  platform-management-consumer:
+    environment: *e2e-db
+  service-management-consumer:
+    environment: *e2e-db
+  customer-request-consumer:
+    environment: *e2e-db
+  service-job-consumer:
+    environment: *e2e-db
+  workforce-consumer:
+    environment: *e2e-db
+  assignment-dispatch-consumer:
+    environment: *e2e-db
+  field-service-consumer:
+    environment: *e2e-db
+  customer-support-consumer:
+    environment: *e2e-db
+  notification-consumer:
+    environment: *e2e-db
+  billing-consumer:
+    environment: *e2e-db
+  payouts-consumer:
+    environment: *e2e-db
+
+volumes:
+  postgres-e2e-data:

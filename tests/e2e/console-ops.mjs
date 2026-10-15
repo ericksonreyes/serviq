@@ -22,12 +22,14 @@ await run('CONSOLE OPS', async (browser) => {
   const reqRow = dp.locator('button', { hasText: m }).first()
   await reenter(dp, () => consoleGo(dp, 'Jobs'), () => consoleGo(dp, 'Service requests'), reqRow)
   await reqRow.click()
-  await dp.locator('dd', { hasText: /E2E City/ }).waitFor({ timeout: 15000 })
+  // Location renders "line1, barangay, city" — the booking's marker street.
+  await dp.locator('xpath=//dt[normalize-space()="Location"]/following-sibling::dd[1]', { hasText: m }).waitFor({ timeout: 15000 })
   ok('dispatcher sees the customer location on the request')
 
-  // ── B: business settings — hours + cancellation policy ───────────────
+  // ── B: business settings — crews + cancellation policy ───────────────
+  // (Operating hours is a per-day checkbox grid — not a text field.)
   await consoleGo(dp, 'Business settings')
-  await field(dp, 'Operating hours').fill(`E2E hours ${m}`)
+  await field(dp, 'Crews').fill('3')
   await field(dp, 'Cancellation policy').fill(`E2E policy ${m}`)
   await dp.getByRole('button', { name: 'Save settings' }).click()
   await dp.getByText('Settings saved.').waitFor({ timeout: 15000 })
@@ -39,8 +41,8 @@ await run('CONSOLE OPS', async (browser) => {
   await dp.getByLabel('Subject').fill(`Status walk ${m}`)
   await dp.getByLabel('Details').fill('E2E transition check.')
   await dp.getByRole('button', { name: 'Open case' }).click()
-  await dp.getByText(`Case "Status walk ${m}" opened.`).waitFor({ timeout: 15000 })
-  // The case list is a read model — re-enter until the row projects.
+  // The intake form unmounts on success (and its notice with it) — the
+  // durable signal is the reloaded case row, itself a read model.
   const row = dp.locator('button', { hasText: `Status walk ${m}` })
   await reenter(dp, () => consoleGo(dp, 'Refunds & revenue'), () => consoleGo(dp, 'Cases'), row)
   await row.first().click()

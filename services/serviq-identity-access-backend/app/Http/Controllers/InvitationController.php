@@ -111,7 +111,7 @@ class InvitationController
             $role = Role::firstOrCreate(
                 ['scope' => $invite->scope, 'name' => $invite->role],
                 ['description' => 'Invited accounts'],
-            );
+            )->syncDefaultPermissions();
             $user->roles()->sync([$role->id]);
             $invite->update(['status' => Invitation::ACCEPTED, 'accepted_by' => $user->id]);
 

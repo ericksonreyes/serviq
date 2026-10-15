@@ -104,12 +104,19 @@ Tenant-scoped logins (everyone except the Platform Administrator) need the
 provider slug `acme` — the `/provider/acme/login` URLs above pre-fill it, or
 type `acme` into the **Provider** field on the plain `/login` page.
 
+Under `SEED_DEMO=false` (the e2e overlay sets it), the `Demo*Seeders` are
+skipped — only canonical seeds land (platform admin, plans, feature flags,
+locations, notification templates). The e2e `bootstrap.mjs` suite then
+recreates this same world through the real signup/activation/onboarding
+flows — see [testing README](workspace/specs/testing/README.MD#fresh-world-mode).
+
 Auth routes are throttled at 5 req/min — rapid login attempts will hit 429s.
 
 ### Related Documentation
 
 - [Project Purpose](workspace/specs/PROJECT_PURPOSE.MD) — portfolio goals and the engineering capabilities this project demonstrates
 - [App Features by Portal](APP_FEATURES.MD) — feature inventory per portal: ✅ implemented, unmarked proposed
+- [User Guides](docs/guides/README.MD) — per-channel walkthroughs with generated screenshots
 - [Workspace Specs Index](workspace/specs/README.MD)
 - [Engineering Disciplines](workspace/specs/technical/README.MD)
 - [User Experience](workspace/specs/technical/user_experience/README.MD)

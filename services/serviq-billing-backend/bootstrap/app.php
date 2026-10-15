@@ -24,6 +24,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.scope' => RequireTenantScope::class,
             'tenant.rls' => \App\Http\Middleware\SetTenantContext::class,
         ]);
+        // Route-model binding resolves inside SubstituteBindings — before
+        // custom route middleware — so the tenant GUC must be set ahead of
+        // it or RLS hides the bound row and every {model} route 404s.
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\SetTenantContext::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -10,19 +10,19 @@ await run('PLATFORM ADMIN', async (browser) => {
   await login(p, BASE.platform, 'admin', { pass: 'serviq-local', slug: null })
   ok('platform admin logged in')
 
-  for (const metric of ['Tenants', 'Subscriptions', 'IAM users']) {
+  for (const metric of ['Service providers', 'Subscriptions', 'IAM users']) {
     await p.getByText(metric, { exact: true }).first().waitFor({ timeout: 15000 })
   }
   ok('dashboard metrics rendered')
 
-  await p.getByRole('link', { name: 'Tenants', exact: true }).click()
+  await p.getByRole('link', { name: 'Service Providers', exact: true }).click()
   await p.getByRole('link', { name: /acme/i }).first().waitFor({ timeout: 15000 })
   ok('tenant list shows acme')
 
-  await p.getByRole('button', { name: 'New tenant' }).click()
+  await p.getByRole('button', { name: 'New provider' }).click()
   await field(p, 'Business name').fill(`E2E Tenant ${SLUG}`)
   await field(p, 'Slug').fill(SLUG)
-  await p.getByRole('button', { name: 'Create tenant' }).click()
+  await p.getByRole('button', { name: 'Create provider' }).click()
   // Creating opens the new tenant's detail page directly.
   await p.getByRole('heading', { name: `E2E Tenant ${SLUG}` }).waitFor({ timeout: 15000 })
   ok(`tenant ${SLUG} created (pending)`)

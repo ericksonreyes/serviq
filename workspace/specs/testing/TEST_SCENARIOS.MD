@@ -96,7 +96,17 @@ The demo spine. Every step is independently automatable; the full chain is the P
 
 ## Portal flows (browser E2E)
 
-Per-scenario inventory in the `APP_FEATURES.MD` convention — ✅ scripted in `tests/e2e/` (script named in the Level column), unmarked = planned. These validate the wiring, not every path (feature tests own the paths). Run with `./scripts/test.sh tests/e2e`.
+Per-scenario inventory in the `APP_FEATURES.MD` convention — ✅ scripted in `tests/e2e/` (script named in the Level column), unmarked = planned. These validate the wiring, not every path (feature tests own the paths). Run with `./scripts/test.sh tests/e2e` (flat) or `./scripts/e2e.sh` (persona-ordered stages — see [README](README.MD#browser-e2e-run-order)).
+
+### World bootstrap (`--fresh` only)
+
+| ✅ | Scenario | Expected | Level |
+| --- | --- | --- | --- |
+| ✅ | Provider self-signup → pending review | console `/signup` creates PENDING tenant; `TenantCreated` provisions IAM scope + admin via event | E2E — `bootstrap.mjs` |
+| ✅ | Platform activates provider | admin UI activation → tenant `active` | E2E — `bootstrap.mjs` |
+| ✅ | Tenant configures catalog/area/roster | bookable service, nationwide coverage, agent roster linked to IAM user | E2E — `bootstrap.mjs` |
+| ✅ | Agent invite → accept | accept_url → agent portal signup → loginable | E2E — `bootstrap.mjs` |
+| ✅ | Customer signup | portal signup → loginable; CRM profile auto-created | E2E — `bootstrap.mjs` |
 
 ### Customer Portal
 
@@ -178,9 +188,8 @@ Per-scenario inventory in the `APP_FEATURES.MD` convention — ✅ scripted in `
 | ✅ | Login → dashboard metrics → tenant list | metrics + `acme` render | E2E — `platform-admin.mjs` |
 | ✅ | Create tenant → activate → suspend → reactivate | lifecycle transitions on a throwaway tenant | E2E — `platform-admin.mjs` |
 | ✅ | Create + edit a subscription plan | catalog row lands, name updates | E2E — `platform-admin-ops.mjs` |
-| ✅ | Feature flag — add, enable, disable | flag state toggles | E2E — `platform-admin-ops.mjs` |
+| ✅ | Feature flag — enable, disable | flag state toggles (flag upserted via API — the page is toggle-only) | E2E — `platform-admin-ops.mjs` |
 | ✅ | Create platform user + create a role | user row + role card land | E2E — `platform-admin-ops.mjs` |
-| ✅ | Platform settings JSON save | `Settings saved.`, existing keys preserved | E2E — `platform-admin-ops.mjs` |
 | ✅ | Income & settlement report | totals + per-tenant table render | E2E — `platform-admin-ops.mjs` |
 | ✅ | Assign a plan/subscription to a tenant (tenant detail) | `On <plan> (active)` shown on the tenant | E2E — `platform-admin-ops.mjs` |
 | ✅ | Disable/enable a platform user; grant permissions to a role | status flips; permission badges grow | E2E — `platform-admin-ops.mjs` |

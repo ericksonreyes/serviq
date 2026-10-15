@@ -24,7 +24,8 @@ await run('CASH REMITTANCE', async (browser) => {
 
   const release = async (tag) => {
     const m = mark(`E2E-${tag}`)
-    const jobId = await convertAndRelease(dp, m, await book(cp, m))
+    await book(cp, m)
+    const jobId = await convertAndRelease(dp, m)
     await waitJobStatus(dp, jobId, /assigned|accepted/)
     return m
   }

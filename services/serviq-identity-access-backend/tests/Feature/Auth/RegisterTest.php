@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\TenantScope;
 use App\Models\User;
@@ -86,6 +87,21 @@ class RegisterTest extends TestCase
 
         $user = User::where('scope', $tenantId)->where('username', 'jane.customer')->firstOrFail();
         $this->assertContains(Role::SERVICE_AGENT, $user->roleNames());
+    }
+
+    public function test_registration_grants_the_role_default_permissions(): void
+    {
+        $tenantId = $this->tenantId();
+        foreach (Permission::CATALOG as $name => $description) {
+            Permission::firstOrCreate(['name' => $name], ['description' => $description]);
+        }
+
+        $this->postJson('/api/v1/auth/register', $this->payload($tenantId))->assertStatus(201);
+
+        $perms = Role::where('scope', $tenantId)->where('name', Role::CUSTOMER)
+            ->firstOrFail()->permissions->pluck('name')->all();
+        $this->assertContains(Permission::REQUESTS_MANAGE, $perms);
+        $this->assertContains(Permission::BILLING_PAYMENTS_RECORD, $perms);
     }
 
     public function test_privileged_roles_are_not_self_assignable(): void

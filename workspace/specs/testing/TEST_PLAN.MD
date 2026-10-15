@@ -70,6 +70,8 @@ P0 flows: `Job.Completed` → invoice issued; `Remittance.ShortfallAccepted` →
 
 ## CI proposal
 
+Deferred — no CI pipeline for now; `./scripts/test.sh` and `scripts/e2e.sh` are the local gates. When CI lands, this is the shape it takes:
+
 - **PR gate:** per-service unit+feature tests (PHP 8.4 image, sqlite — no infra needed) + the BFF contract static check. Fast, no broker.
 - **Nightly:** compose integration profile — the five P0 event flows + full smoke.
 - **On-demand:** AI eval with golden fixtures; browser E2E before releases.

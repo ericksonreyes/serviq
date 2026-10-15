@@ -48,6 +48,18 @@ class RemittanceFlowTest extends TestCase
         return $this->withToken($this->token())->json($method, "/api/v1/tenants/{$this->tenant}{$uri}", $body ?? []);
     }
 
+    /** Agent-scoped token — intake writes only, no dispatcher decisions. */
+    private function agentToken(): string
+    {
+        return JWT::encode([
+            'iss' => 'serviq-iam', 'aud' => 'serviq',
+            'sub' => (string) Str::uuid7(), 'tenant_id' => $this->tenant,
+            'roles' => ['Service Agent'], 'jti' => (string) Str::uuid(),
+            'permissions' => ['billing.payments.record'],
+            'iat' => time(), 'exp' => time() + 3600,
+        ], config('platform.jwt.secret'), 'HS256');
+    }
+
     private function invoice(?string $agent, int $cents): Invoice
     {
         return Invoice::create([
@@ -189,6 +201,58 @@ class RemittanceFlowTest extends TestCase
 
         $this->api('POST', "/remittances/{$batch->json('data.id')}/confirm", ['decision' => 'confirm'])
             ->assertOk()->assertJsonPath('data.status', 'remitted');
+    }
+
+    // The agent BFF relays OTC deposits with the agent's own JWT — intake
+    // is billing.payments.record, not the dispatcher-decision remit scope.
+    public function test_agent_token_can_submit_a_deposit_batch(): void
+    {
+        $invoice = $this->invoice($this->agent, 150000);
+        $this->paidCash($invoice);
+
+        $slip = $this->api('POST', '/payment-evidence', [
+            'document_type' => 'BANK_SLIP', 'file_ref' => 'minio://s/agent', 'confidence' => 0.97,
+            'extracted' => ['reference' => 'DEP-AGT', 'amount_cents' => 150000],
+        ])->assertCreated();
+
+        $this->withToken($this->agentToken())
+            ->json('POST', "/api/v1/tenants/{$this->tenant}/remittances/batches", [
+                'evidence_id' => $slip->json('data.id'), 'invoice_ids' => [$invoice->id],
+            ])
+            ->assertCreated()->assertJsonPath('data.status', 'pending_confirmation');
+    }
+
+    public function test_agent_token_cannot_decide_a_remittance(): void
+    {
+        $invoice = $this->invoice($this->agent, 150000);
+        $this->paidCash($invoice);
+
+        $turn = $this->api('POST', '/remittances/turn-ins', [
+            'agent_id' => $this->agent, 'counted_total_cents' => 150000,
+        ])->assertCreated();
+
+        $this->withToken($this->agentToken())
+            ->json('POST', "/api/v1/tenants/{$this->tenant}/remittances/{$turn->json('data.id')}/confirm", [
+                'decision' => 'confirm',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_deposit_batch_duplicate_reference_guard(): void
+    {
+        $a = $this->invoice($this->agent, 80000);
+        $b = $this->invoice($this->agent, 70000);
+        $this->paidCash($a);
+        $this->paidCash($b);
+
+        $slip = $this->api('POST', '/payment-evidence', [
+            'document_type' => 'BANK_SLIP', 'file_ref' => 'minio://s/1', 'confidence' => 0.97,
+            'extracted' => ['reference' => 'DEP-1', 'amount_cents' => 150000],
+        ])->assertCreated();
+
+        $this->api('POST', '/remittances/batches', [
+            'evidence_id' => $slip->json('data.id'), 'invoice_ids' => [$a->id, $b->id],
+        ])->assertCreated()->assertJsonPath('data.status', 'pending_confirmation');
 
         // Reusing the same slip reference routes the next batch to manual review.
         $c = $this->invoice($this->agent, 40000);

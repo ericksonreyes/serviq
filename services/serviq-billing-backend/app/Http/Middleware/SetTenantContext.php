@@ -8,10 +8,15 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Asserts the RLS tenant context after auth + tenant-scope validation.
- * Order matters: this runs after `tenant.scope` has already rejected
- * token/tenant mismatches, so the route param it pins is trusted.
- * Platform scope crosses tenants by definition — same bypass as console.
+ * Asserts the RLS tenant context for the request. Pinned before
+ * SubstituteBindings (bootstrap/app.php priority) so model-bound routes
+ * see the row — binding would otherwise resolve under an unpinned
+ * connection and RLS would 404 every {model} endpoint.
+ *
+ * Runs ahead of auth, so $request->user() is usually null here and the
+ * {tenant} route param is the signal. Platform tokens get pinned to the
+ * declared tenant — still the correct scope for a /tenants/{x}/ route.
+ * `tenant.scope` still rejects mismatched tokens afterwards.
  */
 class SetTenantContext
 {
