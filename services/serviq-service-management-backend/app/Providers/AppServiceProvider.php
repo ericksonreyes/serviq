@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Services\Embeddings\GeminiEmbedder;
+use App\Services\Embeddings\OllamaEmbedder;
+use App\Services\Embeddings\OpenAiEmbedder;
+use App\Services\Embeddings\StubEmbedder;
+use App\Services\Embeddings\TextEmbedder;
 use App\Services\JwtVerifier;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
@@ -11,6 +16,12 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(JwtVerifier::class);
+        $this->app->bind(TextEmbedder::class, fn () => match (env('EMBEDDING_PROVIDER', 'ollama')) {
+            'gemini' => new GeminiEmbedder(),
+            'openai' => new OpenAiEmbedder(),
+            'ollama' => new OllamaEmbedder(),
+            default => new StubEmbedder(),
+        });
     }
 
     public function boot(): void

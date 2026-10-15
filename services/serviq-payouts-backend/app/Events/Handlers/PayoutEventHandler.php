@@ -3,9 +3,9 @@
 namespace App\Events\Handlers;
 
 use App\Domain\Payouts\PayoutPolicy;
+use App\Domain\Payouts\PayoutStore;
 use App\Models\Payout;
 use App\Models\PayoutJob;
-use App\Services\DomainEventRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -13,10 +13,11 @@ use Illuminate\Support\Facades\Log;
  * Job.* + Invoice.* projections → create agent payouts on Invoice.Issued.
  * Remittance.ShortfallAccepted records a deduction adjustment on the
  * agent's share of the next payout (ADR-0005 clawback ledger).
+ * All payout writes go through PayoutStore — the stream is the truth.
  */
 class PayoutEventHandler
 {
-    public function __construct(private PayoutPolicy $policy, private DomainEventRecorder $events) {}
+    public function __construct(private PayoutPolicy $policy, private PayoutStore $store) {}
 
     public function handle(array $envelope): void
     {
@@ -32,17 +33,15 @@ class PayoutEventHandler
             if (! empty($p['remittance_id']) && Payout::where('disbursement_ref', 'remit:'.$p['remittance_id'])->exists()) {
                 return; // idempotent — same shortfall never deducts twice
             }
-            $payout = Payout::create([
+            $this->store->create('Payout.ShortfallRecorded', [
                 'job_id' => null, 'tenant_id' => $envelope['tenant_id'],
                 'agent_id' => $p['agent_id'], 'amount_cents' => 0,
                 'shortfall_cents' => $shortage, 'net_cents' => 0,
-                'status' => 'deduction',
                 'disbursement_ref' => 'remit:'.($p['remittance_id'] ?? ''),
-            ]);
-            $this->events->record('Payout.ShortfallRecorded', [
-                'payout_id' => $payout->id, 'remittance_id' => $p['remittance_id'] ?? null,
+            ], [
+                'remittance_id' => $p['remittance_id'] ?? null,
                 'agent_id' => $p['agent_id'], 'shortage_cents' => $shortage,
-            ], $envelope['tenant_id']);
+            ]);
             Log::info("Shortfall {$shortage} recorded against agent {$p['agent_id']}");
 
             return;
@@ -71,23 +70,27 @@ class PayoutEventHandler
                 ->sum(DB::raw('shortfall_cents - applied_cents'));
 
             $payout = DB::transaction(function () use ($job, $gross, $shortfall) {
-                $payout = Payout::create([
+                $payout = $this->store->create('Payout.Created', [
                     'job_id' => $job->job_id, 'tenant_id' => $job->tenant_id,
                     'agent_id' => $job->agent_id, 'amount_cents' => $gross,
                     'shortfall_cents' => $shortfall,
                     'net_cents' => $this->policy->net($gross, $shortfall),
-                    'status' => 'pending',
+                ], [
+                    'job_id' => $job->job_id, 'agent_id' => $job->agent_id,
+                    'net_cents' => $this->policy->net($gross, $shortfall),
+                    'shortfall_cents' => $shortfall,
                 ]);
                 if ($shortfall > 0) {
-                    // mark shortfalls as applied up to this payout
+                    // Every absorbed shortfall gets its own stream event —
+                    // the deduction aggregates fold it into applied_cents.
                     Payout::where('agent_id', $job->agent_id)
                         ->whereColumn('shortfall_cents', '>', 'applied_cents')
-                        ->update(['applied_cents' => DB::raw('shortfall_cents')]);
+                        ->get()
+                        ->each(fn (Payout $prior) => $this->store->record($prior, 'Payout.ShortfallApplied', [
+                            'absorbed_by' => $payout->id,
+                            'amount_cents' => $prior->shortfall_cents - $prior->applied_cents,
+                        ]));
                 }
-                $this->events->record('Payout.Created', [
-                    'payout_id' => $payout->id, 'job_id' => $job->job_id,
-                    'agent_id' => $job->agent_id, 'net_cents' => $payout->net_cents,
-                ], $job->tenant_id);
 
                 return $payout;
             });

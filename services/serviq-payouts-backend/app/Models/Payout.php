@@ -9,5 +9,5 @@ class Payout extends Model
 {
     use HasUuid7;
 
-    protected $fillable = ['job_id', 'tenant_id', 'agent_id', 'amount_cents', 'shortfall_cents', 'applied_cents', 'net_cents', 'status', 'disbursement_ref'];
+    protected $fillable = ['job_id', 'tenant_id', 'agent_id', 'amount_cents', 'shortfall_cents', 'applied_cents', 'net_cents', 'status', 'disbursement_ref', 'version'];
 }

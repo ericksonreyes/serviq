@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CompanyAccount;
 use App\Models\Invoice;
 use App\Models\PaymentEvidence;
+use App\Models\RefundRequest;
 use App\Models\Remittance;
 use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,6 +73,35 @@ class RemittanceFlowTest extends TestCase
     private function paidCash(Invoice $invoice): void
     {
         $this->api('POST', "/invoices/{$invoice->id}/pay", ['method' => 'cash'])->assertCreated();
+    }
+
+    /**
+     * Refund intake is tenant-scoped — the chatbot's refund_request tool
+     * forwards a *customer* JWT verbatim, and BILLING.MD scopes requesting
+     * to "anyone tenant-scoped". The dispatcher-only billing.remit gate
+     * belongs on execute (actual money movement), not on intake.
+     */
+    public function test_refund_request_intake_is_tenant_scoped_but_execute_stays_gated(): void
+    {
+        $invoice = $this->invoice($this->agent, 150000);
+
+        $customer = JWT::encode([
+            'iss' => 'serviq-iam', 'aud' => 'serviq',
+            'sub' => (string) Str::uuid7(), 'tenant_id' => $this->tenant,
+            'roles' => ['Customer'], 'jti' => (string) Str::uuid(),
+            'permissions' => [], 'iat' => time(), 'exp' => time() + 3600,
+        ], config('platform.jwt.secret'), 'HS256');
+
+        $this->withToken($customer)
+            ->postJson("/api/v1/tenants/{$this->tenant}/refund-requests", [
+                'invoice_id' => $invoice->id, 'reason' => 'Service was late',
+            ])
+            ->assertCreated();
+
+        $refund = RefundRequest::where('invoice_id', $invoice->id)->sole();
+        $this->withToken($customer)
+            ->postJson("/api/v1/tenants/{$this->tenant}/refund-requests/{$refund->id}/execute")
+            ->assertForbidden();
     }
 
     public function test_evidence_accepts_and_pays_invoice(): void

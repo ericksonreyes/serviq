@@ -16,7 +16,7 @@ Route::prefix('v1')->middleware(['jwt.auth', 'tenant.scope', 'tenant.rls'])->gro
 
     // Refunds — request intake, Support decision approves, gated execute.
     Route::get('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'index']);
-    Route::post('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'store'])->middleware('permission:billing.remit');
+    Route::post('/tenants/{tenant}/refund-requests', [RefundRequestController::class, 'store']);
     Route::post('/tenants/{tenant}/refund-requests/{refundRequest}/execute', [RefundRequestController::class, 'execute'])->middleware('permission:billing.remit');
 
     // AI-parsed payment evidence — intake, review queue, dispatcher resolution.

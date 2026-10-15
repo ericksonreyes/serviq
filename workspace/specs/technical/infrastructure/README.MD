@@ -91,7 +91,7 @@ That means:
   - Local adapter: vision model via Ollama — `moondream` by default (resource-budgeted), `qwen2.5vl` when hardware allows (better on dense e-wallet screenshots); PaddleOCR → text-LLM is the documented last-resort pipeline
   - Managed adapter: Amazon Textract or a managed vision model
 - **Vector search port**
-  - Local adapter: pgvector — PostgreSQL extension, reuses the existing datastore container
+  - Local adapter: pgvector — PostgreSQL extension, reuses the existing datastore container. Implemented on `repair_guides.embedding vector(768)` in Service Management: guides embed on write via the `EMBEDDING_PROVIDER` port (`stub` | `ollama` | `gemini` | `openai`; Ollama `nomic-embed-text` is the local default), `GET /repair-guides?q=` orders by cosine distance, and a dead provider or missing driver degrades to keyword `ilike` — embeddings never block a write
   - Managed adapter: Amazon RDS/Aurora PostgreSQL with pgvector, or a managed vector database
 - **Object storage port**
   - Local adapter: MinIO in Docker

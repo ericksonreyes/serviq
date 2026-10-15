@@ -108,7 +108,7 @@ const emitted = new Map(); // type -> file
 const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
   e.name === 'node_modules' || e.name === 'vendor' || e.name === 'tests' ? []
     : e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]);
-const EMIT = /(?:->record|recordEvent|->transition|\$this->transition|->step|_emit)\s*\(([^;()]{0,200}?)['"]([A-Z][A-Za-z]+\.[A-Z][A-Za-z]+)['"]/gs;
+const EMIT = /(?:->record|recordEvent|->transition|\$this->transition|->step|_emit|->create)\s*\(([^;]{0,200}?)['"]([A-Z][A-Za-z]+\.[A-Z][A-Za-z]+)['"]/gs;
 for (const dir of readdirSync(SERVICES)) {
   for (const sub of ['app', 'src']) {
     const root = join(SERVICES, dir, sub);

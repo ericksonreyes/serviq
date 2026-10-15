@@ -21,6 +21,7 @@ const API = {
   iam: `http://${HOST}:8010`,
   platform: `http://${HOST}:8011`,
   billing: `http://${HOST}:8020`,
+  services: `http://${HOST}:8012`,
 }
 
 // ── API helpers (Node-side; host.docker.internal maps via --add-host) ────
@@ -223,6 +224,23 @@ await run('bootstrap', async (browser) => {
     ok('company accounts seeded (API — no console UI exists for this)')
   } else {
     ok('company accounts already configured')
+  }
+
+  // 4f. Repair guides — API ONLY: the console exposes guides as a chat
+  // surface, no admin create form. One curated guide gives the chatbot's
+  // repair_guide_search (vector search — ADR-0013) a real corpus.
+  const guides = await get(`${API.services}/api/v1/tenants/${tenantId}/repair-guides`, token)
+  const hasGuide = ((await guides.json().catch(() => ({})))?.data ?? [])
+    .some((g) => /leaking faucet/i.test(g.title || ''))
+  if (!hasGuide) {
+    const r = await post(`${API.services}/api/v1/tenants/${tenantId}/repair-guides`, {
+      title: 'Leaking faucet first steps',
+      body: 'Close the shut-off valve under the sink, place a bucket under the trap, and note where the drip originates — supply line, drain, or faucet base. A photo of the leak helps the technician bring the right parts.',
+    }, token)
+    if (!r.ok) throw new Error(`repair guide seed failed: ${r.status}`)
+    ok('repair guide seeded (API — no console UI exists for this)')
+  } else {
+    ok('repair guides already present')
   }
 
   // ── 6. Customer signs up on the portal ────────────────────────────────

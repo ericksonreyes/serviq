@@ -139,6 +139,7 @@ Consumers: Payouts (`Invoice.*` → payout creation; `Remittance.*` → shortfal
 | `Payout.Created` | Agent payout computed on `Invoice.Issued` | `payout_id`, `job_id`, `agent_id`, `net_cents` |
 | `Payout.Settled` | Payout disbursed via the disbursement port | `payout_id`, `disbursement_ref` |
 | `Payout.ShortfallRecorded` | Turn-in shortfall → deduction ledger row | `payout_id`, `remittance_id`, `agent_id`, `shortage_cents` |
+| `Payout.ShortfallApplied` | Prior deduction absorbed into a new payout | `payout_id`, `absorbed_by`, `amount_cents` |
 
 Consumers: none (projections only today).
 

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Payouts\PayoutStore;
 use App\Events\Handlers\PayoutEventHandler;
 use App\Models\Payout;
+use App\Models\PayoutEvent;
 use App\Models\PayoutJob;
 use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,8 +68,42 @@ class PayoutFlowTest extends TestCase
             ->assertJsonPath('data.status', 'settled');
         $this->assertNotNull($payout->fresh()->disbursement_ref);
         $this->assertDatabaseHas('outbox', ['type' => 'Payout.Settled']);
+        $this->assertDatabaseHas('payout_events', ['payout_id' => $payout->id, 'type' => 'Payout.Settled']);
 
         $this->api('POST', "/payouts/{$payout->id}/settle")->assertStatus(409);
+    }
+
+    /**
+     * Event sourcing — payout_events is the source of truth; the payout
+     * row is a folded projection replayable from its own stream.
+     */
+    public function test_payout_stream_is_source_of_truth_and_replays(): void
+    {
+        $job = (string) Str::uuid7();
+        PayoutJob::create(['job_id' => $job, 'tenant_id' => $this->tenant, 'agent_id' => $this->agent]);
+
+        app(PayoutEventHandler::class)->handle($this->envelope('Remittance.ShortfallAccepted', [
+            'remittance_id' => 'remit-9', 'agent_id' => $this->agent, 'shortage_cents' => 4000,
+        ]));
+        app(PayoutEventHandler::class)->handle($this->envelope('Invoice.Issued', [
+            'job_id' => $job, 'invoice_id' => (string) Str::uuid7(), 'amount_cents' => 100000,
+        ]));
+
+        // Creation writes stream events; the absorption writes on the
+        // deduction aggregate's stream, not a bare row update.
+        $deduction = Payout::where('status', 'deduction')->sole();
+        $newPayout = Payout::where('job_id', $job)->sole();
+        $this->assertDatabaseHas('payout_events', ['payout_id' => $deduction->id, 'type' => 'Payout.ShortfallRecorded']);
+        $this->assertDatabaseHas('payout_events', ['payout_id' => $deduction->id, 'type' => 'Payout.ShortfallApplied']);
+        $this->assertDatabaseHas('payout_events', ['payout_id' => $newPayout->id, 'type' => 'Payout.Created']);
+
+        // Replay folds the stream back onto a stale projection.
+        $deduction->update(['applied_cents' => 0, 'status' => 'pending']);
+        app(PayoutStore::class)->replay($deduction);
+        $replayed = $deduction->fresh();
+        $this->assertSame('deduction', $replayed->status);
+        $this->assertEquals($replayed->shortfall_cents, $replayed->applied_cents);
+        $this->assertEquals(2, PayoutEvent::where('payout_id', $deduction->id)->count());
     }
 
     public function test_settle_denies_foreign_tenant(): void

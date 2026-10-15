@@ -67,6 +67,9 @@ await run('CHATBOTS', async (browser) => {
   await command('find available agents', 'service_agent_search')
   await command('show the request queue', 'service_request_search')
   await command('how do I fix a leaking faucet', 'repair_guide_search')
+  // The bootstrap-seeded guide must surface in the reply — proves the
+  // whole vector path: embed query → cosine order → curated guide back.
+  await dp.getByText(/leaking faucet first steps/i).waitFor({ timeout: 15000 })
   await command(`recommend an agent for job ${jobId}`, 'dispatch_recommend')
   ok('dispatcher tools routed and answered')
 

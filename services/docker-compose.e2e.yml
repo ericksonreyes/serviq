@@ -62,7 +62,9 @@ services:
   platform-management-backend:
     environment: *e2e-db
   service-management-backend:
-    environment: *e2e-db
+    environment:
+      <<: *e2e-db
+      EMBEDDING_PROVIDER: stub
   customer-request-backend:
     environment: *e2e-db
   service-job-backend:
