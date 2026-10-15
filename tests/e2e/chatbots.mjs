@@ -1,5 +1,5 @@
 // Chatbots E2E — the three conversational surfaces, driven against the
-// AI Agent's deterministic stub mode (AI_MODEL_MODE=stub):
+// AI Agent's deterministic stub mode (AI_VISION_PROVIDER=stub / AI_TEXT_PROVIDER=stub):
 //   A) customer ChatWidget — status lookup on a live request, availability,
 //      request create, a policy-gated cancel (a real write: the request is
 //      cancelled via chat), complaint filing, and a refund request;

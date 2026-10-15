@@ -3,7 +3,7 @@
 App code depends on the ports (app.ports), never on vendors. Env contract
 per capability (VISION / TEXT), resolved with a two-tier fallback:
 
-  AI_<CAP>_PROVIDER   stub | ollama | openai | gemini
+  AI_<CAP>_PROVIDER   stub | ollama | openai | anthropic | gemini
   AI_<CAP>_MODEL      → provider default when unset
   AI_<CAP>_API_KEY    → AI_API_KEY
   AI_<CAP>_BASE_URL   → AI_BASE_URL → provider default
@@ -21,17 +21,20 @@ import os
 
 from ..ports import TextModel, VisionModel
 
-_PROVIDERS = ("stub", "ollama", "openai", "gemini")
+_PROVIDERS = ("stub", "ollama", "openai", "anthropic", "gemini")
 _DEFAULT_BASE = {
     "ollama": "http://ollama:11434",
     "openai": "https://api.openai.com/v1",
+    "anthropic": "https://api.anthropic.com",
     "gemini": "https://generativelanguage.googleapis.com",
 }
 _DEFAULT_VISION_MODEL = {"ollama": "moondream", "openai": "gpt-4o-mini",
+                       "anthropic": "claude-haiku-4-5",
                        "gemini": "gemini-3-flash-preview"}
 _DEFAULT_TEXT_MODEL = {"ollama": "qwen2.5:3b", "openai": "gpt-4o-mini",
+                     "anthropic": "claude-haiku-4-5",
                      "gemini": "gemini-3-flash-preview"}
-_DEFAULT_TIMEOUT = {"ollama": 600, "openai": 120, "gemini": 120}
+_DEFAULT_TIMEOUT = {"ollama": 600, "openai": 120, "anthropic": 120, "gemini": 120}
 
 _UNSET = object()
 _cache: dict = {"vision": _UNSET, "text": _UNSET}
@@ -91,6 +94,9 @@ def build_vision() -> VisionModel:
     if provider == "openai":
         from .openai import OpenAIVision
         return OpenAIVision(model, base, key, timeout)
+    if provider == "anthropic":
+        from .anthropic import AnthropicVision
+        return AnthropicVision(model, base, key, timeout)
     from .gemini import GeminiVision
     return GeminiVision(model, base, key, timeout)
 
@@ -115,6 +121,9 @@ def build_text() -> TextModel | None:
     if provider == "openai":
         from .openai import OpenAIText
         return OpenAIText(model, base, key, timeout)
+    if provider == "anthropic":
+        from .anthropic import AnthropicText
+        return AnthropicText(model, base, key, timeout)
     from .gemini import GeminiText
     return GeminiText(model, base, key, timeout)
 

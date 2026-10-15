@@ -102,4 +102,5 @@ The JWT `tenant_id` claim and application-level scoping (`where('tenant_id', …
 - [ADR-0021](../../decisions/0021-permission-claim-route-authorization.MD) — the live permission catalog and which routes each key gates
 - [ADR-0022](../../decisions/0022-least-privilege-invitations.MD) — `iam.invitations.manage` splits customer/agent invites from full user management
 - [ADR-0028](../../decisions/0028-billing-row-level-security.MD) — Postgres RLS as tenant-isolation safety net in Billing; `serviq_app` role, GUC context, system bypass
+- [OWASP Top 10 Mapping](./OWASP_MAPPING.MD) — each category → the mechanism, the test evidence, and the honest gaps; includes the security test inventory
 - [Engineering Disciplines](../README.MD)

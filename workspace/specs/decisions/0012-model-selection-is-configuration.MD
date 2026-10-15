@@ -1,6 +1,6 @@
 # ADR-0012: LLM choice is configuration, not architecture — `moondream` default
 
-- Status: Accepted
+- Status: Superseded by ADR-0029
 - Date: 2026-10-10
 
 ## Context

@@ -17,10 +17,11 @@ The domain behavior remains in the Billing specification. This document focuses 
   - Local adapter: PaddleOCR
   - Managed adapter: Amazon Textract
 - **LLM**
-  - Local adapter: llama.cpp with a small quantized instruct model such as Qwen2.5 3B Instruct, Llama 3.2 3B Instruct, or Phi-3 Mini in GGUF format
-  - Managed adapter: Amazon Bedrock
+  - Local adapter: Ollama (llama.cpp under the hood) — `moondream` vision + `qwen2.5:3b` text is the committed default for the reference machine; the `qwen2.5vl` ladder remains the documented upgrade path. Small GGUF instruct models (Qwen2.5 3B, Llama 3.2 3B, Phi-3 Mini) stay valid under plain llama.cpp.
+  - Managed adapters: **Gemini** (`gemini-3-flash-preview`, live-validated end-to-end for chat and document parsing), **OpenAI** (plus OpenAI-compatible gateways via `AI_BASE_URL`), **Anthropic** (wire-format tested, not live-validated — no free tier). Each is env-selected via `AI_<CAP>_PROVIDER`.
+  - Amazon Bedrock/Textract remain comparison candidates — not implemented.
 
-These AWS services are listed for comparison only. The local development rule remains Docker-only and does not depend on native installs.
+The AWS services are listed for comparison only. The implemented managed path is the provider adapter layer (`services/serviq-ai-agent/app/providers/`); swapping vendors is an env change, not a code change. The local development rule remains Docker-only and does not depend on native installs.
 
 ### Vision model candidates (Ollama)
 

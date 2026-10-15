@@ -30,8 +30,8 @@ It must NEVER: make business decisions, settle payments, approve refunds, comple
 - **Polymorphic parsing:** classify `document_type` first → extract that type's schema → emit structured JSON. Document types: e-wallet/remittance receipts, cash photos, bank deposit slips, checks, POS receipts, purchase orders.
 - **AI mistakes are absorbed by the domain.** Misreads surface as manual-review flags in Billing — design parse output so the domain can always validate it.
 
-## Models (local, Ollama)
+## Models
 
-- Vision: `moondream` (~1.7GB) default — `qwen2.5vl:3b` (~3GB) is the documented upgrade if screenshot accuracy falls short; `qwen2.5vl:7b` only in `ai`-only profile.
-- Text: `qwen2.5:3b` or another ~3B instruct model. Weights live in the `ollama-models` volume; `OLLAMA_KEEP_ALIVE=2m` unloads between calls.
-- One vision + one text model pulled at a time — disk conservation rule.
+- Provider per capability via env: `AI_VISION_PROVIDER` / `AI_TEXT_PROVIDER` — `stub` (heuristics, CI/dev default) | `ollama` | `openai` (+compatible gateways) | `anthropic` | `gemini`.
+- Local (Ollama) defaults — vision: `moondream` (~1.7GB); `qwen2.5vl:3b` (~3GB) is the documented upgrade if screenshot accuracy falls short, `qwen2.5vl:7b` only in `ai`-only profile. Text: `qwen2.5:3b` or another ~3B instruct model. Weights live in the `ollama-models` volume; `OLLAMA_KEEP_ALIVE=2m` unloads between calls.
+- Cloud — `gemini` (`gemini-3-flash-preview`) is the live-validated path; `anthropic` is wire-tested only (no free tier). One vision + one text Ollama model pulled at a time — disk conservation rule.

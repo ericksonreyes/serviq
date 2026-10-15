@@ -47,7 +47,7 @@ What this buys us and what it costs.
 - [ADR-0009](0009-laravel-apache-runtime.MD) — `php:apache` (mod_php) for Laravel services; no Lumen, Octane deferred
 - [ADR-0010](0010-docker-first-local-poc.MD) — Docker-first full-stack local POC; profiles as memory fallback
 - [ADR-0011](0011-dedicated-event-consumer-containers.MD) — Event consumers run as dedicated containers
-- [ADR-0012](0012-model-selection-is-configuration.MD) — LLM choice is config, not architecture; `moondream` default
+- [ADR-0012](0012-model-selection-is-configuration.MD) — LLM choice is config, not architecture; `moondream` default (superseded by ADR-0029)
 - [ADR-0013](0013-pgvector-vector-adapter.MD) — pgvector as the local vector-search adapter
 - [ADR-0014](0014-minimal-local-observability.MD) — Fluent Bit → stdout locally; searchable sink is optional
 - [ADR-0015](0015-alpine-images-where-safe.MD) — Alpine where official/safe; `php:apache` and `python:slim` stay Debian
@@ -64,3 +64,4 @@ What this buys us and what it costs.
 - [ADR-0026](0026-agent-remittance-via-e-wallet.MD) — Agent-held collections may remit via e-wallet: payments gain an agent/company holder split and turn-ins gain a channel with receipt evidence + reference dedupe
 - [ADR-0027](0027-agent-remittance-via-bank-or-remittance-center.MD) — Agent turn-in channels extend to bank deposit and remittance-center receipts: all non-cash rails settle all agent-held collections under the same verify-arrival rules
 - [ADR-0028](0028-billing-row-level-security.MD) — PostgreSQL RLS as tenant-isolation safety net, showcased in Billing: `SetTenantContext` GUC + `serviq_app` non-superuser role + `is_system` console bypass; JWT and application scoping stay first-class
+- [ADR-0029](0029-provider-agnostic-model-configuration.MD) — Per-capability `AI_<CAP>_PROVIDER` contract; Ollama stays the committed default, Gemini the validated cloud path (supersedes ADR-0012)

@@ -18,8 +18,6 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-os.environ.setdefault("AI_MODEL_MODE", "stub")
-
 from app.parser import parse_document  # noqa: E402
 from app.orchestrator import _fallback  # noqa: E402
 
@@ -117,9 +115,19 @@ class TestProviderWiring(unittest.TestCase):
 
     def test_cloud_provider_requires_a_key(self):
         from app.providers import build_vision
-        with _provider_env(AI_VISION_PROVIDER="openai"):
-            with self.assertRaises(RuntimeError):
-                build_vision()
+        for provider in ("openai", "anthropic", "gemini"):
+            with self.subTest(provider=provider):
+                with _provider_env(AI_VISION_PROVIDER=provider):
+                    with self.assertRaises(RuntimeError):
+                        build_vision()
+
+    def test_anthropic_default_model(self):
+        from app.providers import build_vision
+        from app.providers.anthropic import AnthropicVision
+        with _provider_env(AI_VISION_PROVIDER="anthropic", AI_API_KEY="k"):
+            vision = build_vision()
+            self.assertIsInstance(vision, AnthropicVision)
+            self.assertEqual(vision.name, "anthropic:claude-haiku-4-5")
 
     def test_unknown_provider_raises(self):
         from app.providers import build_vision
@@ -163,6 +171,32 @@ class TestAdapterPayloads(unittest.TestCase):
         self.assertTrue(content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
         self.assertEqual(captured["headers"]["Authorization"], "Bearer k")
         self.assertEqual(captured["payload"]["response_format"], {"type": "json_object"})
+
+    def test_anthropic_vision_uses_x_api_key_and_content_blocks(self):
+        from app.providers.anthropic import AnthropicVision
+        captured = {}
+        def fake(url, payload, headers=None, timeout=None):
+            captured.update(url=url, payload=payload, headers=headers)
+            return {"content": [{"type": "text", "text": "{}"}]}
+        with mock.patch("app.providers.anthropic.post_json", fake):
+            AnthropicVision("claude-haiku-4-5", "https://api.anthropic.com",
+                            "k").describe("p", b"\xff\xd8\xffjpeg-bytes")
+        self.assertEqual(captured["url"], "https://api.anthropic.com/v1/messages")
+        self.assertEqual(captured["headers"]["x-api-key"], "k")
+        self.assertIn("anthropic-version", captured["headers"])
+        self.assertIn("max_tokens", captured["payload"])  # mandatory, no JSON mode
+        blocks = captured["payload"]["messages"][0]["content"]
+        self.assertEqual(blocks[1]["source"]["media_type"], "image/jpeg")
+
+    def test_anthropic_extracts_first_text_block(self):
+        from app.providers.anthropic import AnthropicText
+        def fake(url, payload, headers=None, timeout=None):
+            return {"content": [{"type": "thinking", "thinking": "…"},
+                                {"type": "text", "text": '{"a": 1}'}]}
+        with mock.patch("app.providers.anthropic.post_json", fake):
+            out = AnthropicText("claude-haiku-4-5", "https://api.anthropic.com",
+                                "k").generate("p")
+        self.assertEqual(out, '{"a": 1}')
 
     def test_gemini_extracts_first_text_part(self):
         from app.providers.gemini import GeminiText

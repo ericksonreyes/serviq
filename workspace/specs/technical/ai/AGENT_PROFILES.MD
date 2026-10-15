@@ -114,7 +114,7 @@ canonical example: same parsing pipeline, separate tools, separate permissions.
 
 Not every AI capability is conversational. These run without a chat UI and follow the same rules: constrained output, API-call-only tools, human decides.
 
-- **Voice report extraction** (Service Agent context) — a field agent's voice note is transcribed locally (audio-to-text port), then Ollama parses it into constrained JSON (`labor_hours`, `parts_used`, notes). The result is submitted to Field Service Execution via API; the service deducts stock and Billing computes charges. The LLM never touches the database or the invoice.
+- **Voice report extraction** (Service Agent context) — a field agent's voice note is transcribed locally (audio-to-text port), then the text model (Ollama locally) parses it into constrained JSON (`labor_hours`, `parts_used`, notes). The result is submitted to Field Service Execution via API; the service deducts stock and Billing computes charges. The LLM never touches the database or the invoice.
 - **Chat sentiment triage** (Customer context) — each inbound customer chat message is scored by a fast local model. `URGENT`/`ANGRY` flags are pushed to the dispatcher UI (the row flashes) so a human calls the customer. The AI never replies on the customer's behalf.
 - **Dispatch recommendations** — covered by the `dispatch_recommend` tool above; ranking and reasoning are advisory, the dispatcher approves.
 

@@ -26,7 +26,7 @@ read -rp "Install and start ServIQ locally (builds and runs all services)? [y/N]
 [[ "$ans" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
 
 # ── 2. Env templates ─────────────────────────────────────────────────────────
-created=0; skipped=0
+created=0; skipped=0; ai_env_new=0
 for template in services/*/.env.example services/*/.env.dist; do
   [ -f "$template" ] || continue
   target="${template%.*}"  # strips .example / .dist -> .env
@@ -35,6 +35,7 @@ for template in services/*/.env.example services/*/.env.dist; do
   else
     cp "$template" "$target"
     echo "created $target"
+    [ "$target" = "services/serviq-ai-agent/.env" ] && ai_env_new=1
     created=$((created + 1))
   fi
 done
@@ -130,22 +131,56 @@ done
 echo "==> [4/6] AI (ollama + ai-agent)"
 $COMPOSE --profile ai up -d --wait --build
 
-# Model weights aren't part of the stack — without them ai-agent runs in
-# stub mode (heuristic parses, no vision). ~3.7GB download into the
-# serviq_ollama-models volume; kept across "fresh" installs deliberately.
-read -rp "Download AI models now (moondream + qwen2.5:3b, ~3.7GB; needs ~5GiB Docker VM memory)? [y/N] " models
-if [[ "$models" =~ ^[Yy]$ ]]; then
-  docker exec infra-ollama ollama pull moondream
-  docker exec infra-ollama ollama pull qwen2.5:3b
-  # Flip to live mode only for fresh installs; an existing .env with a
-  # deliberate AI_MODEL_MODE choice is respected.
-  if grep -q '^AI_MODEL_MODE=stub' services/serviq-ai-agent/.env 2>/dev/null; then
-    sed -i.bak 's/^AI_MODEL_MODE=stub/AI_MODEL_MODE=ollama/' services/serviq-ai-agent/.env && rm -f services/serviq-ai-agent/.env.bak
-    $COMPOSE up -d ai-agent ai-agent-consumer
-  fi
+# Provider choice is asked only for a freshly created env — an existing
+# .env with a deliberate provider selection is respected on re-runs.
+# Without one, ai-agent runs in stub mode (heuristic parses, keyword
+# intents) at zero RAM cost. Ollama weights land in the ollama-models
+# volume, kept across "fresh" installs deliberately.
+AI_ENV=services/serviq-ai-agent/.env
+set_env() { # $1=key $2=value — whole-line replace in $AI_ENV
+  local val=$2
+  val=${val//\\/\\\\}  # \ first — it's the escape char for the rest
+  val=${val//&/\\&}
+  val=${val//|/\\|}
+  sed -i.bak "s|^$1=.*|$1=$val|" "$AI_ENV" && rm -f "$AI_ENV.bak"
+}
+
+if [ "$ai_env_new" -eq 1 ]; then
+  echo
+  echo "  AI provider (env-driven; editable later in $AI_ENV):"
+  echo "    1) stub    — heuristics only, zero RAM/setup (default)"
+  echo "    2) ollama  — local models (moondream + qwen2.5:3b, ~3.7GB pull; needs ~5GiB Docker VM)"
+  echo "    3) gemini  — cloud, free-tier key works (AI Studio)"
+  echo "    4) other   — a registered provider name (openai-compatible endpoints, anthropic, ...)"
+  read -rp "  choose [1-4, default 1]: " choice
+  case "$choice" in
+    2)
+      docker exec infra-ollama ollama pull moondream
+      docker exec infra-ollama ollama pull qwen2.5:3b
+      set_env AI_VISION_PROVIDER ollama
+      set_env AI_TEXT_PROVIDER ollama
+      $COMPOSE up -d ai-agent ai-agent-consumer
+      ;;
+    3|4)
+      provider=gemini; key=""
+      [ "$choice" = "4" ] && read -rp "  provider name: " provider
+      read -rsp "  AI_API_KEY for '$provider' (empty = stay on stub): " key && echo
+      if [ -n "$key" ]; then
+        set_env AI_VISION_PROVIDER "$provider"
+        set_env AI_TEXT_PROVIDER "$provider"
+        set_env AI_API_KEY "$key"
+        $COMPOSE up -d ai-agent ai-agent-consumer
+      else
+        echo "  no key — ai-agent stays in stub mode."
+      fi
+      ;;
+    *)
+      echo "  stub — deterministic heuristics (no RAM, no key)."
+      ;;
+  esac
 else
-  echo "  skipped — ai-agent stays in stub mode (AI_MODEL_MODE=stub)."
-  echo "  Later: docker exec infra-ollama ollama pull moondream && docker exec infra-ollama ollama pull qwen2.5:3b"
+  echo "  $AI_ENV already present — provider choice respected:"
+  grep -E '^AI_(VISION|TEXT)_PROVIDER=' "$AI_ENV" | sed 's/^/    /' || true
 fi
 
 echo "==> [5/6] Frontends (vite dev servers with hot reload, 3000-3003)"

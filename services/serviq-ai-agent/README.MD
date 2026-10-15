@@ -42,12 +42,13 @@ parsing, `TextModel.generate(prompt)` for intent translation. Adapters in
 | --- | --- | --- | --- |
 | `stub` | heuristic | keyword fallback | nothing — CI/dev default |
 | `ollama` | `moondream` | `qwen2.5:3b` | `AI_BASE_URL` (`http://ollama:11434`) |
-| `openai` | `gpt-4o-mini` | `gpt-4o-mini` | `AI_API_KEY` |
-| `gemini` | `gemini-3-flash-preview` | `gemini-3-flash-preview` | `AI_API_KEY` |
+| `openai` | `gpt-4o-mini` | `gpt-4o-mini` | `AI_API_KEY` — also OpenAI-compatible endpoints via `AI_BASE_URL` (OpenRouter, vLLM, LiteLLM) |
+| `anthropic` | `claude-haiku-4-5` | `claude-haiku-4-5` | `AI_API_KEY` — wire-tested, not live-validated (no free tier) |
+| `gemini` | `gemini-3-flash-preview` | `gemini-3-flash-preview` | `AI_API_KEY` — live-validated; free tier available |
 
 Env contract — full version with per-provider examples in `.env.example`:
 
-- `AI_VISION_PROVIDER`, `AI_TEXT_PROVIDER` — `stub | ollama | openai | gemini`
+- `AI_VISION_PROVIDER`, `AI_TEXT_PROVIDER` — `stub | ollama | openai | anthropic | gemini`
 - `AI_VISION_MODEL`, `AI_TEXT_MODEL`, `AI_API_KEY`, `AI_BASE_URL`
 - Per-capability overrides for hybrids (e.g. local text + cloud vision):
   `AI_<CAP>_API_KEY`, `AI_<CAP>_BASE_URL`, `AI_<CAP>_TIMEOUT`
@@ -76,7 +77,7 @@ Gemini model names churn: 404 = retired, 503 = saturated. Check
 app/
   ports.py        — TextModel / VisionModel Protocols
   documents.py    — document_type vocabulary + schema hints
-  providers/      — composition root (env → adapter) + ollama/openai/gemini/stub
+  providers/      — composition root (env → adapter) + ollama/openai/anthropic/gemini/stub
   parser.py       — normalize image → vision port → JSON salvage → contract
   orchestrator.py — intent prompt + keyword fallback + tool dispatch
   tools.py        — per-profile tool whitelists over domain APIs

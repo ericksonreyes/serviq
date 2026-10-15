@@ -18,24 +18,25 @@ Customer / Dispatcher
 AI Agent microservice (Python + FastAPI)
         │  profile selected per channel
         │
-        ├── LLM port ──▶ Ollama (local) / managed LLM adapter
+        ├── LLM port ──▶ Ollama (local) / cloud LLM adapter
         ├── Vector search port ──▶ vector store adapter (policies, repair guides)
         └── Tools ──▶ responsible microservices (caller's JWT propagated)
 ```
 
-- **LLM inference is shared infrastructure.** One Ollama instance serves all agents; switching providers is a port/adapter change, consistent with the hexagonal approach used elsewhere.
+- **LLM inference is shared infrastructure.** One inference backend serves all agents — Ollama locally or a managed provider; switching providers is a port/adapter change, consistent with the hexagonal approach used elsewhere.
 - **One agent codebase, named agent profiles.** Each profile declares its context, system prompt, and tool registry. The number of running deployments is a separate operational decision — profiles are the isolation mechanism either way.
 - **Tools call APIs — never databases.** The agent has no access to PostgreSQL or any other service's datastore. A tool is an API call to the concerned microservice (or an external service), carrying the caller's JWT.
 
-## Model Modes: Stub and Live
+## Model Providers: Stub, Local, and Cloud
 
-`AI_MODEL_MODE` (`stub` | `ollama`, default `stub`) selects the inference path — it is a code path, not a lighter model. Nothing is loaded in stub mode, so the AI Agent costs zero GPU/RAM overhead when models aren't needed.
+Each capability — vision for `/parse`, text for `/chat` — selects a provider via env: `AI_VISION_PROVIDER` / `AI_TEXT_PROVIDER`, with shared `AI_*` vars as the default tier (`stub` | `ollama` | `openai` | `anthropic` | `gemini`). Nothing is loaded in stub mode, so the AI Agent costs zero GPU/RAM overhead when models aren't needed. The per-capability tier also allows hybrids — for example, local Ollama text + cloud Gemini vision.
 
-- **Stub mode** — deterministic heuristics replace inference. Parsing (`app/parser.py`) keyword-matches the upload's embedded text for a `document_type` and regex-extracts the schema fields, returning a fixed `confidence: 0.4` and `model: "stub:heuristic"`. Chat orchestration (`app/orchestrator.py`) selects tools by keyword/intent matching instead of the text model. Used for local dev without Ollama weights, CI, and the eval suite (`app/eval.py` measures extraction F1 against stubs deliberately).
-- **Ollama mode** — `/parse` calls the vision model and `/chat` calls the text model on the shared `infra-ollama` instance. A failed model call falls back to the stub path rather than erroring, so a dead model server degrades gracefully instead of breaking chat.
+- **Stub** — deterministic heuristics replace inference. Parsing (`app/parser.py`) keyword-matches the upload's embedded text for a `document_type` and regex-extracts the schema fields, returning a fixed `confidence: 0.4` and `model: "stub:heuristic"`. Chat orchestration (`app/orchestrator.py`) selects tools by keyword/intent matching instead of the text model. Used for local dev without Ollama weights, CI, and the eval suite (`app/eval.py` measures extraction F1 against stubs deliberately).
+- **Ollama** — local inference on the shared `infra-ollama` instance (`moondream` vision + `qwen2.5:3b` text, sized for the 8GB reference machine; the `qwen2.5vl` upgrade ladder stays as documented). `/parse` calls the vision model and `/chat` calls the text model; a failed model call falls back to the stub path rather than erroring, so a dead model server degrades gracefully instead of breaking chat.
+- **Cloud** — `openai` (also covers OpenAI-compatible endpoints — OpenRouter, vLLM, LiteLLM gateways — by pointing `AI_BASE_URL` at them), `gemini` (live-validated in the POC: chat and document parsing on `gemini-3-flash-preview`), and `anthropic` (implemented and wire-format tested, not live-validated — no free tier). One `AI_API_KEY` plus a provider name swaps the backend.
 - **Operator-visible difference** — stub parses return `confidence 0.4`, below Billing's low-confidence threshold, so stub-submitted evidence lands in the manual-review queue by design. To demo the accepted path without models, submit evidence via the API with confidence ≥ 0.6.
 
-Model weights live outside the codebase in the `serviq_ollama-models` volume (kept across fresh installs — re-downloading is GBs). `install.sh` offers to pull them; without weights the service runs fine in stub mode. The memory budget for live mode is documented in [Local Resource Budget](../infrastructure/LOCAL_RESOURCE_BUDGET.MD#minimum-requirements-measured-2026-10-11).
+Ollama model weights live outside the codebase in the `serviq_ollama-models` volume (kept across fresh installs — re-downloading is GBs). `install.sh` offers the provider choice on fresh installs; without weights the service runs fine in stub mode. The memory budget for live mode is documented in [Local Resource Budget](../infrastructure/LOCAL_RESOURCE_BUDGET.MD#minimum-requirements-measured-2026-10-11). Legacy `AI_MODEL_MODE=ollama` still resolves during migration.
 
 ## Security Rules
 
@@ -76,7 +77,7 @@ BFF / backend validates the JWT and calls the AI service
 AI Agent (FastAPI + Python) transcribes the audio locally
         │
         ▼
-Ollama structures the text → JSON: parts used, labor hours
+Text model structures the transcript → JSON: parts used, labor hours
         │
         ▼
 Agent tool calls the Service Job Management API (caller's JWT)

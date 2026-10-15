@@ -48,6 +48,7 @@ These practices guide how ServIQ should be built, but they do not replace the do
 - [JWT Signing Keys](./security/JWT_SIGNING_KEYS.MD) — IAM private-key signing, public-key verification, and symmetric fallback
 - [JWT Invalidation](./security/JWT_INVALIDATION.MD) — shared Redis blacklist for pre-expiry token revocation
 - [Internal Service Security](./security/INTERNAL_SERVICE_SECURITY.MD) — public browser endpoints vs service mesh, service-to-service auth
+- [OWASP Top 10 Mapping](./security/OWASP_MAPPING.MD) — per-category mechanism, test evidence, and honest gaps
 - [AI Agent](./ai/README.MD) — FastAPI + Ollama agent service with context-scoped profiles and tool isolation
 - [Infrastructure & Local Development](./infrastructure/README.MD)
 - [Local Development](./infrastructure/LOCAL_DEVELOPMENT.MD) — dev-stack mechanics (bind mounts, watch modes, dep installs) and seed internals
