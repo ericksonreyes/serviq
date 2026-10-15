@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\Evidence;
 use App\Models\Execution;
 use App\Services\DomainEventRecorder;
+use App\Services\Storage\ArtifactStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class ExecutionController
 {
+    public function __construct(private ArtifactStore $artifacts) {}
+
     public function index(Request $request, string $tenant): JsonResponse
     {
         $executions = Execution::with('evidence')
@@ -68,9 +71,14 @@ class ExecutionController
         $evidence = DB::transaction(function () use ($data, $request, $tenant, $execution, $events) {
             $objectRef = null;
             if ($request->hasFile('file')) {
-                $key = "{$tenant}/{$execution->id}/".$request->file('file')->hashName();
-                Storage::disk('s3')->put($key, $request->file('file')->get());
-                $objectRef = config('filesystems.disks.s3.bucket').'/'.$key;
+                try {
+                    $objectRef = $this->artifacts->put(
+                        $tenant, "executions/{$execution->id}",
+                        $request->file('file')->get(), $request->file('file')->hashName(),
+                    );
+                } catch (RuntimeException) {
+                    abort(502, 'Evidence file storage failed');
+                }
             }
 
             $evidence = Evidence::create([

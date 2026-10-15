@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use App\Services\JwtVerifier;
+use App\Services\Storage\ArtifactStore;
+use App\Services\Storage\S3ArtifactStore;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
 
@@ -11,6 +14,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(JwtVerifier::class);
+        $this->app->bind(ArtifactStore::class, fn () => new S3ArtifactStore(
+            Storage::disk('s3'), (string) config('filesystems.disks.s3.bucket'),
+        ));
     }
 
     public function boot(): void

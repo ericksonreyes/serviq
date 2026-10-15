@@ -9,12 +9,12 @@ use App\Models\Payment;
 use App\Models\PaymentEvidence;
 use App\Models\Remittance;
 use App\Services\DomainEventRecorder;
+use App\Services\Storage\ArtifactStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 /**
  * Proof-of-payment intake (BILLING.MD). The AI Agent parses evidence and
@@ -29,6 +29,7 @@ class PaymentEvidenceController
     public function __construct(
         private InvoiceStore $store,
         private DomainEventRecorder $events,
+        private ArtifactStore $artifacts,
     ) {}
 
     public function index(string $tenant, Request $request): JsonResponse
@@ -260,17 +261,16 @@ class PaymentEvidenceController
     public function file(string $tenant, PaymentEvidence $evidence)
     {
         abort_unless($evidence->tenant_id === $tenant, 404);
-        $bucket = config('filesystems.disks.s3.bucket');
-        $ref = (string) $evidence->file_ref;
-        abort_unless(str_starts_with($ref, $bucket.'/'), 404); // legacy label refs have no object
 
-        return Storage::disk('s3')->response(substr($ref, strlen($bucket) + 1));
+        // Legacy label refs (pre-MinIO) and foreign buckets have no object here.
+        $stream = $this->artifacts->response((string) $evidence->file_ref);
+        abort_unless($stream !== null, 404);
+
+        return $stream;
     }
 
-    /** Persist the uploaded artifact to the evidence bucket; returns the
+    /** Persist the uploaded artifact via the storage port; returns the
      *  object ref ("bucket/key") that becomes file_ref. */
-    private static bool $bucketReady = false;
-
     private function storeFile(string $tenant, Request $request, array $data): ?string
     {
         $bytes = null;
@@ -286,27 +286,11 @@ class PaymentEvidenceController
             return null;
         }
 
-        $disk = Storage::disk('s3');
-        $bucket = config('filesystems.disks.s3.bucket');
-        if (! self::$bucketReady) {
-            // Lazy bucket ensure — tolerant: faked disks (tests) have no
-            // getClient(), and a failed ensure surfaces at `put` anyway.
-            try {
-                $disk->getClient()->headBucket(['Bucket' => $bucket]);
-            } catch (\Throwable) {
-                try {
-                    $disk->getClient()->createBucket(['Bucket' => $bucket]);
-                } catch (\Throwable) {
-                }
-            }
-            self::$bucketReady = true;
+        try {
+            return $this->artifacts->put($tenant, 'payment-evidence', $bytes, $name);
+        } catch (RuntimeException) {
+            abort(502, 'Evidence file storage failed');
         }
-
-        $safe = $name ? preg_replace('/[^A-Za-z0-9._-]/', '_', $name) : null;
-        $key = "{$tenant}/payment-evidence/".Str::uuid7().($safe ? '-'.$safe : '');
-        abort_unless($disk->put($key, $bytes), 502, 'Evidence file storage failed');
-
-        return $bucket.'/'.$key;
     }
 
     /** Accepted evidence on an open invoice records the payment — remitted still takes a dispatcher. */

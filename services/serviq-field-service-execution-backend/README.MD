@@ -46,6 +46,6 @@ on `jobs.execute`.
 | Discipline | How it shows up here |
 | --- | --- |
 | **DDD** | Execution ≠ job: this context records *what the agent did* (check-ins, evidence, step signals); Job Management decides what that means for the lifecycle. Splitting them keeps field detail out of the core aggregate. |
-| **Hexagonal** | Evidence storage is a real port — `Storage::disk('s3')` against MinIO (`AWS_ENDPOINT`, path-style); a cloud bucket swap is config, not code. Messaging isolated in `App\Services\Messaging\RabbitMq` + shared outbox. |
+| **Hexagonal** | Evidence storage behind `App\Services\Storage\ArtifactStore` — `S3ArtifactStore` owns the bucket-ensure and `bucket/key` ref shape against MinIO (`AWS_ENDPOINT`, path-style); a cloud bucket swap is config, not code. Messaging isolated in `App\Services\Messaging\RabbitMq` + shared outbox. |
 | **Event-driven** | `Assignment.*`/`Job.*` events build the local execution context; `Execution.*` events feed Job Management's workflow instance and the AI agent's parse pipeline — `EvidenceCaptured` is the seam between field work and AI. |
 | **SOLID** | SRP — `ExecutionController` (HTTP) vs `JobEventHandler` (inbound projection) vs the evidence storage adapter. |
